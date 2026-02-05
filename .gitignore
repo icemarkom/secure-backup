@@ -1,0 +1,10 @@
+# Backups
+backups/
+
+# Test Data
+test_data/
+restore_test/
+*.log
+
+# OS
+.DS_Store
