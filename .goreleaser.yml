@@ -1,0 +1,76 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - binary: secure-backup
+    main: .
+    ldflags:
+      - -s
+      - -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64  # Windows ARM64 not common yet
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - USAGE.md
+
+nfpms:
+  - id: secure-backup
+    package_name: secure-backup
+    maintainer: "Marko Milivojevic <markom@gmail.com>"
+    description: "Secure, encrypted backups for any directory"
+    homepage: "https://github.com/icemarkom/secure-backup"
+    license: "Apache 2.0"
+    bindir: /usr/bin
+    formats:
+      - deb
+    dependencies:
+      - gnupg
+    recommends:
+      - gpg-agent
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-dev"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+
+release:
+  github:
+    owner: icemarkom
+    name: secure-backup
+  draft: false
+  prerelease: auto

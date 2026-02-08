@@ -31,19 +31,103 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 
 ## Installation
 
-### From Source
+### Option 1: Download Pre-built Binary
+
+Download from [GitHub Releases](https://github.com/icemarkom/secure-backup/releases/latest):
+
+**Linux (amd64):**
+```bash
+wget https://github.com/icemarkom/secure-backup/releases/latest/download/secure-backup_*_linux_amd64.tar.gz
+tar -xzf secure-backup_*_linux_amd64.tar.gz
+sudo install -m 755 secure-backup /usr/local/bin/
+```
+
+**macOS (Universal):**
+```bash
+wget https://github.com/icemarkom/secure-backup/releases/latest/download/secure-backup_*_darwin_arm64.tar.gz
+tar -xzf secure-backup_*_darwin_arm64.tar.gz
+sudo install -m 755 secure-backup /usr/local/bin/
+```
+
+### Option 2: Install via apt (Debian/Ubuntu)
+
+Linux users on Debian-based systems can install and keep up-to-date with releases via apt.
+
+Releases are signed with my personal [GPG key](https://github.com/icemarkom/gpg-key/releases/latest/download/markom@gmail.com.asc).
+
+**WARNING:** Most instructions on how to add third-party apt repositories on the Internet are inherently unsafe. What follows is my _suggested_ approach.
+
+**Step 1:** Download GPG key to `/etc/apt/keyrings`
+```bash
+sudo mkdir -p /etc/apt/keyrings/
+curl -Ls https://github.com/icemarkom/gpg-key/releases/latest/download/markom@gmail.com.asc \
+  | sudo tee /etc/apt/keyrings/markom@gmail.com.asc
+```
+
+**Step 2:** Add repository to `/etc/apt/sources.list.d`
+```bash
+echo 'deb [signed-by=/etc/apt/keyrings/markom@gmail.com.asc] https://github.com/icemarkom/secure-backup/releases/latest/download/ /' \
+  | sudo tee /etc/apt/sources.list.d/secure-backup.list
+```
+
+**Step 3:** Update apt and install
+```bash
+sudo apt update
+sudo apt install secure-backup
+```
+
+### Option 3: Build from Source
+
+**Requirements:**
+- Go 1.21 or later
+- make (optional, for Makefile targets)
 
 ```bash
 git clone https://github.com/icemarkom/secure-backup.git
 cd secure-backup
+
+# Using Makefile (if make is installed)
+make build
+sudo make install
+
+# Or using go directly
 go build -o secure-backup .
-sudo mv secure-backup /usr/local/bin/
+sudo install -m 755 secure-backup /usr/local/bin/
 ```
 
-### Requirements
+## Building
 
-- Go 1.21 or later (for building)
-- GPG keys for encryption (generate with `gpg --gen-key`)
+```bash
+# Build
+make build
+
+# Run tests
+make test
+
+# Coverage report
+make coverage
+
+# Clean artifacts
+make clean
+
+# Development workflow (fmt, vet, test, build)
+make dev
+
+# See all targets
+make help
+```
+
+### GPG Keys Required
+
+Before using secure-backup, you'll need GPG keys for encryption:
+
+```bash
+# Generate a new GPG key pair
+gpg --full-generate-key
+
+# Export your public key for backups
+gpg --export yourname@example.com > ~/.gnupg/backup-pub.asc
+```
 
 ## Quick Start
 
