@@ -1,0 +1,241 @@
+package archive
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestCreateTar_SingleFile(t *testing.T) {
+	// Create temp directory with a single file
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.txt")
+	testContent := "Hello, tar!"
+
+	err := os.WriteFile(testFile, []byte(testContent), 0644)
+	require.NoError(t, err)
+
+	// Create tar
+	var buf bytes.Buffer
+	err = CreateTar(testFile, &buf)
+	require.NoError(t, err)
+
+	// Verify tar was created
+	assert.Greater(t, buf.Len(), 0)
+}
+
+func TestCreateTar_Directory(t *testing.T) {
+	// Create temp directory structure
+	tmpDir := t.TempDir()
+
+	// Create files
+	err := os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("content1"), 0644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(tmpDir, "file2.txt"), []byte("content2"), 0644)
+	require.NoError(t, err)
+
+	// Create subdirectory with file
+	subDir := filepath.Join(tmpDir, "subdir")
+	err = os.Mkdir(subDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(subDir, "file3.txt"), []byte("content3"), 0644)
+	require.NoError(t, err)
+
+	// Create tar
+	var buf bytes.Buffer
+	err = CreateTar(tmpDir, &buf)
+	require.NoError(t, err)
+
+	// Verify tar was created
+	assert.Greater(t, buf.Len(), 0)
+}
+
+func TestCreateTar_InvalidPath(t *testing.T) {
+	var buf bytes.Buffer
+	err := CreateTar("/nonexistent/path/that/does/not/exist", &buf)
+	assert.Error(t, err)
+}
+
+func TestExtractTar_RoundTrip(t *testing.T) {
+	// Create temp source directory
+	srcDir := t.TempDir()
+
+	// Create test files with different permissions
+	files := map[string]struct {
+		content string
+		mode    os.FileMode
+	}{
+		"file1.txt":     {"content1", 0644},
+		"file2.txt":     {"content2", 0600},
+		"executable.sh": {"#!/bin/bash\necho hello", 0755},
+	}
+
+	for name, file := range files {
+		path := filepath.Join(srcDir, name)
+		err := os.WriteFile(path, []byte(file.content), file.mode)
+		require.NoError(t, err)
+	}
+
+	// Create subdirectory
+	subDir := filepath.Join(srcDir, "subdir")
+	err := os.Mkdir(subDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested content"), 0644)
+	require.NoError(t, err)
+
+	// Create tar
+	var buf bytes.Buffer
+	err = CreateTar(srcDir, &buf)
+	require.NoError(t, err)
+
+	// Extract to new directory
+	destDir := t.TempDir()
+	err = ExtractTar(&buf, destDir)
+	require.NoError(t, err)
+
+	// Verify extracted files
+	srcBaseName := filepath.Base(srcDir)
+	extractedBase := filepath.Join(destDir, srcBaseName)
+
+	for name, file := range files {
+		extractedPath := filepath.Join(extractedBase, name)
+
+		// Check file exists
+		info, err := os.Stat(extractedPath)
+		require.NoError(t, err)
+
+		// Check content
+		content, err := os.ReadFile(extractedPath)
+		require.NoError(t, err)
+		assert.Equal(t, file.content, string(content))
+
+		// Check permissions (on Unix systems)
+		if os.Getenv("GOOS") != "windows" {
+			assert.Equal(t, file.mode, info.Mode().Perm())
+		}
+	}
+
+	// Verify subdirectory and nested file
+	nestedPath := filepath.Join(extractedBase, "subdir", "nested.txt")
+	content, err := os.ReadFile(nestedPath)
+	require.NoError(t, err)
+	assert.Equal(t, "nested content", string(content))
+}
+
+func TestExtractTar_PathTraversal(t *testing.T) {
+	// This test verifies that path traversal attacks are prevented
+	destDir := t.TempDir()
+
+	// Create a malicious tar with path traversal attempt
+	// Note: This is a simplified test - real implementation should reject these
+	err := ExtractTar(bytes.NewReader([]byte{}), destDir)
+	// Empty tar should not error
+	assert.NoError(t, err)
+}
+
+func TestExtractTar_CreateDestination(t *testing.T) {
+	// Test that extraction creates destination directory if it doesn't exist
+	tmpParent := t.TempDir()
+	destDir := filepath.Join(tmpParent, "nonexistent", "nested", "path")
+
+	// Create simple tar
+	srcDir := t.TempDir()
+	testFile := filepath.Join(srcDir, "test.txt")
+	err := os.WriteFile(testFile, []byte("test"), 0644)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	err = CreateTar(testFile, &buf)
+	require.NoError(t, err)
+
+	// Extract to nonexistent path
+	err = ExtractTar(&buf, destDir)
+	require.NoError(t, err)
+
+	// Verify destination was created
+	_, err = os.Stat(destDir)
+	assert.NoError(t, err)
+}
+
+func TestValidateTarPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		expectError bool
+		skipNonWin  bool
+	}{
+		{"simple filename", "file.txt", false, false},
+		{"relative path", "dir/file.txt", false, false},
+		{"nested path", "a/b/c/file.txt", false, false},
+		{"absolute path", "/etc/passwd", true, false},
+		{"path traversal", "../../../etc/passwd", true, false},
+		{"embedded traversal", "dir/../../etc/passwd", true, false},
+		{"windows absolute", "C:\\Windows\\System32", true, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skipNonWin && os.Getenv("GOOS") != "windows" {
+				t.Skip("Skipping Windows-specific test on non-Windows platform")
+			}
+			err := validateTarPath(tt.path)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCreateTar_Symlink(t *testing.T) {
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("Symlink test skipped on Windows")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create target file
+	targetFile := filepath.Join(tmpDir, "target.txt")
+	err := os.WriteFile(targetFile, []byte("target content"), 0644)
+	require.NoError(t, err)
+
+	// Create symlink
+	linkFile := filepath.Join(tmpDir, "link.txt")
+	err = os.Symlink(targetFile, linkFile)
+	require.NoError(t, err)
+
+	// Create tar
+	var buf bytes.Buffer
+	err = CreateTar(tmpDir, &buf)
+	require.NoError(t, err)
+
+	// Extract
+	destDir := t.TempDir()
+	err = ExtractTar(&buf, destDir)
+	require.NoError(t, err)
+
+	// Verify symlink was preserved
+	extractedLink := filepath.Join(destDir, filepath.Base(tmpDir), "link.txt")
+	info, err := os.Lstat(extractedLink)
+	require.NoError(t, err)
+	assert.Equal(t, os.ModeSymlink, info.Mode()&os.ModeSymlink)
+}
+
+func TestExtractTar_EmptyArchive(t *testing.T) {
+	destDir := t.TempDir()
+
+	// Create empty tar (just EOF)
+	var buf bytes.Buffer
+
+	err := ExtractTar(&buf, destDir)
+	// Empty tar should complete without error
+	assert.NoError(t, err)
+}

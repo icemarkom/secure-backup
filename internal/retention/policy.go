@@ -1,0 +1,171 @@
+package retention
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+// Policy defines retention policy configuration
+type Policy struct {
+	RetentionDays int
+	BackupDir     string
+	Pattern       string // File pattern to match (e.g., "backup_*.tar.gz.gpg")
+	Verbose       bool
+}
+
+// ApplyPolicy removes backups older than the retention period
+func ApplyPolicy(policy Policy) (int, error) {
+	if policy.RetentionDays <= 0 {
+		return 0, fmt.Errorf("retention days must be positive")
+	}
+
+	if policy.Pattern == "" {
+		policy.Pattern = "backup_*.tar.gz.gpg"
+	}
+
+	// Calculate cutoff time
+	cutoffTime := time.Now().AddDate(0, 0, -policy.RetentionDays)
+
+	if policy.Verbose {
+		fmt.Printf("Applying retention policy: %d days\n", policy.RetentionDays)
+		fmt.Printf("Cutoff time: %s\n", cutoffTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Backup directory: %s\n", policy.BackupDir)
+	}
+
+	// Find matching backup files
+	pattern := filepath.Join(policy.BackupDir, policy.Pattern)
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find backup files: %w", err)
+	}
+
+	deletedCount := 0
+
+	for _, file := range matches {
+		fileInfo, err := os.Stat(file)
+		if err != nil {
+			if policy.Verbose {
+				fmt.Printf("Warning: failed to stat %s: %v\n", file, err)
+			}
+			continue
+		}
+
+		// Skip directories
+		if fileInfo.IsDir() {
+			continue
+		}
+
+		// Check if file is older than retention period
+		if fileInfo.ModTime().Before(cutoffTime) {
+			if policy.Verbose {
+				fmt.Printf("Deleting old backup: %s (age: %s)\n",
+					filepath.Base(file),
+					formatAge(time.Since(fileInfo.ModTime())))
+			}
+
+			if err := os.Remove(file); err != nil {
+				if policy.Verbose {
+					fmt.Printf("Warning: failed to delete %s: %v\n", file, err)
+				}
+				continue
+			}
+
+			deletedCount++
+		}
+	}
+
+	if policy.Verbose {
+		if deletedCount == 0 {
+			fmt.Println("No backups to delete (all within retention period)")
+		} else {
+			fmt.Printf("Deleted %d old backup(s)\n", deletedCount)
+		}
+	}
+
+	return deletedCount, nil
+}
+
+// ListBackups lists all backups in the directory with their age
+func ListBackups(backupDir string, pattern string) ([]BackupInfo, error) {
+	if pattern == "" {
+		pattern = "backup_*.tar.gz.gpg"
+	}
+
+	fullPattern := filepath.Join(backupDir, pattern)
+	matches, err := filepath.Glob(fullPattern)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find backup files: %w", err)
+	}
+
+	var backups []BackupInfo
+
+	for _, file := range matches {
+		fileInfo, err := os.Stat(file)
+		if err != nil {
+			continue
+		}
+
+		if fileInfo.IsDir() {
+			continue
+		}
+
+		backups = append(backups, BackupInfo{
+			Path:    file,
+			Name:    filepath.Base(file),
+			Size:    fileInfo.Size(),
+			ModTime: fileInfo.ModTime(),
+			Age:     time.Since(fileInfo.ModTime()),
+		})
+	}
+
+	return backups, nil
+}
+
+// BackupInfo contains information about a backup file
+type BackupInfo struct {
+	Path    string
+	Name    string
+	Size    int64
+	ModTime time.Time
+	Age     time.Duration
+}
+
+// formatAge formats a duration as a human-readable age string
+func formatAge(d time.Duration) string {
+	days := int(d.Hours() / 24)
+	hours := int(d.Hours()) % 24
+
+	if days > 0 {
+		return fmt.Sprintf("%dd%dh", days, hours)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%dh", hours)
+	}
+	minutes := int(d.Minutes())
+	return fmt.Sprintf("%dm", minutes)
+}
+
+// FormatSize formats bytes as human-readable string
+func FormatSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// IsBackupFile checks if a filename matches the backup pattern
+func IsBackupFile(filename string) bool {
+	return strings.HasPrefix(filename, "backup_") &&
+		(strings.HasSuffix(filename, ".tar.gz.gpg") ||
+			strings.HasSuffix(filename, ".tar.zst.gpg") ||
+			strings.HasSuffix(filename, ".tar.gz.age"))
+}
