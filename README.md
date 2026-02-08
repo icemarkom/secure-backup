@@ -14,16 +14,20 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 - **Verify Integrity**: Quick and full verification modes
 - **List Backups**: View all backups with age and size information
 
-🚧 **Phase 2 - Docker Integration (UPCOMING)**
-- Docker volume backup via Docker SDK
-- Container pause/restart during backup
-- Volume discovery and management
+🎯 **Phase 2 - Build Platform Support (NEXT)**
+- Cross-platform builds (Linux, macOS, Windows)
+- Makefile or Bazel build system
+- Release packaging (deb, rpm, tar.gz)
+- Version embedding in binary
 
-🔮 **Future Phases**
+🔮 **Phase 3+ - Future Enhancements**  
 - Additional encryption methods (age)
-- Additional compression algorithms (zstd, lz4)
-- Progress indicators
-- Parallel operations
+- Advanced compression algorithms (zstd, lz4)
+- User experience improvements (progress bars, config files)
+- Remote storage backends (S3, SFTP, rsync)
+
+💡 **Optional Future Feature**
+- Docker volume integration (specialty use case)
 
 ## Installation
 
@@ -137,7 +141,7 @@ Add to your crontab (`crontab -e`):
 - ✅ Fully functional for directory backups
 - ✅ Production-ready for non-Docker use cases
 
-**Next Steps**: Phase 2 - Docker Integration
+**Next Steps**: Phase 2 - Build Platform Support
 
 See [implementation_plan.md](.gemini/antigravity/brain/*/implementation_plan.md) for detailed architectural decisions.
 
