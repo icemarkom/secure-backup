@@ -136,9 +136,13 @@ All core backup functionality is implemented, tested, and production-ready:
     - `internal/backup/integration_test.go` - Full pipeline integration tests
     - Enhanced `internal/retention/policy_test.go` - ApplyPolicy + ListBackups
   - **Commits**: 3c7e42f (test improvements), 0f58298 (nomenclature)
-- Phase 5.2: Better error messages (NEXT)
-  - `internal/errors` package with UserError type
-  - Contextual errors with hints  
+- Phase 5.2: Better error messages ✅ COMPLETE (2026-02-08)
+  - Created `internal/errors` package with `UserError` type
+  - User-friendly error messages with actionable hints
+  - Updated all command layer error handling
+  - Updated internal backup/restore/verify error messages
+  - Coverage: 100% for errors package, 83.2% for backup package
+  - Examples: "File not found: /path\nHint: Check that the path exists..."
 - Phase 5.3: Dry-run mode ✅ COMPLETE (2026-02-08)
   - `--dry-run` flag added to backup, restore, verify commands
   - Preview operations without file system modifications

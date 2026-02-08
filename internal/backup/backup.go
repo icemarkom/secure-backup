@@ -10,6 +10,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/archive"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
+	"github.com/icemarkom/secure-backup/internal/errors"
 )
 
 // Config holds configuration for backup operations
@@ -32,7 +33,12 @@ func PerformBackup(cfg Config) (string, error) {
 	// Validate source
 	_, err := os.Stat(cfg.SourcePath)
 	if err != nil {
-		return "", fmt.Errorf("invalid source path: %w", err)
+		if os.IsNotExist(err) {
+			return "", errors.MissingFile(cfg.SourcePath,
+				"Check that the path exists and you have permission to read it")
+		}
+		return "", errors.Wrap(err, fmt.Sprintf("Cannot access source: %s", cfg.SourcePath),
+			"Verify the path and check file permissions")
 	}
 
 	// Ensure destination directory exists

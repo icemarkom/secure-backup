@@ -7,6 +7,7 @@ import (
 
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
+	"github.com/icemarkom/secure-backup/internal/errors"
 )
 
 // VerifyConfig holds configuration for verify operations
@@ -29,7 +30,12 @@ func PerformVerify(cfg VerifyConfig) error {
 	// Validate backup file exists
 	fileInfo, err := os.Stat(cfg.BackupFile)
 	if err != nil {
-		return fmt.Errorf("backup file not found: %w", err)
+		if os.IsNotExist(err) {
+			return errors.MissingFile(cfg.BackupFile,
+				"Specify a valid backup file with --file")
+		}
+		return errors.Wrap(err, fmt.Sprintf("Cannot access backup file: %s", cfg.BackupFile),
+			"Check file permissions")
 	}
 
 	if cfg.Verbose {

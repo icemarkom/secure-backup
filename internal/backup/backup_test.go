@@ -101,13 +101,13 @@ func TestPerformBackup_InvalidSource(t *testing.T) {
 	}{
 		{
 			name:       "nonexistent directory",
-			sourcePath: "/nonexistent/directory/that/does/not/exist",
-			wantErrMsg: "invalid source path",
+			sourcePath: "/nonexistent/path",
+			wantErrMsg: "File not found",
 		},
 		{
 			name:       "empty source path",
 			sourcePath: "",
-			wantErrMsg: "invalid source path",
+			wantErrMsg: "File not found",
 		},
 	}
 

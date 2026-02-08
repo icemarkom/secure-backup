@@ -7,6 +7,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/archive"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
+	"github.com/icemarkom/secure-backup/internal/errors"
 )
 
 // RestoreConfig holds configuration for restore operations
@@ -28,7 +29,12 @@ func PerformRestore(cfg RestoreConfig) error {
 
 	// Validate backup file exists
 	if _, err := os.Stat(cfg.BackupFile); err != nil {
-		return fmt.Errorf("backup file not found: %w", err)
+		if os.IsNotExist(err) {
+			return errors.MissingFile(cfg.BackupFile,
+				"Specify a valid backup file with --file")
+		}
+		return errors.Wrap(err, fmt.Sprintf("Cannot access backup file: %s", cfg.BackupFile),
+			"Check file permissions")
 	}
 
 	// Ensure destination directory exists

@@ -6,6 +6,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
+	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -59,9 +60,10 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Full verification requires decryption
-	if verifyPrivateKey == "" {
-		return fmt.Errorf("--private-key required for full verification (or use --quick)")
+	// Full verification requires
+	if !verifyQuick && verifyPrivateKey == "" {
+		return errors.MissingRequired("--private-key",
+			"Full verification requires --private-key, or use --quick for header-only check")
 	}
 
 	// Create compressor
@@ -82,7 +84,8 @@ func runVerify(cmd *cobra.Command, args []string) error {
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)
 	if err != nil {
-		return fmt.Errorf("failed to create encryptor: %w", err)
+		return errors.Wrap(err, "Failed to initialize decryption for verification",
+			"Check that your private key file exists and is a valid GPG key")
 	}
 
 	// Execute full verification
@@ -95,8 +98,8 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		DryRun:     verifyDryRun,
 	}
 
-	if err := backup.PerformVerify(verifyCfg); err != nil {
-		return fmt.Errorf("verification failed: %w", err)
+	if err = backup.PerformVerify(verifyCfg); err != nil {
+		return err // PerformVerify already returns user-friendly errors
 	}
 
 	// Silent by default - verbose output handled in backup package

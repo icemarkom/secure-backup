@@ -21,12 +21,12 @@ func TestPerformVerify_InvalidFile(t *testing.T) {
 		{
 			name:       "nonexistent file",
 			backupFile: "/nonexistent/backup.tar.gz.gpg",
-			wantErrMsg: "backup file not found",
+			wantErrMsg: "File not found",
 		},
 		{
 			name:       "empty path",
 			backupFile: "",
-			wantErrMsg: "backup file not found",
+			wantErrMsg: "File not found",
 		},
 	}
 

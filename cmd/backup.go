@@ -7,6 +7,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
+	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
 )
@@ -55,7 +56,8 @@ func init() {
 func runBackup(cmd *cobra.Command, args []string) error {
 	// Validate flags
 	if backupRecipient == "" && backupPublicKey == "" {
-		return fmt.Errorf("either --recipient or --public-key must be specified")
+		return errors.MissingRequired("--public-key",
+			"Specify your GPG public key with --public-key ~/.gnupg/backup-pub.asc")
 	}
 
 	// Create compressor (gzip by default)
@@ -78,12 +80,14 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	if encryptCfg.PublicKey == "" && encryptCfg.Recipient != "" {
 		// For now, we'll require explicit public key path
 		// Future: integrate with GPG keyring
-		return fmt.Errorf("--public-key is required (GPG keyring integration coming soon)")
+		return errors.MissingRequired("--public-key",
+			"Export your GPG public key with: gpg --export your@email.com > ~/.gnupg/backup-pub.asc")
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)
 	if err != nil {
-		return fmt.Errorf("failed to create encryptor: %w", err)
+		return errors.Wrap(err, "Failed to initialize encryption",
+			"Check that your public key file exists and is a valid GPG key")
 	}
 
 	// Execute backup
@@ -98,7 +102,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	_, err = backup.PerformBackup(backupCfg)
 	if err != nil {
-		return fmt.Errorf("backup failed: %w", err)
+		return err // PerformBackup already returns user-friendly errors
 	}
 
 	// Silent by default - verbose output handled in backup package

@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
+	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +52,8 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Level:  0,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create compressor: %w", err)
+		return errors.Wrap(err, "Failed to initialize compressor",
+			"This is an internal error - please report if it persists")
 	}
 
 	// Create encryptor for decryption
@@ -63,14 +63,18 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Passphrase: restorePassphrase,
 	}
 
-	// If no explicit private key, GPG will use keyring
+	// If no explicit private key file, try to use system keyring
 	if encryptCfg.PrivateKey == "" {
-		return fmt.Errorf("--private-key is required (GPG keyring integration coming soon)")
+		// For now, we'll require explicit private key path
+		// Future: integrate with GPG keyring
+		return errors.MissingRequired("--private-key",
+			"Export your GPG private key with: gpg --export-secret-keys your@email.com > ~/.gnupg/backup-priv.asc")
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)
 	if err != nil {
-		return fmt.Errorf("failed to create encryptor: %w", err)
+		return errors.Wrap(err, "Failed to initialize decryption",
+			"Check that your private key file exists and is a valid GPG key")
 	}
 
 	// Execute restore
@@ -83,8 +87,8 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		DryRun:     restoreDryRun,
 	}
 
-	if err := backup.PerformRestore(restoreCfg); err != nil {
-		return fmt.Errorf("restore failed: %w", err)
+	if err = backup.PerformRestore(restoreCfg); err != nil {
+		return err // PerformRestore already returns user-friendly errors
 	}
 
 	// Silent by default - verbose output handled in backup package
