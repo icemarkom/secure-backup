@@ -2,6 +2,9 @@ package encrypt
 
 import (
 	"bytes"
+	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -154,4 +157,141 @@ func TestNewGPGEncryptor(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, encryptor)
 	assert.Equal(t, "gpg", encryptor.Type())
+}
+
+// Integration tests with real GPG operations
+// Uses test keys checked into test_data/
+
+func getTestKeyPaths(t *testing.T) (publicKey, privateKey string) {
+	t.Helper()
+
+	// Find test_data directory (relative to test file)
+	testDataDir := filepath.Join("..", "..", "test_data")
+
+	publicKey = filepath.Join(testDataDir, "test-public.asc")
+	privateKey = filepath.Join(testDataDir, "test-private.asc")
+
+	// Verify test keys exist
+	if _, err := os.Stat(publicKey); os.IsNotExist(err) {
+		t.Skip("Test keys not found. Run: cd test_data && ./generate_test_keys.sh")
+	}
+
+	return publicKey, privateKey
+}
+
+func TestGPGEncryptor_RealEncryptDecrypt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping GPG integration test in short mode")
+	}
+
+	publicKey, privateKey := getTestKeyPaths(t)
+
+	// Test data
+	originalData := []byte("This is secret test data for GPG encryption testing!")
+
+	// Step 1: Encrypt
+	encryptor, err := NewGPGEncryptor(Config{
+		Method:    "gpg",
+		PublicKey: publicKey,
+	})
+	require.NoError(t, err)
+
+	encryptedReader, err := encryptor.Encrypt(bytes.NewReader(originalData))
+	require.NoError(t, err)
+
+	encryptedData, err := io.ReadAll(encryptedReader)
+	require.NoError(t, err)
+	require.NotEmpty(t, encryptedData)
+
+	// Encrypted data should be different from original
+	assert.NotEqual(t, originalData, encryptedData)
+
+	// Step 2: Decrypt
+	decryptor, err := NewGPGEncryptor(Config{
+		Method:     "gpg",
+		PrivateKey: privateKey,
+		Passphrase: "", // Test key has no passphrase
+	})
+	require.NoError(t, err)
+
+	decryptedReader, err := decryptor.Decrypt(bytes.NewReader(encryptedData))
+	require.NoError(t, err)
+
+	decryptedData, err := io.ReadAll(decryptedReader)
+	require.NoError(t, err)
+
+	// Decrypted data should match original
+	assert.Equal(t, originalData, decryptedData)
+}
+
+func TestGPGEncryptor_LargeData(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping GPG integration test in short mode")
+	}
+
+	publicKey, privateKey := getTestKeyPaths(t)
+
+	// Create 1MB of test data
+	originalData := bytes.Repeat([]byte("ABCDEFGH"), 128*1024) // 1MB
+
+	// Encrypt
+	encryptor, err := NewGPGEncryptor(Config{
+		Method:    "gpg",
+		PublicKey: publicKey,
+	})
+	require.NoError(t, err)
+
+	encryptedReader, err := encryptor.Encrypt(bytes.NewReader(originalData))
+	require.NoError(t, err)
+
+	encryptedData, err := io.ReadAll(encryptedReader)
+	require.NoError(t, err)
+
+	// Decrypt
+	decryptor, err := NewGPGEncryptor(Config{
+		Method:     "gpg",
+		PrivateKey: privateKey,
+	})
+	require.NoError(t, err)
+
+	decryptedReader, err := decryptor.Decrypt(bytes.NewReader(encryptedData))
+	require.NoError(t, err)
+
+	decryptedData, err := io.ReadAll(decryptedReader)
+	require.NoError(t, err)
+
+	// Verify
+	assert.Equal(t, len(originalData), len(decryptedData))
+	assert.Equal(t, originalData, decryptedData)
+}
+
+func TestGPGEncryptor_WrongKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping GPG integration test in short mode")
+	}
+
+	publicKey, _ := getTestKeyPaths(t)
+
+	// Encrypt with test key
+	encryptor, err := NewGPGEncryptor(Config{
+		Method:    "gpg",
+		PublicKey: publicKey,
+	})
+	require.NoError(t, err)
+
+	encryptedReader, err := encryptor.Encrypt(bytes.NewReader([]byte("secret")))
+	require.NoError(t, err)
+
+	encryptedData, err := io.ReadAll(encryptedReader)
+	require.NoError(t, err)
+
+	// Try to decrypt with wrong key (nonexistent)
+	decryptor, err := NewGPGEncryptor(Config{
+		Method:     "gpg",
+		PrivateKey: "/nonexistent/wrong.asc",
+	})
+	require.NoError(t, err)
+
+	_, err = decryptor.Decrypt(bytes.NewReader(encryptedData))
+	assert.Error(t, err)
 }

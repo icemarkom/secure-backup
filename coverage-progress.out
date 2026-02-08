@@ -1,0 +1,27 @@
+mode: set
+github.com/icemarkom/secure-backup/internal/progress/progress.go:27.49,28.18 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:28.18,31.3 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:34.2,35.24 2 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:35.24,44.42 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:44.42,44.69 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:47.8,54.42 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:54.42,54.69 1 0
+github.com/icemarkom/secure-backup/internal/progress/progress.go:60.2,60.37 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:64.47,66.28 2 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:66.28,68.3 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:69.2,69.15 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:73.28,74.19 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:74.19,76.3 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:86.49,87.18 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:87.18,89.3 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:91.2,92.24 2 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:92.24,100.42 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:100.42,100.69 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:103.8,109.42 1 0
+github.com/icemarkom/secure-backup/internal/progress/progress.go:109.42,109.69 1 0
+github.com/icemarkom/secure-backup/internal/progress/progress.go:115.2,115.37 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:119.48,121.28 2 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:121.28,123.3 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:124.2,124.15 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:128.28,129.19 1 1
+github.com/icemarkom/secure-backup/internal/progress/progress.go:129.19,131.3 1 1
