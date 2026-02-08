@@ -173,4 +173,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## Author
 
-Marko M. (markom@gmail.com)
+Marko Milivojevic (markom@gmail.com)

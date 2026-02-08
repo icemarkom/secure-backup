@@ -218,7 +218,7 @@ SEE ALSO
     tar(1), gzip(1), gpg(1)
 
 AUTHOR
-    Marko M. <markom@gmail.com>
+    Marko Milivojevic <markom@gmail.com>
 
 REPORTING BUGS
     https://github.com/icemarkom/secure-backup/issues
