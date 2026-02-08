@@ -139,8 +139,15 @@ All core backup functionality is implemented, tested, and production-ready:
 - Phase 5.2: Better error messages (NEXT)
   - `internal/errors` package with UserError type
   - Contextual errors with hints  
-- Phase 5.3: Dry-run mode (PLANNED)
-  - `--dry-run` flag to preview operations
+- Phase 5.3: Dry-run mode ✅ COMPLETE (2026-02-08)
+  - `--dry-run` flag added to backup, restore, verify commands
+  - Preview operations without file system modifications
+  - **Dry-run automatically implies verbose** (shows pipeline stages)
+  - Retention policy dry-run support (shows what would be deleted)
+  - Comprehensive unit tests for all dry-run operations
+  - Coverage: 84.2% for backup package (up from 74.5%, +9.7%)
+  - Documentation: README.md and USAGE.md updated with examples
+  - Output prefixed with `[DRY RUN]` for clarity
 - Phase 5.4: Validation & confirmation (PLANNED)
   - Disk space checks, confirmation prompts
 

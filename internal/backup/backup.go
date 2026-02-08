@@ -19,10 +19,16 @@ type Config struct {
 	Encryptor  encrypt.Encryptor
 	Compressor compress.Compressor
 	Verbose    bool
+	DryRun     bool
 }
 
 // PerformBackup executes the backup pipeline: TAR → COMPRESS → ENCRYPT
 func PerformBackup(cfg Config) (string, error) {
+	// Handle dry-run mode
+	if cfg.DryRun {
+		return dryRunBackup(cfg)
+	}
+
 	// Validate source
 	_, err := os.Stat(cfg.SourcePath)
 	if err != nil {
@@ -155,4 +161,41 @@ func formatSize(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// dryRunBackup previews backup operation without executing
+// Note: Dry-run mode always shows verbose output for useful preview
+func dryRunBackup(cfg Config) (string, error) {
+	// Validate source exists
+	_, err := os.Stat(cfg.SourcePath)
+	if err != nil {
+		return "", fmt.Errorf("invalid source path: %w", err)
+	}
+
+	// Generate backup filename (same logic as real backup)
+	timestamp := time.Now().Format("20060102_150405")
+	sourceName := filepath.Base(cfg.SourcePath)
+	filename := fmt.Sprintf("backup_%s_%s.tar%s.gpg",
+		sourceName,
+		timestamp,
+		cfg.Compressor.Extension())
+	outputPath := filepath.Join(cfg.DestDir, filename)
+
+	// Calculate source size
+	sourceSize := getDirectorySize(cfg.SourcePath)
+
+	// Print dry-run preview (always verbose)
+	fmt.Println("[DRY RUN] Backup preview:")
+	fmt.Printf("[DRY RUN]   Source: %s (%s)\n", cfg.SourcePath, formatSize(sourceSize))
+	fmt.Printf("[DRY RUN]   Destination: %s\n", outputPath)
+	fmt.Printf("[DRY RUN]   Compression: %s\n", "gzip")
+	fmt.Printf("[DRY RUN]   Encryption: GPG\n")
+	fmt.Println("[DRY RUN]")
+	fmt.Println("[DRY RUN] Pipeline stages that would execute:")
+	fmt.Println("[DRY RUN]   1. TAR - Archive source directory")
+	fmt.Println("[DRY RUN]   2. COMPRESS - Compress with gzip")
+	fmt.Println("[DRY RUN]   3. ENCRYPT - Encrypt with GPG")
+	fmt.Println("[DRY RUN]   4. WRITE - Write to destination file")
+
+	return outputPath, nil
 }

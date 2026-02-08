@@ -17,6 +17,7 @@ var (
 	backupRecipient  string
 	backupPublicKey  string
 	backupVerbose    bool
+	backupDryRun     bool
 	backupEncryption string
 	backupRetention  int
 )
@@ -45,6 +46,7 @@ func init() {
 	backupCmd.Flags().StringVar(&backupEncryption, "encryption", "gpg", "Encryption method (gpg, age)")
 	backupCmd.Flags().IntVar(&backupRetention, "retention", 0, "Retention period in days (0 = keep all backups)")
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
+	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "Preview backup without executing")
 
 	backupCmd.MarkFlagRequired("source")
 	backupCmd.MarkFlagRequired("dest")
@@ -91,6 +93,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		Encryptor:  encryptor,
 		Compressor: compressor,
 		Verbose:    backupVerbose,
+		DryRun:     backupDryRun,
 	}
 
 	_, err = backup.PerformBackup(backupCfg)
@@ -107,6 +110,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			BackupDir:     backupDest,
 			Pattern:       "backup_*.tar.gz.gpg",
 			Verbose:       backupVerbose,
+			DryRun:        backupDryRun,
 		}
 
 		deletedCount, err := retention.ApplyPolicy(retentionPolicy)

@@ -218,3 +218,120 @@ func TestFullVerify_WithRealBackup(t *testing.T) {
 		assert.NoError(t, err, "full verify should pass")
 	})
 }
+
+// TestPerformVerify_DryRun_Quick tests dry-run mode with quick verification
+func TestPerformVerify_DryRun_Quick(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a dummy backup file
+	backupFile := filepath.Join(tempDir, "backup.tar.gz.gpg")
+	err := os.WriteFile(backupFile, []byte("dummy backup content for testing"), 0644)
+	require.NoError(t, err)
+
+	// Create dummy keys for dry-run (won't be used)
+	keyFile := filepath.Join(tempDir, "dummy.asc")
+	err = os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := VerifyConfig{
+		BackupFile: backupFile,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Quick:      true,
+		Verbose:    false,
+		DryRun:     true,
+	}
+
+	err = PerformVerify(cfg)
+	require.NoError(t, err)
+
+	// In dry-run mode, no actual verification is performed
+	// Just validates the file exists and shows what would be checked
+}
+
+// TestPerformVerify_DryRun_Full tests dry-run mode with full verification
+func TestPerformVerify_DryRun_Full(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a dummy backup file
+	backupFile := filepath.Join(tempDir, "backup.tar.gz.gpg")
+	err := os.WriteFile(backupFile, []byte("dummy backup content for testing"), 0644)
+	require.NoError(t, err)
+
+	// Create dummy keys for dry-run (won't be used)
+	keyFile := filepath.Join(tempDir, "dummy.asc")
+	err = os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := VerifyConfig{
+		BackupFile: backupFile,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Quick:      false,
+		Verbose:    false,
+		DryRun:     true,
+	}
+
+	err = PerformVerify(cfg)
+	require.NoError(t, err)
+
+	// In dry-run mode, no actual decryption/decompression is performed
+	// Just validates the file exists and shows what would be verified
+}
+
+// TestPerformVerify_DryRun_InvalidFile tests dry-run with invalid file
+func TestPerformVerify_DryRun_InvalidFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	keyFile := filepath.Join(tempDir, "dummy.asc")
+	err := os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := VerifyConfig{
+		BackupFile: "/nonexistent/backup.tar.gz.gpg",
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Quick:      false,
+		DryRun:     true,
+	}
+
+	err = PerformVerify(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "backup file not found")
+}

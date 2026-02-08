@@ -16,10 +16,16 @@ type VerifyConfig struct {
 	Compressor compress.Compressor
 	Quick      bool
 	Verbose    bool
+	DryRun     bool
 }
 
 // PerformVerify verifies the integrity of a backup file
 func PerformVerify(cfg VerifyConfig) error {
+	// Handle dry-run mode
+	if cfg.DryRun {
+		return dryRunVerify(cfg)
+	}
+
 	// Validate backup file exists
 	fileInfo, err := os.Stat(cfg.BackupFile)
 	if err != nil {
@@ -119,6 +125,37 @@ func fullVerify(cfg VerifyConfig) error {
 	if cfg.Verbose {
 		fmt.Printf("✓ Successfully verified %s of decompressed data\n", formatSize(bytesRead))
 		fmt.Println("✓ Full verification passed")
+	}
+
+	return nil
+}
+
+// dryRunVerify previews verify operation without executing
+// Note: Dry-run mode always shows verbose output for useful preview
+func dryRunVerify(cfg VerifyConfig) error {
+	// Validate backup file exists
+	fileInfo, err := os.Stat(cfg.BackupFile)
+	if err != nil {
+		return fmt.Errorf("backup file not found: %w", err)
+	}
+
+	// Print dry-run preview (always verbose)
+	fmt.Println("[DRY RUN] Verify preview:")
+	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, formatSize(fileInfo.Size()))
+
+	if cfg.Quick {
+		fmt.Printf("[DRY RUN]   Mode: Quick verification (header check only)\n")
+		fmt.Println("[DRY RUN]")
+		fmt.Println("[DRY RUN] Quick verification would check:")
+		fmt.Println("[DRY RUN]   - File can be opened")
+		fmt.Println("[DRY RUN]   - GPG header is valid")
+	} else {
+		fmt.Printf("[DRY RUN]   Mode: Full verification (decrypt + decompress)\n")
+		fmt.Println("[DRY RUN]")
+		fmt.Println("[DRY RUN] Full verification would:")
+		fmt.Println("[DRY RUN]   1. DECRYPT - Decrypt with GPG")
+		fmt.Println("[DRY RUN]   2. DECOMPRESS - Decompress with gzip")
+		fmt.Println("[DRY RUN]   3. VERIFY - Read entire archive to verify integrity")
 	}
 
 	return nil

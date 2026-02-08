@@ -138,3 +138,82 @@ func TestPerformRestore_DestinationCreation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "test content", string(content))
 }
+
+// TestPerformRestore_DryRun tests that dry-run mode doesn't extract files
+func TestPerformRestore_DryRun(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create a dummy backup file (won't be read in dry-run)
+	backupFile := filepath.Join(tempRoot, "backup.tar.gz.gpg")
+	err := os.WriteFile(backupFile, []byte("dummy backup content"), 0644)
+	require.NoError(t, err)
+
+	restoreDir := filepath.Join(tempRoot, "restore")
+
+	// Create dummy keys for dry-run (won't be used)
+	keyFile := filepath.Join(tempRoot, "dummy.asc")
+	err = os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := RestoreConfig{
+		BackupFile: backupFile,
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		DryRun:     true,
+	}
+
+	err = PerformRestore(cfg)
+	require.NoError(t, err)
+
+	// Verify no files were extracted
+	_, err = os.Stat(restoreDir)
+	assert.True(t, os.IsNotExist(err), "restore directory should NOT be created in dry-run mode")
+}
+
+// TestPerformRestore_DryRun_InvalidFile tests dry-run with invalid backup file
+func TestPerformRestore_DryRun_InvalidFile(t *testing.T) {
+	tempRoot := t.TempDir()
+	restoreDir := filepath.Join(tempRoot, "restore")
+
+	keyFile := filepath.Join(tempRoot, "dummy.asc")
+	err := os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := RestoreConfig{
+		BackupFile: "/nonexistent/backup.tar.gz.gpg",
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		DryRun:     true,
+	}
+
+	err = PerformRestore(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "backup file not found")
+}

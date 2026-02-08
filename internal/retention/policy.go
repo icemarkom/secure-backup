@@ -14,6 +14,7 @@ type Policy struct {
 	BackupDir     string
 	Pattern       string // File pattern to match (e.g., "backup_*.tar.gz.gpg")
 	Verbose       bool
+	DryRun        bool
 }
 
 // ApplyPolicy removes backups older than the retention period
@@ -60,10 +61,21 @@ func ApplyPolicy(policy Policy) (int, error) {
 
 		// Check if file is older than retention period
 		if fileInfo.ModTime().Before(cutoffTime) {
+			age := time.Since(fileInfo.ModTime())
+			days := int(age.Hours() / 24)
+
+			if policy.DryRun {
+				// Dry-run mode: show what would be deleted
+				fmt.Printf("[DRY RUN] Would delete: %s (%d days old)\n",
+					filepath.Base(file), days)
+				deletedCount++
+				continue
+			}
+
 			if policy.Verbose {
 				fmt.Printf("Deleting old backup: %s (age: %s)\n",
 					filepath.Base(file),
-					formatAge(time.Since(fileInfo.ModTime())))
+					formatAge(age))
 			}
 
 			if err := os.Remove(file); err != nil {
@@ -77,7 +89,13 @@ func ApplyPolicy(policy Policy) (int, error) {
 		}
 	}
 
-	if policy.Verbose {
+	if policy.DryRun {
+		if deletedCount == 0 {
+			fmt.Println("[DRY RUN] No backups would be deleted (all within retention period)")
+		} else {
+			fmt.Printf("[DRY RUN] Would delete %d old backup(s)\n", deletedCount)
+		}
+	} else if policy.Verbose {
 		if deletedCount == 0 {
 			fmt.Println("No backups to delete (all within retention period)")
 		} else {

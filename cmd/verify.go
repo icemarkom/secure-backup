@@ -15,6 +15,7 @@ var (
 	verifyPassphrase string
 	verifyQuick      bool
 	verifyVerbose    bool
+	verifyDryRun     bool
 )
 
 var verifyCmd = &cobra.Command{
@@ -35,6 +36,7 @@ func init() {
 	verifyCmd.Flags().StringVar(&verifyPassphrase, "passphrase", "", "GPG key passphrase (for full verify)")
 	verifyCmd.Flags().BoolVar(&verifyQuick, "quick", false, "Quick verification (headers only)")
 	verifyCmd.Flags().BoolVarP(&verifyVerbose, "verbose", "v", false, "Verbose output")
+	verifyCmd.Flags().BoolVar(&verifyDryRun, "dry-run", false, "Preview verification without executing")
 
 	verifyCmd.MarkFlagRequired("file")
 }
@@ -46,6 +48,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			BackupFile: verifyFile,
 			Quick:      true,
 			Verbose:    verifyVerbose,
+			DryRun:     verifyDryRun,
 		}
 
 		if err := backup.PerformVerify(verifyCfg); err != nil {
@@ -89,6 +92,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		Compressor: compressor,
 		Quick:      false,
 		Verbose:    verifyVerbose,
+		DryRun:     verifyDryRun,
 	}
 
 	if err := backup.PerformVerify(verifyCfg); err != nil {

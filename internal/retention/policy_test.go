@@ -372,3 +372,51 @@ func TestListBackups_DefaultPattern(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(backups), "should find 1 backup using default pattern")
 }
+
+// TestApplyPolicy_DryRun tests that dry-run mode doesn't delete files
+func TestApplyPolicy_DryRun(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create fake backup files with different ages
+	now := time.Now()
+
+	oldFiles := []struct {
+		name string
+		age  time.Duration
+	}{
+		{"backup_old1_20240101_120000.tar.gz.gpg", 10 * 24 * time.Hour}, // 10 days old
+		{"backup_old2_20240102_120000.tar.gz.gpg", 15 * 24 * time.Hour}, // 15 days old
+	}
+
+	// Create old files
+	for _, f := range oldFiles {
+		path := filepath.Join(tempDir, f.name)
+		err := os.WriteFile(path, []byte("fake backup"), 0644)
+		require.NoError(t, err)
+
+		// Set modification time to the past
+		modTime := now.Add(-f.age)
+		err = os.Chtimes(path, modTime, modTime)
+		require.NoError(t, err)
+	}
+
+	// Apply policy with dry-run enabled
+	policy := Policy{
+		RetentionDays: 7,
+		BackupDir:     tempDir,
+		Pattern:       "backup_*.tar.gz.gpg",
+		Verbose:       false,
+		DryRun:        true,
+	}
+
+	count, err := ApplyPolicy(policy)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "should report 2 files would be deleted")
+
+	// Verify files were NOT actually deleted
+	for _, f := range oldFiles {
+		path := filepath.Join(tempDir, f.name)
+		_, err := os.Stat(path)
+		assert.NoError(t, err, "file %s should NOT be deleted in dry-run mode", f.name)
+	}
+}

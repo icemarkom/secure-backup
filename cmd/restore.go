@@ -15,6 +15,7 @@ var (
 	restorePrivateKey string
 	restorePassphrase string
 	restoreVerbose    bool
+	restoreDryRun     bool
 )
 
 var restoreCmd = &cobra.Command{
@@ -39,6 +40,7 @@ func init() {
 	restoreCmd.Flags().StringVar(&restorePrivateKey, "private-key", "", "Path to GPG private key file")
 	restoreCmd.Flags().StringVar(&restorePassphrase, "passphrase", "", "GPG key passphrase")
 	restoreCmd.Flags().BoolVarP(&restoreVerbose, "verbose", "v", false, "Verbose output")
+	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "Preview restore without executing")
 
 	restoreCmd.MarkFlagRequired("file")
 	restoreCmd.MarkFlagRequired("dest")
@@ -78,6 +80,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Encryptor:  encryptor,
 		Compressor: compressor,
 		Verbose:    restoreVerbose,
+		DryRun:     restoreDryRun,
 	}
 
 	if err := backup.PerformRestore(restoreCfg); err != nil {

@@ -16,10 +16,16 @@ type RestoreConfig struct {
 	Encryptor  encrypt.Encryptor
 	Compressor compress.Compressor
 	Verbose    bool
+	DryRun     bool
 }
 
 // PerformRestore executes the restore pipeline: DECRYPT → DECOMPRESS → EXTRACT
 func PerformRestore(cfg RestoreConfig) error {
+	// Handle dry-run mode
+	if cfg.DryRun {
+		return dryRunRestore(cfg)
+	}
+
 	// Validate backup file exists
 	if _, err := os.Stat(cfg.BackupFile); err != nil {
 		return fmt.Errorf("backup file not found: %w", err)
@@ -72,6 +78,28 @@ func executeRestorePipeline(cfg RestoreConfig) error {
 	if err := archive.ExtractTar(decompressedReader, cfg.DestPath); err != nil {
 		return fmt.Errorf("tar extraction failed: %w", err)
 	}
+
+	return nil
+}
+
+// dryRunRestore previews restore operation without executing
+// Note: Dry-run mode always shows verbose output for useful preview
+func dryRunRestore(cfg RestoreConfig) error {
+	// Validate backup file exists
+	fileInfo, err := os.Stat(cfg.BackupFile)
+	if err != nil {
+		return fmt.Errorf("backup file not found: %w", err)
+	}
+
+	// Print dry-run preview (always verbose)
+	fmt.Println("[DRY RUN] Restore preview:")
+	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, formatSize(fileInfo.Size()))
+	fmt.Printf("[DRY RUN]   Destination: %s\n", cfg.DestPath)
+	fmt.Println("[DRY RUN]")
+	fmt.Println("[DRY RUN] Pipeline stages that would execute:")
+	fmt.Println("[DRY RUN]   1. DECRYPT - Decrypt backup file with GPG")
+	fmt.Println("[DRY RUN]   2. DECOMPRESS - Decompress with gzip")
+	fmt.Println("[DRY RUN]   3. EXTRACT - Extract tar archive to destination")
 
 	return nil
 }

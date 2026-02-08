@@ -175,13 +175,39 @@ secure-backup backup \
 
 This creates an encrypted backup like: `backup_data_20260207_165000.tar.gz.gpg`
 
-### 3. List Your Backups
+### 4. Preview Operations (Dry-Run)
+
+Preview what would happen without executing:
+
+```bash
+# Preview backup operation
+secure-backup backup \
+  --source /path/to/data \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --dry-run
+
+# Output:
+# [DRY RUN] Backup preview:
+# [DRY RUN]   Source: /path/to/data (1.2 GiB)
+# [DRY RUN]   Destination: /backups/backup_data_20260207_180500.tar.gz.gpg
+# [DRY RUN]   Compression: gzip
+# [DRY RUN]   Encryption: GPG
+# [DRY RUN]
+# [DRY RUN] Pipeline stages that would execute:
+# [DRY RUN]   1. TAR - Archive source directory
+# [DRY RUN]   2. COMPRESS - Compress with gzip
+# [DRY RUN]   3. ENCRYPT - Encrypt with GPG
+# [DRY RUN]   4. WRITE - Write to destination file
+```
+
+### 5. List Your Backups
 
 ```bash
 secure-backup list --dest /path/to/backups
 ```
 
-### 4. Verify Backup Integrity
+### 6. Verify Backup Integrity
 
 ```bash
 # Quick check (fast)
@@ -193,7 +219,7 @@ secure-backup verify \
   --private-key ~/.gnupg/backup-priv.asc
 ```
 
-### 5. Restore When Needed
+### 7. Restore When Needed
 
 ```bash
 secure-backup restore \
@@ -204,12 +230,14 @@ secure-backup restore \
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `backup` | Create an encrypted, compressed backup |
-| `restore` | Restore files from a backup |
-| `verify` | Verify backup integrity (quick or full) |
-| `list` | List available backups with metadata |
+| Command | Description | Dry-Run Support |
+|---------|-------------|-----------------|
+| `backup` | Create an encrypted, compressed backup | ✅ Yes |
+| `restore` | Restore files from a backup | ✅ Yes |
+| `verify` | Verify backup integrity (quick or full) | ✅ Yes |
+| `list` | List available backups with metadata | N/A |
+
+All commands support `--dry-run` to preview operations without executing them.
 
 See [USAGE.md](USAGE.md) for detailed documentation.
 

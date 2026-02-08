@@ -336,3 +336,91 @@ func generateTestKeys(t *testing.T, outputDir string) (*TestKeyPaths, error) {
 		PrivateKey: privateKeyPath,
 	}, nil
 }
+
+// TestPerformBackup_DryRun tests that dry-run mode doesn't create files
+func TestPerformBackup_DryRun(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create source directory with a file
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	destDir := filepath.Join(tempRoot, "backups")
+
+	// Create dummy keys for dry-run (won't be used)
+	keyFile := filepath.Join(tempRoot, "dummy.asc")
+	err = os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    destDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		DryRun:     true,
+	}
+
+	backupPath, err := PerformBackup(cfg)
+	require.NoError(t, err)
+	assert.NotEmpty(t, backupPath, "should return expected backup path")
+
+	// Verify no backup file was created
+	_, err = os.Stat(backupPath)
+	assert.True(t, os.IsNotExist(err), "backup file should NOT be created in dry-run mode")
+
+	// Verify destination directory was NOT created
+	_, err = os.Stat(destDir)
+	assert.True(t, os.IsNotExist(err), "destination directory should NOT be created in dry-run mode")
+}
+
+// TestPerformBackup_DryRun_InvalidSource tests dry-run with invalid source
+func TestPerformBackup_DryRun_InvalidSource(t *testing.T) {
+	tempRoot := t.TempDir()
+	destDir := filepath.Join(tempRoot, "backups")
+
+	keyFile := filepath.Join(tempRoot, "dummy.asc")
+	err := os.WriteFile(keyFile, []byte("dummy key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := Config{
+		SourcePath: "/nonexistent/path",
+		DestDir:    destDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		DryRun:     true,
+	}
+
+	_, err = PerformBackup(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid source path")
+}

@@ -111,6 +111,7 @@ secure-backup backup [flags]
 - `--encryption`: Encryption method (default: "gpg")
 - `--retention`: Delete backups older than N days (default: 0 = keep all)
 - `--verbose, -v`: Show progress and detailed output
+- `--dry-run`: Preview operation without creating files
 
 **Examples:**
 
@@ -134,6 +135,14 @@ sudo secure-backup backup \
   --source /etc \
   --dest /root/backups \
   --public-key /root/.gnupg/backup-pub.asc
+
+# Preview backup before executing (dry-run)
+secure-backup backup \
+  --source /home/user/documents \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --dry-run \
+  --verbose
 ```
 
 **Output File Format:**
@@ -155,6 +164,7 @@ secure-backup restore [flags]
 - `--private-key` (required): Path to GPG private key
 - `--passphrase`: GPG key passphrase (or enter when prompted)
 - `--verbose, -v`: Show progress and detailed output
+- `--dry-run`: Preview operation without extracting files
 
 **Examples:**
 
@@ -191,6 +201,7 @@ secure-backup verify [flags]
 - `--private-key`: GPG private key (required for full verify)
 - `--passphrase`: GPG key passphrase
 - `--verbose, -v`: Show detailed output
+- `--dry-run`: Preview operation without performing verification
 
 **Examples:**
 
@@ -204,6 +215,13 @@ secure-backup verify \
 secure-backup verify \
   --file /backups/backup_documents_20260207.tar.gz.gpg \
   --private-key ~/.gnupg/backup-priv.asc \
+  --verbose
+
+# Preview what verification would check (dry-run)
+secure-backup verify \
+  --file /backups/backup_documents_20260207.tar.gz.gpg \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --dry-run \
   --verbose
 ```
 
@@ -229,6 +247,114 @@ secure-backup list \
   --dest /backups \
   --pattern "backup_etc_*.tar.gz.gpg"
 ```
+
+## Dry-Run Mode
+
+The `--dry-run` flag allows you to preview what an operation would do without actually executing it. This is useful for:
+
+- **Testing configurations** before running automated backups
+- **Verifying paths and settings** are correct
+- **Estimating backup sizes** and understanding what will be processed
+- **Checking retention policies** to see which files would be deleted
+- **Debugging issues** without making changes to the filesystem
+
+### How It Works
+
+When `--dry-run` is enabled:
+
+1. **No files are created, modified, or deleted**
+2. **Minimal validation** is performed (e.g., checking if source exists)
+3. **Output is prefixed** with `[DRY RUN]` for clarity
+4. **Expected paths and sizes** are shown
+5. **Pipeline stages are always listed** (dry-run automatically implies verbose output)
+
+> **Note:** The `--dry-run` flag automatically enables verbose output to provide a useful preview. You don't need to specify `--verbose` separately.
+
+### Examples
+
+**Preview a backup:**
+```bash
+secure-backup backup \
+  --source /home/user/documents \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --dry-run
+
+# Output:
+# [DRY RUN] Backup preview:
+# [DRY RUN]   Source: /home/user/documents (1.2 GiB)
+# [DRY RUN]   Destination: /backups/backup_documents_20260207_180500.tar.gz.gpg
+# [DRY RUN]   Compression: gzip
+# [DRY RUN]   Encryption: GPG
+# [DRY RUN]
+# [DRY RUN] Pipeline stages that would execute:
+# [DRY RUN]   1. TAR - Archive source directory
+# [DRY RUN]   2. COMPRESS - Compress with gzip
+# [DRY RUN]   3. ENCRYPT - Encrypt with GPG
+# [DRY RUN]   4. WRITE - Write to destination file
+```
+
+**Preview a restore:**
+```bash
+secure-backup restore \
+  --file /backups/backup_documents_20260207.tar.gz.gpg \
+  --dest /restore/location \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --dry-run
+
+# Output:
+# [DRY RUN] Restore preview:
+# [DRY RUN]   Backup file: /backups/backup_documents_20260207.tar.gz.gpg (523.4 MiB)
+# [DRY RUN]   Destination: /restore/location
+# [DRY RUN]
+# [DRY RUN] Pipeline stages that would execute:
+# [DRY RUN]   1. DECRYPT - Decrypt backup file with GPG
+# [DRY RUN]   2. DECOMPRESS - Decompress with gzip
+# [DRY RUN]   3. EXTRACT - Extract tar archive to destination
+```
+
+**Preview retention policy:**
+```bash
+secure-backup backup \
+  --source /data \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --retention 30 \
+  --dry-run
+
+# Output includes:
+# [DRY RUN] Would delete: backup_data_20240101_120000.tar.gz.gpg (37 days old)
+# [DRY RUN] Would delete: backup_data_20240105_120000.tar.gz.gpg (33 days old)
+# [DRY RUN] Would delete 2 old backup(s)
+```
+
+**Preview verification:**
+```bash
+secure-backup verify \
+  --file /backups/backup_documents_20260207.tar.gz.gpg \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --dry-run
+
+# Output:
+# [DRY RUN] Verify preview:
+# [DRY RUN]   Backup file: /backups/backup_documents_20260207.tar.gz.gpg (523.4 MiB)
+# [DRY RUN]   Mode: Full verification (decrypt + decompress)
+# [DRY RUN]
+# [DRY RUN] Full verification would:
+# [DRY RUN]   1. DECRYPT - Decrypt with GPG
+# [DRY RUN]   2. DECOMPRESS - Decompress with gzip
+# [DRY RUN]   3. VERIFY - Read entire archive to verify integrity
+```
+
+### Best Practices
+
+1. **Always test new configurations** with `--dry-run` first
+2. **Use dry-run to preview operations** - detailed output is automatic
+3. **Verify retention policies** before enabling them in production
+4. **Check paths and sizes** match your expectations
+5. **Test restore operations** before you need them in an emergency
+
+---
 
 ## Common Use Cases
 
