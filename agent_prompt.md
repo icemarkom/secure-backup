@@ -117,12 +117,17 @@ All core backup functionality is implemented, tested, and production-ready:
 **Phase 5**: User Experience ✅ IN PROGRESS
 - Phase 5.1: Silent by default + progress support ✅ COMPLETE (2026-02-08)
   - `internal/progress` package created (ProgressReader/Writer)
-  - Unix philosophy: silent success, errors to stderr 
+  - Unix philosophy: silent success, errors to stderr
   - `--verbose` flag for progress and details
   - Documentation: README, USAGE rewritten, agent_prompt updated
-  - Test coverage: progress package at 90% (was 53%)
+  - Test coverage: progress package at 90%
   - Real GPG integration tests added (encrypt: 29% → 68%)
-  - Total coverage: 54.1% (was 46.2%, +11.6%)
+- Phase 5.1b: Test coverage improvements ✅ COMPLETE (2026-02-07)
+  - Added comprehensive unit tests for backup, restore, verify, retention
+  - Added integration tests for full pipelines
+  - Total coverage: 58.9% (was 36.2%, +22.7%) ✅ Passes CI!
+  - internal/backup: 77.9% (pipeline functions now tested)
+  - internal/retention: 73.1% (ApplyPolicy + ListBackups)
 - Phase 5.2: Better error messages (NEXT)
   - `internal/errors` package with UserError type
   - Contextual errors with hints  
@@ -148,23 +153,40 @@ All core backup functionality is implemented, tested, and production-ready:
 
 ## Testing Philosophy
 
-**Goal**: Pragmatic integration testing - prove the tool works without excessive mocking
+**Goal**: Pragmatic testing - unit tests for coverage, integration tests for confidence
 
 ### Core Principles
 
-1. **Trust over coverage** - Real GPG tests > 100% mocked coverage
-2. **Simple integration tests** - Use real tar, gzip, GPG with test keys
-3. **Fast and deterministic** - Generate test keys on-the-fly, no network
-4. **No checked-in secrets** - Even test keys are generated per-run
-5. **Maintainable** - Avoid complex test infrastructure
+1. **Unit tests first** - Fast, focused tests for individual functions and error paths
+2. **Integration tests second** - Comprehensive end-to-end validation with real operations
+3. **Trust over coverage** - Real GPG tests > 100% mocked coverage
+4. **Fast and deterministic** - Generate test keys on-the-fly via script, no network
+5. **No checked-in secrets** - Test keys are ALWAYS generated, never checked into git
+6. **Maintainable** - Clear test structure, avoid complex mocking
 
 ### Testing Strategy
 
+**Two-Phase Approach:**
+
+**Phase 1: Unit Tests**
+- Test error handling and validation logic
+- Test helper functions and edge cases
+- Fast execution, high code coverage
+- Foundation for catching regressions
+
+**Phase 2: Integration Tests**
+- Test complete backup → restore → verify cycles
+- Use real tar, gzip, GPG operations
+- Validate end-to-end pipelines work correctly
+- Provide confidence in production behavior
+
 **What we test with REAL operations:**
 - ✅ GPG encryption/decryption (with auto-generated test keys)
+- ✅ Full backup → restore → verify pipelines
 - ✅ Tar archiving and extraction
 - ✅ Gzip compression/decompression
 - ✅ File I/O and streaming pipelines
+- ✅ Retention policy (file creation, deletion, time-based filtering)
 
 **What we DON'T waste time on:**
 - ❌ Mocking GPG (defeats the purpose - need to know it works!)
@@ -174,55 +196,92 @@ All core backup functionality is implemented, tested, and production-ready:
 
 ### Test Key Management
 
-**On-the-fly generation:**
-- Test keys are NOT checked into git
-- `TestMain()` in encrypt package auto-generates keys if missing
-- CI generates keys before running tests
-- Script: `test_data/generate_test_keys.sh`
+**CRITICAL: Keys are ALWAYS generated via script, NEVER checked into git**
+
+**Generation Approach:**
+- Script: `test_data/generate_test_keys.sh` (POSIX-compliant)
+- Test keys are gitignored (`.gitignore` prevents accidental commits)
+- CI runs script before tests (configured in `.github/workflows/test.yml`)
+- Local developers run script once, keys persist but stay gitignored
+- Tests use existing keys if present, skip if keys missing (graceful degradation)
 
 **Why not check in test keys?**
 - Security best practice (no keys in repos, even test keys)
-- Teaches good habits
+- Teaches good habits (keys belong in .gitignore)
 - CI/CD generates fresh keys each run
-- Local developers generate once, keys are gitignored
+- Prevents stale key issues
+
+**Key Locations:**
+- Public key: `test_data/test-public.asc` (gitignored)
+- Private key: `test_data/test-private.asc` (gitignored)
+- GPG home: `test_data/gnupg/` (gitignored)
 
 ### Coverage Goal: 55-60%
 
-**Current: ~57.8%**
+**Current: 58.9%** ✅ (Achieved 2026-02-07)
 
+**Package Breakdown:**
 ```
-archive:    72.5%  ✅ Real tar operations
-backup:     65.7%  ✅ Real pipeline
-compress:   76.9%  ✅ Real gzip
-encrypt:    67.9%  ✅ Real GPG (was 28.6%!)
-progress:   90.0%  ✅ Comprehensive
-retention:  58.2%  ✅ File operations
-cmd:        0.0%   ⚠️  (flag parsing, low priority)
-main:       0.0%   ⚠️  (entry point, no logic)
+internal/progress/   90.0%  ✅ Comprehensive coverage
+internal/backup/     77.9%  ✅ Unit + integration tests (was 0% on pipelines!)
+internal/compress/   76.9%  ✅ Real gzip operations
+internal/retention/  73.1%  ✅ ApplyPolicy + ListBackups tested
+internal/archive/    72.5%  ✅ Real tar operations
+internal/encrypt/    67.9%  ✅ Real GPG encryption/decryption
+cmd/                 0.0%   ⚠️  CLI commands (lower priority)
+main.go              0.0%   ⚠️  Entry point (expected)
+
+TOTAL:               58.9%  ✅ Passes 51% CI threshold, within 55-60% goal
 ```
+
+**Coverage History:**
+- 2026-02-07 (before fixes): 36.2% ❌ (failing CI)
+- 2026-02-07 (after unit tests): 57.1% ✅
+- 2026-02-07 (after integration tests): 58.9% ✅
 
 **Rationale for 55-60% target:**
-- Backup tools need REAL encryption tests
+- Backup tools need REAL encryption tests, not mocked coverage
 - Would you trust 90% coverage with mocked GPG? No.
-- Would you trust 57% with real GPG round-trips? Yes.
+- Would you trust 59% with real GPG round-trips + integration tests? Yes.
+- Unit tests provide coverage, integration tests provide confidence
 
 ### Test Structure
 
+**Test Files (10 total, ~1,800 lines of test code):**
+
+**Unit Tests:**
+- `internal/backup/backup_test.go` - PerformBackup unit tests (error handling, validation)
+- `internal/backup/restore_test.go` - PerformRestore unit tests
+- `internal/backup/verify_test.go` - Verify function unit tests
+- `internal/retention/policy_test.go` - ApplyPolicy, ListBackups, helpers
+- `internal/archive/tar_test.go` - Tar operations
+- `internal/compress/gzip_test.go` - Gzip compression
+- `internal/encrypt/gpg_test.go` - GPG encryption
+- `internal/progress/progress_test.go` - Progress tracking
+
+**Integration Tests:**
+- `internal/backup/integration_test.go` - Full pipeline tests (backup → restore → verify)
+
+**Test Infrastructure:**
+- `test_data/generate_test_keys.sh` - GPG key generation script (committed)
+- `test_data/*.asc` - Generated keys (gitignored)
+- `test_data/gnupg/` - GPG home directory (gitignored)
+
+**Running Tests:**
 ```bash
 # Run all tests (generates keys if needed)
 go test ./...
 
-# Skip integration tests
+# Skip integration tests (faster)
 go test ./... -short
 
 # Run with coverage
 go test ./... -coverprofile=coverage.out
-```
+go tool cover -func=coverage.out | grep total
 
-**Test files:**
-- `*_test.go` - Standard Go tests
-- `test_data/generate_test_keys.sh` - Key generation (committed)
-- `test_data/*.asc` - Generated keys (gitignored)
+# View HTML coverage report
+go tool cover -html=coverage.out
+```
 
 ---
 
