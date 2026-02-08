@@ -115,11 +115,14 @@ All core backup functionality is implemented, tested, and production-ready:
 - Compression benchmarking
 
 **Phase 5**: User Experience ✅ IN PROGRESS
-- Phase 5.1: Silent by default + progress support ✅ COMPLETE (2026-02-07)
+- Phase 5.1: Silent by default + progress support ✅ COMPLETE (2026-02-08)
   - `internal/progress` package created (ProgressReader/Writer)
   - Unix philosophy: silent success, errors to stderr 
   - `--verbose` flag for progress and details
   - Documentation: README, USAGE rewritten, agent_prompt updated
+  - Test coverage: progress package at 90% (was 53%)
+  - Real GPG integration tests added (encrypt: 29% → 68%)
+  - Total coverage: 54.1% (was 46.2%, +11.6%)
 - Phase 5.2: Better error messages (NEXT)
   - `internal/errors` package with UserError type
   - Contextual errors with hints  
