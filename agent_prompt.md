@@ -84,53 +84,69 @@
 
 ---
 
-## Phase 6: Productionization (PLANNED)
+---
 
-> **Goal**: Harden the tool for production use with mission-critical data
-> 
-> **Current Trust Score**: 6.5/10 - Good for personal use, needs hardening for business-critical data
-> 
+## Productionization Effort
+
+> **Goal**: Harden the tool for production use with mission-critical data  
+> **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
+> **Current Trust Score**: 6.5/10 - Good for personal use, needs hardening for mission-critical data  
 > **Target**: 9/10 - Production-ready for mission-critical backups
 
-### Priority 0: Must Fix Before Production (CRITICAL)
+### Critical Issues (Must Fix)
 
-#### 6.1: Backup Verification & Integrity ⚠️ CRITICAL
+#### P1: Backup Metadata & Verification ⚠️ CRITICAL
 
-**Problem**: Backups are created but never verified. Corruption goes undetected until restore fails.
+**Problem**: Backups lack metadata and verification. Corruption goes undetected until restore fails.
 
 **Current State**:
-- `verify` command exists but not automatic
 - No checksums stored alongside backups
+- No metadata about source, version, settings
 - No detection of bit rot or corruption over time
-- Quick verify only checks GPG signature, not data
+- Only filename contains timestamp
 
-**Proposed Solutions**:
-
-**Option A: Automatic Post-Backup Verification** (Recommended)
-- Compute SHA256 of encrypted backup file after creation
-- Store checksum in `.sha256` sidecar file
+**Decision: Unified Manifest with Checksum (Default Enabled)**
+- Create `backup_*.manifest.json` alongside backup **by default**
+- **Add `--skip-manifest` flag to disable** for simple/fast backups
+- Manifest includes SHA256 checksum of encrypted backup
+- Contains: source, timestamp, version, settings, checksum
 - Optionally: quick decrypt test of first 1KB
-- Add `--skip-verify` flag to disable if needed
 - Estimated effort: 1-2 days
 
-**Option B: Separate Verification Step**
-- Add `--verify` flag to backup command
-- User must explicitly request verification
-- Lighter implementation, less safe
-- Estimated effort: 0.5 days
+**Manifest Format**:
+```json
+{
+  "version": "1.0.0",
+  "created": "2026-02-08T22:30:00Z",
+  "source": "/path/to/source",
+  "backup_file": "backup_source_20260208_223000.tar.gz.gpg",
+  "checksum": {
+    "algorithm": "sha256",
+    "value": "abc123..."
+  },
+  "compression": "gzip",
+  "encryption": "gpg",
+  "tool_version": "v0.1.0"
+}
+```
 
-**Option C: Full Restore Test** (Most thorough)
-- After backup, restore to temp directory
-- Compare checksums of all files
-- Delete temp directory
-- Slow but guarantees backup integrity
-- Estimated effort: 2-3 days
+**Implementation Notes**:
+- **Default behavior: generate manifest** (production-ready out of the box)
+- User can skip with `--skip-manifest` for faster backups when verification not needed
+- Manifest generation includes automatic checksum computation
+- `verify` command can read and validate manifest + checksum
+- Single feature provides both metadata and integrity verification
 
-**Decision needed**: Which option to implement?
+**Rationale for Default Enabled**:
+- Production hardening means verify by default
+- Manifest overhead is minimal (one extra file, one checksum computation)
+- Users who don't need it can easily disable
+- Better to be safe by default than fast by default
+- Natural coupling of metadata + verification features
 
 ---
 
-#### 6.2: Atomic Backup Writes ⚠️ CRITICAL
+#### P2: Atomic Backup Writes ⚠️ CRITICAL
 
 **Problem**: Partial backup files created on failure. Race condition in error cleanup.
 
@@ -144,33 +160,22 @@ defer func() {
 }()
 ```
 
-**Proposed Solutions**:
-
-**Option A: Temp File + Rename** (Recommended)
+**Decision: Temp File + Rename (No Cleanup)**
 - Write to `backup_*.tar.gz.gpg.tmp`
-- Rename to final name only on success
-- Atomic on same filesystem
-- Clean up `.tmp` files on startup
+- Rename to final name only on success (atomic on same filesystem)
+- **Delete only files we create in current session**
+- User deals with stale `.tmp` files manually
 - Estimated effort: 0.5 days
 
-**Option B: Write-Ahead Log Pattern**
-- Create intent log before backup
-- Mark as complete after success
-- Recovery process on startup
-- More complex, overkill for this use case
-- Estimated effort: 2 days
-
-**Option C: Two-Phase Commit**
-- Write backup to staging area
-- Verify integrity
-- Move to final destination
-- Estimated effort: 1 day
-
-**Decision needed**: Option A recommended unless specific requirements differ.
+**Implementation Notes**:
+- Pattern: `outputPath + ".tmp"` during write
+- `os.Rename(tmpPath, finalPath)` on success
+- On error: delete the `.tmp` file we just created
+- No startup cleanup - user responsibility
 
 ---
 
-#### 6.3: Comprehensive Error Propagation ⚠️ CRITICAL
+#### P3: Comprehensive Error Propagation ⚠️ CRITICAL
 
 **Problem**: Pipeline goroutines have weak error handling. Only tar errors are captured.
 
@@ -184,32 +189,21 @@ if err := <-errChan; err != nil {
 }
 ```
 
-**Proposed Solutions**:
-
-**Option A: Error Group Pattern** (Recommended)
+**Decision: Error Group Pattern**
 - Use `golang.org/x/sync/errgroup`
 - Captures first error from any goroutine
 - Cancels remaining goroutines on error
 - Standard Go pattern
 - Estimated effort: 1 day
 
-**Option B: Multiple Error Channels**
-- Separate channel per pipeline stage
-- Check all channels with select
-- More manual, more control
-- Estimated effort: 1 day
-
-**Option C: Context Cancellation**
-- Pass context through pipeline
-- Cancel on first error
-- Requires refactoring all stages
-- Estimated effort: 2-3 days
-
-**Decision needed**: Option A recommended (standard library solution).
+**Implementation Notes**:
+- Replace manual error channel with `errgroup.Group`
+- Add context for cancellation
+- All pipeline stages report errors to group
 
 ---
 
-#### 6.4: Secure Passphrase Handling ⚠️ CRITICAL
+#### P4: Secure Passphrase Handling ⚠️ CRITICAL
 
 **Problem**: Passphrase visible in process list and shell history.
 
@@ -219,106 +213,58 @@ if err := <-errChan; err != nil {
 secure-backup restore --passphrase "my-secret-pass" ...
 ```
 
-**Proposed Solutions**:
+**Goal**: Unattended use with security.
 
-**Option A: Environment Variable** (Simplest)
-- Read from `SECURE_BACKUP_PASSPHRASE` env var
-- Document in usage guide
-- Still visible in process env, but better
-- Estimated effort: 0.25 days
+**Decision: Modified Hybrid with Security Warning**
 
-**Option B: Interactive Prompt** (Recommended)
-- Use `golang.org/x/term` for secure input
-- Prompt user if passphrase not provided
-- No echo to terminal
-- Best UX for interactive use
-- Estimated effort: 0.5 days
+**Priority Order (Mutually Exclusive)**:
+1. **`--passphrase` flag** (current) - Check first for backward compatibility
+   - **Print security warning** if used
+   - Example: "Warning: Passphrase on command line is insecure. Use --passphrase-file or SECURE_BACKUP_PASSPHRASE env var."
+2. **`SECURE_BACKUP_PASSPHRASE` env var** - Check second
+3. **`--passphrase-file` flag** - Check third
+   - User manages file permissions (chmod 600)
 
-**Option C: File-Based Passphrase**
-- Read from `--passphrase-file` flag
-- User manages file permissions
-- Good for automation
-- Estimated effort: 0.25 days
+**Mutually Exclusive**: Error if multiple methods provided.
 
-**Option D: Hybrid Approach** (Most Flexible)
-- Try env var first
-- Then passphrase file
-- Finally interactive prompt
-- Covers all use cases
-- Estimated effort: 1 day
+**Estimated effort**: 1 day
 
-**Decision needed**: Option D recommended for maximum flexibility.
+**Implementation Notes**:
+- Check in order: flag → env var → file
+- Warn on insecure flag usage
+- Error if multiple sources provided
+- No interactive prompt (breaks unattended use)
 
 ---
 
-### Priority 1: Should Fix Soon (HIGH)
+### High Priority Issues
 
-#### 6.5: Resource Limits & DoS Protection
-
-**Problem**: No protection against malicious or corrupted archives.
-
-**Current State**:
-- No limit on number of files
-- No limit on individual file sizes
-- No limit on total archive size
-- No symlink depth checking
-- No filename length validation
-
-**Proposed Solutions**:
-
-**Option A: Configurable Limits** (Recommended)
-- Add config for max files, max size, max depth
-- Sane defaults (e.g., 1M files, 100GB total, 10 symlink depth)
-- `--no-limits` flag to disable
-- Estimated effort: 1-2 days
-
-**Option B: Hard-Coded Limits**
-- Fixed limits in code
-- Simpler, less flexible
-- Estimated effort: 0.5 days
-
-**Option C: Progressive Limits**
-- Warn at threshold, error at hard limit
-- Better UX for edge cases
-- Estimated effort: 2 days
-
-**Decision needed**: Which limits are most important?
-
----
-
-#### 6.6: Backup Locking
+#### P5: Backup Locking
 
 **Problem**: Concurrent backups to same destination can conflict.
 
 **Current State**:
 - No protection against simultaneous backups
 - Race conditions in retention cleanup
-- Possible file corruption
 
-**Proposed Solutions**:
-
-**Option A: File-Based Locking** (Recommended)
-- Use `flock` or lock file
-- Lock destination directory during backup
-- Clean up stale locks on startup
+**Decision: File-Based Locking (Fail Loudly, No Cleanup)**
+- Use lock file: `<dest>/.backup.lock` with PID and timestamp
+- **No cleanup - fail loudly if lock exists**
+- **Print error with PID and helpful message**
+- User must manually remove stale locks
 - Estimated effort: 0.5 days
 
-**Option B: PID File**
-- Write PID to `.backup.lock`
-- Check if process still running
-- Simpler but less robust
-- Estimated effort: 0.25 days
-
-**Option C: No Locking**
-- Document that concurrent backups not supported
-- User responsibility
-- Estimated effort: 0 days
-
-**Decision needed**: Option A recommended for safety.
+**Implementation Notes**:
+- Lock file contains: PID, timestamp, hostname
+- Before backup: check if lock exists
+- If exists: read PID from lock file and print error with details
+- **Error message**: `"Backup already in progress (PID 12345, lock file: .backup.lock). If stale, remove manually."`
+- On success: remove lock file
+- On error: remove lock file (we created it)
 
 ---
 
-#### 6.7: Restore Safety Checks
+#### P6: Restore Safety Checks
 
 **Problem**: Restore silently overwrites existing files.
 
@@ -327,192 +273,32 @@ secure-backup restore --passphrase "my-secret-pass" ...
 outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, ...)
 ```
 
-**Proposed Solutions**:
-
-**Option A: Require --force Flag** (Recommended)
-- Error if destination not empty
-- `--force` to override
-- Prevents accidental overwrites
+**Decision: Require --force Flag**
+- Error if destination directory is not empty
+- `--force` to override and allow overwrite
+- Prevents accidental data loss
 - Estimated effort: 0.5 days
 
-**Option B: Interactive Confirmation**
-- Prompt user if files exist
-- Not suitable for automation
-- Estimated effort: 0.5 days
-
-**Option C: Backup Existing Files**
-- Move existing files to `.bak` before restore
-- Safer but more complex
-- Estimated effort: 1 day
-
-**Decision needed**: Option A recommended (standard pattern).
-
----
-
-#### 6.8: Migrate from Deprecated OpenPGP
-
-**Problem**: `golang.org/x/crypto/openpgp` is deprecated and unmaintained.
-
-**Current State**:
-- Using frozen, unmaintained library
-- Security vulnerabilities won't be patched
-- Works but risky long-term
-
-**Proposed Solutions**:
-
-**Option A: Implement age Encryption** (Recommended)
-- Already planned in Phase 3
-- Modern, maintained alternative
-- Simpler key management
-- Support both GPG and age
-- Estimated effort: 3-5 days
-
-**Option B: Use ProtonMail's gopenpgp**
-- Maintained fork of openpgp
-- Drop-in replacement
-- Still GPG-based
-- Estimated effort: 1-2 days
-
-**Option C: Use External GPG Binary**
-- Shell out to `gpg` command
-- Most compatible
-- Slower, more dependencies
-- Estimated effort: 2-3 days
-
-**Decision needed**: Option A recommended (aligns with roadmap).
-
----
-
-### Priority 2: Nice to Have (MEDIUM)
-
-#### 6.9: Structured Logging & Observability
-
-**Problem**: No structured logging, hard to monitor in production.
-
-**Current State**:
-- Printf-style logging
-- No log levels
-- No JSON output
-- No metrics
-
-**Proposed Solutions**:
-
-**Option A: Add slog (Go 1.21+)** (Recommended)
-- Standard library structured logging
-- Multiple output formats (text, JSON)
-- Log levels (debug, info, warn, error)
-- Estimated effort: 1-2 days
-
-**Option B: Use logrus or zap**
-- More features than slog
-- Additional dependency
-- Estimated effort: 1-2 days
-
-**Option C: Minimal Structured Output**
-- JSON output flag for key events
-- No full logging framework
-- Estimated effort: 0.5 days
-
-**Decision needed**: Option A recommended (stdlib, future-proof).
-
----
-
-#### 6.10: Backup Metadata & Manifests
-
-**Problem**: No metadata about backup contents or creation.
-
-**Current State**:
-- Only filename contains timestamp
-- No source path recorded
-- No tool version
-- No compression/encryption settings
-
-**Proposed Solutions**:
-
-**Option A: JSON Manifest File** (Recommended)
-- Create `backup_*.manifest.json` alongside backup
-- Contains: source, timestamp, version, settings, checksum
-- Easy to parse and audit
-- Estimated effort: 1 day
-
-**Option B: Embedded Metadata**
-- Store metadata inside encrypted archive
-- More complex to extract
-- Estimated effort: 2 days
-
-**Option C: Extended Attributes**
-- Use filesystem xattrs
-- Not portable across filesystems
-- Estimated effort: 1 day
-
-**Decision needed**: Option A recommended (portable, auditable).
-
----
-
-#### 6.11: Metrics & Performance Tracking
-
-**Problem**: No visibility into backup performance.
-
-**Proposed Solutions**:
-
-**Option A: Basic Metrics**
-- Track: duration, size, compression ratio
-- Output to stderr or log file
-- Estimated effort: 0.5 days
-
-**Option B: Prometheus Metrics**
-- Export metrics in Prometheus format
-- Requires metrics endpoint
-- Overkill for CLI tool
-- Estimated effort: 2 days
-
-**Option C: JSON Performance Report**
-- Write performance data to `.metrics.json`
-- Easy to parse and analyze
-- Estimated effort: 1 day
-
-**Decision needed**: Option A or C depending on use case.
-
----
-
-#### 6.12: Enhanced Testing
-
-**Problem**: Good coverage (83%) but limited edge case testing.
-
-**Proposed Improvements**:
-- Chaos testing (random failures in pipeline)
-- Large file testing (multi-GB backups)
-- Corruption testing (bit flips in backups)
-- Performance benchmarks
-- Fuzz testing for tar/compression
-- Estimated effort: 3-5 days
+**Implementation Notes**:
+- Check if destination directory exists and is non-empty
+- Return error with helpful message
+- `--force` flag bypasses check
 
 ---
 
 ### Implementation Strategy
 
-**Recommended Phases**:
+**Week 1: Critical Fixes (P1-P4)**
+- Day 1-2: P1 - Backup Metadata & Verification (unified `--manifest` flag)
+- Day 2-3: P2 - Atomic Writes (temp file + rename, no cleanup)
+- Day 3-4: P3 - Error Propagation (errgroup)
+- Day 4-5: P4 - Passphrase Handling (hybrid with warning)
 
-1. **Week 1**: P0 Critical Fixes
-   - 6.1: Backup Verification (Option A)
-   - 6.2: Atomic Writes (Option A)
-   - 6.3: Error Propagation (Option A)
-   - 6.4: Secure Passphrase (Option D)
+**Week 2: High Priority (P5-P6)**
+- Day 1: P5 - Backup Locking (fail loudly with PID, no cleanup)
+- Day 2: P6 - Restore Safety (--force flag)
 
-2. **Week 2**: P1 High Priority
-   - 6.5: Resource Limits (Option A)
-   - 6.6: Backup Locking (Option A)
-   - 6.7: Restore Safety (Option A)
-
-3. **Week 3**: P1 Crypto Migration
-   - 6.8: Implement age encryption (Option A)
-
-4. **Week 4**: P2 Observability
-   - 6.9: Structured Logging (Option A)
-   - 6.10: Metadata (Option A)
-   - 6.11: Metrics (Option C)
-
-**Total Estimated Effort**: 3-4 weeks for full productionization
+**Total Estimated Effort**: 1.5-2 weeks
 
 ---
 
@@ -787,8 +573,14 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-08 | Gzip level 6 default | Good balance speed/ratio |
 | 2026-02-08 | Remove Phase 5.4 | Disk space checks unreliable, prompts break automation |
 | 2026-02-08 | Remove Phase 6 | Remote storage backends not viable for now |
-| 2026-02-08 | Add Phase 6: Productionization | Production readiness analysis revealed critical gaps |
-| 2026-02-08 | Merge Phase 3 into 6.8 | age encryption is part of crypto migration |
+| 2026-02-08 | Productionization Effort | Production readiness analysis revealed 6 critical items (P1-P6) |
+| 2026-02-08 | Simplicity over features | No config files, unattended operation with security |
+| 2026-02-08 | GPG stays, may add others | Original requirement, age/others are additions not replacements |
+| 2026-02-08 | Combine P1+P7 into P1 | Manifest and checksum naturally coupled, simpler UX |
+| 2026-02-08 | Manifest enabled by default | Production hardening means verify by default, --skip-manifest to disable |
+| 2026-02-08 | No automatic cleanup | User deals with stale .tmp and .lock files manually |
+| 2026-02-08 | Fail loudly on conflicts | No silent recovery, print errors with PID and exit |
+| 2026-02-08 | Passphrase priority order | Flag (with warning) → env var → file (mutually exclusive) |
 
 ---
 
@@ -857,8 +649,11 @@ golangci-lint run
 
 ---
 
+---
+
 **Last Updated**: 2026-02-08  
 **Last Updated By**: Agent (conversation 03ed4df2-03cd-4bb1-9dae-181686ba8fca)  
-**Project Phase**: Phase 5 Complete (User Experience), Phase 6 Planned (Productionization)  
-**Production Trust Score**: 6.5/10 - Good for personal use, needs Phase 6 for mission-critical data  
-**Next Milestone**: Phase 6 Productionization (3-4 weeks estimated)
+**Project Phase**: Phase 5 Complete (User Experience), Productionization Effort Planned  
+**Production Trust Score**: 6.5/10 - Good for personal use, needs productionization for mission-critical data  
+**Productionization**: P1-P6 (6 items), 1.5-2 weeks estimated  
+**Next Milestone**: Productionization Effort (P1-P6)
