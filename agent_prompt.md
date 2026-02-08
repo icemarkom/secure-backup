@@ -152,8 +152,6 @@ All core backup functionality is implemented, tested, and production-ready:
   - Coverage: 84.2% for backup package (up from 74.5%, +9.7%)
   - Documentation: README.md and USAGE.md updated with examples
   - Output prefixed with `[DRY RUN]` for clarity
-- Phase 5.4: Validation & confirmation (PLANNED)
-  - Disk space checks, confirmation prompts
 
 **Phase 6**: Remote Storage Backends
 - S3 backend
