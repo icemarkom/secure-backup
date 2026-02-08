@@ -125,9 +125,17 @@ All core backup functionality is implemented, tested, and production-ready:
 - Phase 5.1b: Test coverage improvements ✅ COMPLETE (2026-02-07)
   - Added comprehensive unit tests for backup, restore, verify, retention
   - Added integration tests for full pipelines
+  - Standardized test nomenclature to want/got convention
   - Total coverage: 58.9% (was 36.2%, +22.7%) ✅ Passes CI!
   - internal/backup: 77.9% (pipeline functions now tested)
   - internal/retention: 73.1% (ApplyPolicy + ListBackups)
+  - **Test Files Created**:
+    - `internal/backup/backup_test.go` - PerformBackup unit tests
+    - `internal/backup/restore_test.go` - PerformRestore unit tests
+    - `internal/backup/verify_test.go` - Verify function tests
+    - `internal/backup/integration_test.go` - Full pipeline integration tests
+    - Enhanced `internal/retention/policy_test.go` - ApplyPolicy + ListBackups
+  - **Commits**: 3c7e42f (test improvements), 0f58298 (nomenclature)
 - Phase 5.2: Better error messages (NEXT)
   - `internal/errors` package with UserError type
   - Contextual errors with hints  
@@ -620,12 +628,49 @@ golangci-lint run
 
 Based on conversation history:
 
-1. **Unit tests first**: High test coverage is a priority (80%+ target)
-2. **Native Go**: Avoid `os.Exec` calls where possible
-3. **Interface-based**: Design for extensibility
-4. **Clear communication**: Comprehensive docs for users and future agents
-5. **No auto-commits**: Stage changes, let user commit
-6. **General-purpose first**: Docker is secondary
+### Workflow Preferences (CRITICAL - MUST FOLLOW)
+
+1. **NEVER auto-commit without explicit user instruction**
+   - ALWAYS stage changes with `git add`
+   - ALWAYS ask user before committing
+   - ONLY commit when user explicitly says "commit" or "commit and push"
+   - Pattern: make changes → stage → **ASK USER** → commit when authorized
+   - **Violation of this is a serious mistake**
+
+2. **ALWAYS update agent_prompt.md after significant work**
+   - After completing features or phases
+   - After making architectural decisions
+   - After achieving milestones (e.g., coverage improvements)
+   - Document current state, not just plans
+   - This file is the source of truth for next agent
+
+3. **Test nomenclature standards**
+   - Use `want` for expected values (not `expected`)
+   - Use `got` for actual values (not `result`)
+   - Follows standard Go testing conventions
+   - Improves test readability and consistency
+
+### Development Preferences
+
+4. **Testing approach**: Unit tests first, then integration tests
+   - Unit tests: Fast, focused, test individual functions and error paths
+   - Integration tests: Comprehensive, validate full pipelines work correctly
+   - Both are essential and complementary
+   - Target coverage: 55-60% (pragmatic, not obsessive)
+
+5. **Test keys**: ALWAYS generated via script, NEVER checked into git
+   - Script: `test_data/generate_test_keys.sh`
+   - Keys are gitignored
+   - CI generates keys before tests
+   - No static/checked-in keys even for testing
+
+6. **Native Go**: Avoid `os.Exec` calls where possible
+
+7. **Interface-based**: Design for extensibility
+
+8. **Clear communication**: Comprehensive docs for users and future agents
+
+9. **General-purpose first**: Docker is secondary
 
 ---
 
@@ -642,22 +687,46 @@ Based on conversation history:
 
 1. **Update task.md** - Mark progress on checklist items
 2. **Create artifacts** - For complex features or decisions
-3. **Stage changes** - Use `git add`, don't auto-commit
+3. **Stage changes** - Use `git add`, **NEVER auto-commit**
 4. **Test thoroughly** - Maintain test coverage
+5. **Follow test conventions** - Use `want`/`got` nomenclature
 
 ### Before Finishing:
 
 1. **Update this file** - Reflect current state and decisions
 2. **Update task.md** - Mark completed items
 3. **Document decisions** - Add to decision log if architectural
-4. **Leave clear handoff** - Next agent should know exact state
+4. **Stage all changes** - `git add` but **DO NOT commit**
+5. **ASK user** - "Ready to commit?" and wait for explicit approval
+6. **Leave clear handoff** - Next agent should know exact state
+
+### Commit Workflow (CRITICAL):
+
+```
+✅ CORRECT:
+1. Make changes
+2. git add <files>
+3. Ask user: "Changes staged. Ready to commit?"
+4. WAIT for user to say "yes" or "commit"
+5. ONLY THEN: git commit + git push
+
+❌ WRONG:
+1. Make changes
+2. git add <files>
+3. git commit (WITHOUT ASKING)  ← VIOLATION
+4. git push (WITHOUT ASKING)     ← VIOLATION
+```
+
+**The pattern is: MAKE → STAGE → ASK → WAIT → COMMIT (only when authorized)**
 
 ### Critical Reminders:
 
-- ⚠️ **ALWAYS** update this file after significant work
-- ⚠️ **NEVER** auto-commit without explicit user instruction
-- ⚠️ **CHECK** task.md and artifacts before major changes
+- ⚠️ **NEVER EVER auto-commit** - This is the #1 rule
+- ⚠️ **ALWAYS update this file** after significant work
+- ⚠️ **ALWAYS ask before committing** - Stage and ask, don't assume
+- ⚠️ **CHECK task.md** and artifacts before major changes
 - ⚠️ **DOCUMENT** architectural decisions
+- ⚠️ **USE want/got** nomenclature in all tests
 
 ---
 
