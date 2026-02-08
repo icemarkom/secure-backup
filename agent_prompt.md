@@ -84,9 +84,441 @@
 
 ---
 
+## Phase 6: Productionization (PLANNED)
+
+> **Goal**: Harden the tool for production use with mission-critical data
+> 
+> **Current Trust Score**: 6.5/10 - Good for personal use, needs hardening for business-critical data
+> 
+> **Target**: 9/10 - Production-ready for mission-critical backups
+
+### Priority 0: Must Fix Before Production (CRITICAL)
+
+#### 6.1: Backup Verification & Integrity ⚠️ CRITICAL
+
+**Problem**: Backups are created but never verified. Corruption goes undetected until restore fails.
+
+**Current State**:
+- `verify` command exists but not automatic
+- No checksums stored alongside backups
+- No detection of bit rot or corruption over time
+- Quick verify only checks GPG signature, not data
+
+**Proposed Solutions**:
+
+**Option A: Automatic Post-Backup Verification** (Recommended)
+- Compute SHA256 of encrypted backup file after creation
+- Store checksum in `.sha256` sidecar file
+- Optionally: quick decrypt test of first 1KB
+- Add `--skip-verify` flag to disable if needed
+- Estimated effort: 1-2 days
+
+**Option B: Separate Verification Step**
+- Add `--verify` flag to backup command
+- User must explicitly request verification
+- Lighter implementation, less safe
+- Estimated effort: 0.5 days
+
+**Option C: Full Restore Test** (Most thorough)
+- After backup, restore to temp directory
+- Compare checksums of all files
+- Delete temp directory
+- Slow but guarantees backup integrity
+- Estimated effort: 2-3 days
+
+**Decision needed**: Which option to implement?
+
+---
+
+#### 6.2: Atomic Backup Writes ⚠️ CRITICAL
+
+**Problem**: Partial backup files created on failure. Race condition in error cleanup.
+
+**Current State**:
+```go
+defer func() {
+    outFile.Close()
+    if err != nil {  // Race: err may not be set yet
+        os.Remove(outputPath)
+    }
+}()
+```
+
+**Proposed Solutions**:
+
+**Option A: Temp File + Rename** (Recommended)
+- Write to `backup_*.tar.gz.gpg.tmp`
+- Rename to final name only on success
+- Atomic on same filesystem
+- Clean up `.tmp` files on startup
+- Estimated effort: 0.5 days
+
+**Option B: Write-Ahead Log Pattern**
+- Create intent log before backup
+- Mark as complete after success
+- Recovery process on startup
+- More complex, overkill for this use case
+- Estimated effort: 2 days
+
+**Option C: Two-Phase Commit**
+- Write backup to staging area
+- Verify integrity
+- Move to final destination
+- Estimated effort: 1 day
+
+**Decision needed**: Option A recommended unless specific requirements differ.
+
+---
+
+#### 6.3: Comprehensive Error Propagation ⚠️ CRITICAL
+
+**Problem**: Pipeline goroutines have weak error handling. Only tar errors are captured.
+
+**Current State**:
+```go
+errChan := make(chan error, 3)
+// Only tar goroutine sends to errChan
+// Compression/encryption errors lost
+if err := <-errChan; err != nil {
+    return err
+}
+```
+
+**Proposed Solutions**:
+
+**Option A: Error Group Pattern** (Recommended)
+- Use `golang.org/x/sync/errgroup`
+- Captures first error from any goroutine
+- Cancels remaining goroutines on error
+- Standard Go pattern
+- Estimated effort: 1 day
+
+**Option B: Multiple Error Channels**
+- Separate channel per pipeline stage
+- Check all channels with select
+- More manual, more control
+- Estimated effort: 1 day
+
+**Option C: Context Cancellation**
+- Pass context through pipeline
+- Cancel on first error
+- Requires refactoring all stages
+- Estimated effort: 2-3 days
+
+**Decision needed**: Option A recommended (standard library solution).
+
+---
+
+#### 6.4: Secure Passphrase Handling ⚠️ CRITICAL
+
+**Problem**: Passphrase visible in process list and shell history.
+
+**Current State**:
+```bash
+# Insecure: visible in `ps aux` and `.bash_history`
+secure-backup restore --passphrase "my-secret-pass" ...
+```
+
+**Proposed Solutions**:
+
+**Option A: Environment Variable** (Simplest)
+- Read from `SECURE_BACKUP_PASSPHRASE` env var
+- Document in usage guide
+- Still visible in process env, but better
+- Estimated effort: 0.25 days
+
+**Option B: Interactive Prompt** (Recommended)
+- Use `golang.org/x/term` for secure input
+- Prompt user if passphrase not provided
+- No echo to terminal
+- Best UX for interactive use
+- Estimated effort: 0.5 days
+
+**Option C: File-Based Passphrase**
+- Read from `--passphrase-file` flag
+- User manages file permissions
+- Good for automation
+- Estimated effort: 0.25 days
+
+**Option D: Hybrid Approach** (Most Flexible)
+- Try env var first
+- Then passphrase file
+- Finally interactive prompt
+- Covers all use cases
+- Estimated effort: 1 day
+
+**Decision needed**: Option D recommended for maximum flexibility.
+
+---
+
+### Priority 1: Should Fix Soon (HIGH)
+
+#### 6.5: Resource Limits & DoS Protection
+
+**Problem**: No protection against malicious or corrupted archives.
+
+**Current State**:
+- No limit on number of files
+- No limit on individual file sizes
+- No limit on total archive size
+- No symlink depth checking
+- No filename length validation
+
+**Proposed Solutions**:
+
+**Option A: Configurable Limits** (Recommended)
+- Add config for max files, max size, max depth
+- Sane defaults (e.g., 1M files, 100GB total, 10 symlink depth)
+- `--no-limits` flag to disable
+- Estimated effort: 1-2 days
+
+**Option B: Hard-Coded Limits**
+- Fixed limits in code
+- Simpler, less flexible
+- Estimated effort: 0.5 days
+
+**Option C: Progressive Limits**
+- Warn at threshold, error at hard limit
+- Better UX for edge cases
+- Estimated effort: 2 days
+
+**Decision needed**: Which limits are most important?
+
+---
+
+#### 6.6: Backup Locking
+
+**Problem**: Concurrent backups to same destination can conflict.
+
+**Current State**:
+- No protection against simultaneous backups
+- Race conditions in retention cleanup
+- Possible file corruption
+
+**Proposed Solutions**:
+
+**Option A: File-Based Locking** (Recommended)
+- Use `flock` or lock file
+- Lock destination directory during backup
+- Clean up stale locks on startup
+- Estimated effort: 0.5 days
+
+**Option B: PID File**
+- Write PID to `.backup.lock`
+- Check if process still running
+- Simpler but less robust
+- Estimated effort: 0.25 days
+
+**Option C: No Locking**
+- Document that concurrent backups not supported
+- User responsibility
+- Estimated effort: 0 days
+
+**Decision needed**: Option A recommended for safety.
+
+---
+
+#### 6.7: Restore Safety Checks
+
+**Problem**: Restore silently overwrites existing files.
+
+**Current State**:
+```go
+outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, ...)
+```
+
+**Proposed Solutions**:
+
+**Option A: Require --force Flag** (Recommended)
+- Error if destination not empty
+- `--force` to override
+- Prevents accidental overwrites
+- Estimated effort: 0.5 days
+
+**Option B: Interactive Confirmation**
+- Prompt user if files exist
+- Not suitable for automation
+- Estimated effort: 0.5 days
+
+**Option C: Backup Existing Files**
+- Move existing files to `.bak` before restore
+- Safer but more complex
+- Estimated effort: 1 day
+
+**Decision needed**: Option A recommended (standard pattern).
+
+---
+
+#### 6.8: Migrate from Deprecated OpenPGP
+
+**Problem**: `golang.org/x/crypto/openpgp` is deprecated and unmaintained.
+
+**Current State**:
+- Using frozen, unmaintained library
+- Security vulnerabilities won't be patched
+- Works but risky long-term
+
+**Proposed Solutions**:
+
+**Option A: Implement age Encryption** (Recommended)
+- Already planned in Phase 3
+- Modern, maintained alternative
+- Simpler key management
+- Support both GPG and age
+- Estimated effort: 3-5 days
+
+**Option B: Use ProtonMail's gopenpgp**
+- Maintained fork of openpgp
+- Drop-in replacement
+- Still GPG-based
+- Estimated effort: 1-2 days
+
+**Option C: Use External GPG Binary**
+- Shell out to `gpg` command
+- Most compatible
+- Slower, more dependencies
+- Estimated effort: 2-3 days
+
+**Decision needed**: Option A recommended (aligns with roadmap).
+
+---
+
+### Priority 2: Nice to Have (MEDIUM)
+
+#### 6.9: Structured Logging & Observability
+
+**Problem**: No structured logging, hard to monitor in production.
+
+**Current State**:
+- Printf-style logging
+- No log levels
+- No JSON output
+- No metrics
+
+**Proposed Solutions**:
+
+**Option A: Add slog (Go 1.21+)** (Recommended)
+- Standard library structured logging
+- Multiple output formats (text, JSON)
+- Log levels (debug, info, warn, error)
+- Estimated effort: 1-2 days
+
+**Option B: Use logrus or zap**
+- More features than slog
+- Additional dependency
+- Estimated effort: 1-2 days
+
+**Option C: Minimal Structured Output**
+- JSON output flag for key events
+- No full logging framework
+- Estimated effort: 0.5 days
+
+**Decision needed**: Option A recommended (stdlib, future-proof).
+
+---
+
+#### 6.10: Backup Metadata & Manifests
+
+**Problem**: No metadata about backup contents or creation.
+
+**Current State**:
+- Only filename contains timestamp
+- No source path recorded
+- No tool version
+- No compression/encryption settings
+
+**Proposed Solutions**:
+
+**Option A: JSON Manifest File** (Recommended)
+- Create `backup_*.manifest.json` alongside backup
+- Contains: source, timestamp, version, settings, checksum
+- Easy to parse and audit
+- Estimated effort: 1 day
+
+**Option B: Embedded Metadata**
+- Store metadata inside encrypted archive
+- More complex to extract
+- Estimated effort: 2 days
+
+**Option C: Extended Attributes**
+- Use filesystem xattrs
+- Not portable across filesystems
+- Estimated effort: 1 day
+
+**Decision needed**: Option A recommended (portable, auditable).
+
+---
+
+#### 6.11: Metrics & Performance Tracking
+
+**Problem**: No visibility into backup performance.
+
+**Proposed Solutions**:
+
+**Option A: Basic Metrics**
+- Track: duration, size, compression ratio
+- Output to stderr or log file
+- Estimated effort: 0.5 days
+
+**Option B: Prometheus Metrics**
+- Export metrics in Prometheus format
+- Requires metrics endpoint
+- Overkill for CLI tool
+- Estimated effort: 2 days
+
+**Option C: JSON Performance Report**
+- Write performance data to `.metrics.json`
+- Easy to parse and analyze
+- Estimated effort: 1 day
+
+**Decision needed**: Option A or C depending on use case.
+
+---
+
+#### 6.12: Enhanced Testing
+
+**Problem**: Good coverage (83%) but limited edge case testing.
+
+**Proposed Improvements**:
+- Chaos testing (random failures in pipeline)
+- Large file testing (multi-GB backups)
+- Corruption testing (bit flips in backups)
+- Performance benchmarks
+- Fuzz testing for tar/compression
+- Estimated effort: 3-5 days
+
+---
+
+### Implementation Strategy
+
+**Recommended Phases**:
+
+1. **Week 1**: P0 Critical Fixes
+   - 6.1: Backup Verification (Option A)
+   - 6.2: Atomic Writes (Option A)
+   - 6.3: Error Propagation (Option A)
+   - 6.4: Secure Passphrase (Option D)
+
+2. **Week 2**: P1 High Priority
+   - 6.5: Resource Limits (Option A)
+   - 6.6: Backup Locking (Option A)
+   - 6.7: Restore Safety (Option A)
+
+3. **Week 3**: P1 Crypto Migration
+   - 6.8: Implement age encryption (Option A)
+
+4. **Week 4**: P2 Observability
+   - 6.9: Structured Logging (Option A)
+   - 6.10: Metadata (Option A)
+   - 6.11: Metrics (Option C)
+
+**Total Estimated Effort**: 3-4 weeks for full productionization
+
+---
+
 ## Future Phases
 
-**Phase 3**: Enhanced Encryption
+**Phase 3**: Enhanced Encryption (MERGED INTO PHASE 6.8)
 - age encryption support (`filippo.io/age`)
 - Modern alternative to GPG
 - Simpler key management
@@ -355,6 +787,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-08 | Gzip level 6 default | Good balance speed/ratio |
 | 2026-02-08 | Remove Phase 5.4 | Disk space checks unreliable, prompts break automation |
 | 2026-02-08 | Remove Phase 6 | Remote storage backends not viable for now |
+| 2026-02-08 | Add Phase 6: Productionization | Production readiness analysis revealed critical gaps |
+| 2026-02-08 | Merge Phase 3 into 6.8 | age encryption is part of crypto migration |
 
 ---
 
@@ -424,6 +858,7 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-08  
-**Last Updated By**: Agent (conversation d81fd923-e470-4ee8-b379-ef77b291ed87)  
-**Project Phase**: Phase 5 Complete (User Experience)  
-**Next Milestone**: Phase 3 (Enhanced Encryption) or Phase 4 (Advanced Compression)
+**Last Updated By**: Agent (conversation 03ed4df2-03cd-4bb1-9dae-181686ba8fca)  
+**Project Phase**: Phase 5 Complete (User Experience), Phase 6 Planned (Productionization)  
+**Production Trust Score**: 6.5/10 - Good for personal use, needs Phase 6 for mission-critical data  
+**Next Milestone**: Phase 6 Productionization (3-4 weeks estimated)
