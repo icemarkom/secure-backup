@@ -99,12 +99,12 @@ func TestIntegration_BackupRestoreCycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 3: Verify restored files match source
-	for relPath, expectedContent := range testFiles {
+	for relPath, wantContent := range testFiles {
 		// Restored files are in restoreDir/source/... because tar preserves structure
 		restoredPath := filepath.Join(restoreDir, "source", relPath)
-		content, err := os.ReadFile(restoredPath)
+		gotContent, err := os.ReadFile(restoredPath)
 		require.NoError(t, err, "restored file %s should exist", relPath)
-		assert.Equal(t, expectedContent, string(content), "content should match for %s", relPath)
+		assert.Equal(t, wantContent, string(gotContent), "content should match for %s", relPath)
 	}
 }
 

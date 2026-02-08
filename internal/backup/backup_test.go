@@ -15,41 +15,41 @@ import (
 
 func TestFormatSize(t *testing.T) {
 	tests := []struct {
-		name     string
-		bytes    int64
-		expected string
+		name  string
+		bytes int64
+		want  string
 	}{
 		{
-			name:     "zero bytes",
-			bytes:    0,
-			expected: "0 B",
+			name:  "zero bytes",
+			bytes: 0,
+			want:  "0 B",
 		},
 		{
-			name:     "bytes",
-			bytes:    500,
-			expected: "500 B",
+			name:  "bytes",
+			bytes: 500,
+			want:  "500 B",
 		},
 		{
-			name:     "kilobytes",
-			bytes:    1500,
-			expected: "1.5 KiB",
+			name:  "kilobytes",
+			bytes: 1500,
+			want:  "1.5 KiB",
 		},
 		{
-			name:     "megabytes",
-			bytes:    2 * 1024 * 1024,
-			expected: "2.0 MiB",
+			name:  "megabytes",
+			bytes: 2 * 1024 * 1024,
+			want:  "2.0 MiB",
 		},
 		{
-			name:     "gigabytes",
-			bytes:    3 * 1024 * 1024 * 1024,
-			expected: "3.0 GiB",
+			name:  "gigabytes",
+			bytes: 3 * 1024 * 1024 * 1024,
+			want:  "3.0 GiB",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatSize(tt.bytes)
-			assert.Equal(t, tt.expected, result)
+			got := formatSize(tt.bytes)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -241,12 +241,12 @@ func TestPerformBackup_FilenameFormat(t *testing.T) {
 	tests := []struct {
 		name            string
 		compressionType string
-		expectedExt     string
+		wantExt         string
 	}{
 		{
 			name:            "gzip compression",
 			compressionType: "gzip",
-			expectedExt:     ".tar.gz.gpg",
+			wantExt:         ".tar.gz.gpg",
 		},
 	}
 
@@ -281,8 +281,8 @@ func TestPerformBackup_FilenameFormat(t *testing.T) {
 			// Verify format: backup_{sourcename}_{timestamp}.tar{ext}.gpg
 			assert.True(t, strings.HasPrefix(filename, "backup_my-source-dir_"),
 				"filename should start with 'backup_my-source-dir_'")
-			assert.True(t, strings.HasSuffix(filename, tt.expectedExt),
-				"filename should end with '%s'", tt.expectedExt)
+			assert.True(t, strings.HasSuffix(filename, tt.wantExt),
+				"filename should end with %q", tt.wantExt)
 
 			// Verify timestamp format (YYYYMMDD_HHMMSS)
 			// Filename format: backup_my-source-dir_20260207_153045.tar.gz.gpg
