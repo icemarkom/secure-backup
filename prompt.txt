@@ -2,11 +2,33 @@
 
 ## Project Overview
 
-**Goal**: Reimplement the bash backup script in Go with enhanced features for Docker volume backups.
+**Goal**: Create a general-purpose, production-ready tool for secure, encrypted backups of any directory, with optional Docker volume support as a specialty feature.
 
-**Current State**: Phase 1 COMPLETE ✅ - Core backup functionality fully implemented and tested.
+**Current State**: Phase 1 COMPLETE ✅ + Project Successfully Refactored ✅
 
-**Your Mission**: Continue with Phase 2 (Docker Integration) or handle feature requests/bugs.
+**Your Mission**: Continue with Phase 2 (Build Platform Support) or handle feature requests/bugs.
+
+---
+
+## Recent Major Changes (February 2026)
+
+### Project Refactoring Complete ✅
+- **Renamed**: `backup-docker` → `secure-backup`
+- **Repositioned**: Docker integration deprioritized from Phase 2 to optional future feature
+- **Focus**: General-purpose secure backup tool (not Docker-specific)
+- **Module Path**: `github.com/icemarkom/secure-backup`
+- **Binary Name**: `secure-backup`
+- **License**: Apache 2.0
+- **Author**: Marko Milivojevic
+
+### Ready to Push
+All changes committed locally, ready to push after GitHub repository rename:
+```
+b7d672f fix: Update author name to match git config
+42aabbc chore: Add Apache 2.0 license
+d890346 docs: Deprioritize Docker integration
+d058071 Refactor: Rename project to secure-backup
+```
 
 ---
 
