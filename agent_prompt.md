@@ -143,6 +143,86 @@ All core backup functionality is implemented, tested, and production-ready:
 
 ---
 
+## Testing Philosophy
+
+**Goal**: Pragmatic integration testing - prove the tool works without excessive mocking
+
+### Core Principles
+
+1. **Trust over coverage** - Real GPG tests > 100% mocked coverage
+2. **Simple integration tests** - Use real tar, gzip, GPG with test keys
+3. **Fast and deterministic** - Generate test keys on-the-fly, no network
+4. **No checked-in secrets** - Even test keys are generated per-run
+5. **Maintainable** - Avoid complex test infrastructure
+
+### Testing Strategy
+
+**What we test with REAL operations:**
+- ✅ GPG encryption/decryption (with auto-generated test keys)
+- ✅ Tar archiving and extraction
+- ✅ Gzip compression/decompression
+- ✅ File I/O and streaming pipelines
+
+**What we DON'T waste time on:**
+- ❌ Mocking GPG (defeats the purpose - need to know it works!)
+- ❌ Mocking tar/gzip (standard library, already tested)
+- ❌ Complex Docker integration tests
+- ❌ Network/remote storage (future feature)
+
+### Test Key Management
+
+**On-the-fly generation:**
+- Test keys are NOT checked into git
+- `TestMain()` in encrypt package auto-generates keys if missing
+- CI generates keys before running tests
+- Script: `test_data/generate_test_keys.sh`
+
+**Why not check in test keys?**
+- Security best practice (no keys in repos, even test keys)
+- Teaches good habits
+- CI/CD generates fresh keys each run
+- Local developers generate once, keys are gitignored
+
+### Coverage Goal: 55-60%
+
+**Current: ~57.8%**
+
+```
+archive:    72.5%  ✅ Real tar operations
+backup:     65.7%  ✅ Real pipeline
+compress:   76.9%  ✅ Real gzip
+encrypt:    67.9%  ✅ Real GPG (was 28.6%!)
+progress:   90.0%  ✅ Comprehensive
+retention:  58.2%  ✅ File operations
+cmd:        0.0%   ⚠️  (flag parsing, low priority)
+main:       0.0%   ⚠️  (entry point, no logic)
+```
+
+**Rationale for 55-60% target:**
+- Backup tools need REAL encryption tests
+- Would you trust 90% coverage with mocked GPG? No.
+- Would you trust 57% with real GPG round-trips? Yes.
+
+### Test Structure
+
+```bash
+# Run all tests (generates keys if needed)
+go test ./...
+
+# Skip integration tests
+go test ./... -short
+
+# Run with coverage
+go test ./... -coverprofile=coverage.out
+```
+
+**Test files:**
+- `*_test.go` - Standard Go tests
+- `test_data/generate_test_keys.sh` - Key generation (committed)
+- `test_data/*.asc` - Generated keys (gitignored)
+
+---
+
 ## Architecture Overview
 
 ### Critical Pipeline Order

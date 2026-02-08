@@ -7,8 +7,6 @@ secure-backup
 coverage.out
 coverage.html
 *.test
-test_data/
-restore_test/
 
 # Build artifacts
 dist/
@@ -37,3 +35,8 @@ backups/
 # Temporary files
 tmp/
 *.tmp
+
+# Test data - ignore everything except generation script
+!test_data/generate_test_keys.sh
+test_data/*
+restore_test/
