@@ -84,9 +84,6 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("restore failed: %w", err)
 	}
 
-	if !restoreVerbose {
-		fmt.Printf("Restore completed: %s\n", restoreDest)
-	}
-
+	// Silent by default - verbose output handled in backup package
 	return nil
 }

@@ -114,12 +114,19 @@ All core backup functionality is implemented, tested, and production-ready:
 - lz4 compression (fastest)
 - Compression benchmarking
 
-**Phase 5**: User Experience
-- Progress indicators for large backups
-- Better error messages
-- Configuration file support (~/.secure-backup.yaml)
-- Dry-run mode
-- Backup validation before overwrite
+**Phase 5**: User Experience ✅ IN PROGRESS
+- Phase 5.1: Silent by default + progress support ✅ COMPLETE (2026-02-07)
+  - `internal/progress` package created (ProgressReader/Writer)
+  - Unix philosophy: silent success, errors to stderr 
+  - `--verbose` flag for progress and details
+  - Documentation: README, USAGE rewritten, agent_prompt updated
+- Phase 5.2: Better error messages (NEXT)
+  - `internal/errors` package with UserError type
+  - Contextual errors with hints  
+- Phase 5.3: Dry-run mode (PLANNED)
+  - `--dry-run` flag to preview operations
+- Phase 5.4: Validation & confirmation (PLANNED)
+  - Disk space checks, confirmation prompts
 
 **Phase 6**: Remote Storage Backends
 - S3 backend

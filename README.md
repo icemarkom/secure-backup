@@ -131,13 +131,20 @@ gpg --export yourname@example.com > ~/.gnupg/backup-pub.asc
 
 ## Quick Start
 
+### Output Behavior
+
+**Silent by default** - `secure-backup` follows Unix philosophy:
+- ✅ **Success**: Silent (exit code 0)
+- ❌ **Errors**: Printed to stderr (exit code 1)
+- 📝 **Details**: Add `--verbose` flag
+
 ### 1. Export Your GPG Public Key
 
 ```bash
 gpg --export yourname@example.com > ~/.gnupg/backup-pub.asc
 ```
 
-### 2. Create Your First Backup
+### 2. Create Your First Backup (Silent Mode)
 
 ```bash
 secure-backup backup \
@@ -145,6 +152,25 @@ secure-backup backup \
   --dest /path/to/backups \
   --public-key ~/.gnupg/backup-pub.asc \
   --retention 30
+
+# Check if it worked
+echo $?  # 0 = success
+```
+
+### 3. Verbose Mode (See Progress)
+
+```bash
+secure-backup backup \
+  --source /path/to/important/data \
+  --dest /path/to/backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --retention 30 \
+  --verbose
+
+# Output shows:
+# Starting backup of /path/to/important/data (1.2 GiB)
+# Destination: /path/to/backups/backup_data_20260207_180500.tar.gz.gpg
+# Backup completed successfully
 ```
 
 This creates an encrypted backup like: `backup_data_20260207_165000.tar.gz.gpg`

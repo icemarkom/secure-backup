@@ -93,14 +93,12 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		Verbose:    backupVerbose,
 	}
 
-	outputPath, err := backup.PerformBackup(backupCfg)
+	_, err = backup.PerformBackup(backupCfg)
 	if err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
 
-	if !backupVerbose {
-		fmt.Printf("Backup created: %s\n", outputPath)
-	}
+	// Silent by default - verbose output handled in backup package
 
 	// Apply retention policy if specified
 	if backupRetention > 0 {

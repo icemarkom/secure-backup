@@ -52,9 +52,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("verification failed: %w", err)
 		}
 
-		if !verifyVerbose {
-			fmt.Printf("Quick verification passed: %s\n", verifyFile)
-		}
+		// Silent by default - verbose output handled in backup package
 		return nil
 	}
 
@@ -97,9 +95,6 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
-	if !verifyVerbose {
-		fmt.Printf("Full verification passed: %s\n", verifyFile)
-	}
-
+	// Silent by default - verbose output handled in backup package
 	return nil
 }
