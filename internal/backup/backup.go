@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 // Config holds configuration for backup operations
@@ -103,56 +105,48 @@ func PerformBackup(cfg Config) (string, error) {
 	return outputPath, nil
 }
 
-// executePipeline runs the backup pipeline
+// executePipeline runs the backup pipeline with comprehensive error propagation
 func executePipeline(cfg Config, output io.Writer) error {
+	// Create context for pipeline coordination
+	ctx := context.Background()
+	g, ctx := errgroup.WithContext(ctx)
+
 	// Step 1: Create tar reader pipe
 	tarPR, tarPW := io.Pipe()
 
-	// Step 2: Compress pipe
-	var compressPR io.Reader
-	var compressErr error
-
-	// Step 3: Encrypt pipe
-	var encryptPR io.Reader
-	var encryptErr error
-
-	// Error channel to catch goroutine errors
-	errChan := make(chan error, 3)
-
 	// Goroutine 1: Create TAR archive
-	go func() {
+	g.Go(func() error {
 		defer tarPW.Close()
 		if err := archive.CreateTar(cfg.SourcePath, tarPW); err != nil {
 			tarPW.CloseWithError(err)
-			errChan <- fmt.Errorf("tar creation failed: %w", err)
-			return
+			return fmt.Errorf("tar creation failed: %w", err)
 		}
-		errChan <- nil
-	}()
+		return nil
+	})
 
 	// Step 2: Compress the tar stream
-	compressPR, compressErr = cfg.Compressor.Compress(tarPR)
-	if compressErr != nil {
-		return fmt.Errorf("failed to create compressor: %w", compressErr)
+	// Note: Compressor.Compress spawns its own goroutine internally
+	compressPR, err := cfg.Compressor.Compress(tarPR)
+	if err != nil {
+		return fmt.Errorf("failed to create compressor: %w", err)
 	}
 
 	// Step 3: Encrypt the compressed stream
-	encryptPR, encryptErr = cfg.Encryptor.Encrypt(compressPR)
-	if encryptErr != nil {
-		return fmt.Errorf("failed to create encryptor: %w", encryptErr)
+	// Note: Encryptor.Encrypt spawns its own goroutine internally
+	encryptPR, err := cfg.Encryptor.Encrypt(compressPR)
+	if err != nil {
+		return fmt.Errorf("failed to create encryptor: %w", err)
 	}
 
 	// Step 4: Write encrypted stream to output file
+	// This will capture errors from compress/encrypt goroutines via pipe errors
 	if _, err := io.Copy(output, encryptPR); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
 	// Wait for tar goroutine to complete
-	if err := <-errChan; err != nil {
-		return err
-	}
-
-	return nil
+	// Any errors from compress/encrypt will have already been caught by io.Copy above
+	return g.Wait()
 }
 
 // getDirectorySize calculates the total size of a directory (best effort)
