@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P11-P13, P19 COMPLETE | ⛔ P14-P16 WON'T FIX | ⬜ P8-P10, P17-P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P11-P13, P19 COMPLETE | ⛔ P8, P14-P16 WON'T FIX | ⬜ P9-P10, P17-P18 OPEN (production hardening round 2)  
 
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
@@ -398,7 +398,7 @@
 | ID | GitHub | Issue | File(s) | Status |
 |----|--------|-------|---------|--------|
 | **P7** | [#1](https://github.com/icemarkom/secure-backup/issues/1) | ~~TOCTOU race in lock: `Stat()` + `WriteFile()` is not atomic~~ | `internal/lock/lock.go` | ✅ COMPLETE |
-| **P8** | [#2](https://github.com/icemarkom/secure-backup/issues/2) | Symlink traversal on extract: link targets not validated | `internal/archive/tar.go` | ⬜ OPEN |
+| **P8** | [#2](https://github.com/icemarkom/secure-backup/issues/2) | ~~Symlink traversal on extract: link targets not validated~~ | `internal/archive/tar.go` | ⛔ WON'T FIX |
 | **P9** | [#3](https://github.com/icemarkom/secure-backup/issues/3) | No decompression bomb protection: unbounded `io.Copy` | `internal/archive/tar.go` | ⬜ OPEN |
 
 #### P7: TOCTOU Race in Lock ✅ COMPLETE (2026-02-15)
@@ -456,7 +456,7 @@
 
 **Week 3: Security Hardening (P7-P10)**
 - Day 1: P7 - Fix lock TOCTOU + P10 - File permissions (quick wins)
-- Day 2: P8 - Symlink validation on extract + P17 - Symlink handling on create
+- ~~Day 2: P8 - Symlink validation on extract~~ ⛔ WON'T FIX + P17 - Symlink handling on create
 - Day 3: P9 - Decompression bomb protection
 
 **Week 4: Reliability & Quality (P11-P16)**
@@ -788,6 +788,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P15 Closed as Won't Fix | `err` shadowing is inherent to Go; no scoping trick prevents all future mistakes. Current code is correct. Code review and linting are the right mitigation. |
 | 2026-02-15 | P14 Closed as Won't Fix | Go strings are immutable and cannot be zeroed. Passphrase also flows through openpgp which makes internal copies. Zeroing the `[]byte` copy gives false security. Practical attack vectors (process lists, shell history, file permissions) were addressed in P4. |
 | 2026-02-15 | P16 Closed as Won't Fix | All business logic is well-tested in `internal/` packages. `cmd/` is thin Cobra wiring; the effort-to-value ratio for 1-2 days of integration testing is poor. Flag wiring correctness is validated by manual testing and CI builds. |
+| 2026-02-15 | P8 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted so attackers can't inject malicious tar entries. Fix risks breaking legitimate restores containing symlinks with absolute or out-of-tree targets. Tool is not a general-purpose tar extractor. |
 
 ---
 
