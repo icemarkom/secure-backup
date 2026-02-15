@@ -6,7 +6,6 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 
 ## Features
 
-✅ **Phase 1 - Core Functionality (COMPLETE)**
 - **GPG Encryption**: Secure backups using your existing GPG keys
 - **Gzip Compression**: 60-80% size reduction for most data
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
@@ -14,21 +13,9 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 - **Retention Management**: Automatic cleanup of old backups
 - **Verify Integrity**: Quick and full verification modes
 - **List Backups**: View all backups with age and size information
-
-🎯 **Phase 2 - Build Platform Support (NEXT)**
-- Cross-platform builds (Linux, macOS, Windows)
-- Makefile or Bazel build system
-- Release packaging (deb, rpm, tar.gz)
-- Version embedding in binary
-
-🔮 **Phase 3+ - Future Enhancements**  
-- Additional encryption methods (age)
-- Advanced compression algorithms (zstd, lz4)
-- User experience improvements (progress bars, config files)
-- Remote storage backends (S3, SFTP, rsync)
-
-💡 **Optional Future Feature**
-- Docker volume integration (specialty use case)
+- **Production Hardened**: Atomic writes, backup locking, signal handling, secure defaults
+- **Cross-platform**: Linux, macOS, Windows (amd64/arm64)
+- **Release Packaging**: `.deb` packages, GitHub Releases, apt repository
 
 ## Installation
 
@@ -80,7 +67,7 @@ sudo apt install secure-backup
 ### Option 3: Build from Source
 
 **Requirements:**
-- Go 1.21 or later
+- Go 1.26 or later
 - make (optional, for Makefile targets)
 
 ```bash
@@ -245,7 +232,7 @@ secure-backup restore \
 
 ## Secure Passphrase Handling
 
-**New in v0.3.0**: Multiple secure options for providing GPG key passphrases.
+Multiple secure options for providing GPG key passphrases.
 
 ### Three Methods (in priority order)
 
@@ -315,7 +302,7 @@ See [USAGE.md](USAGE.md) for detailed documentation.
 
 ## Backup Manifests
 
-**New in v0.2.0**: Backups now include manifest files for integrity verification.
+Backups include manifest files for integrity verification.
 
 ### What Are Manifests?
 
@@ -435,16 +422,13 @@ If you see warnings about missing manifest files:
 
 ## Project Status
 
-**Current State**: Phase 1 Complete ✅
+**Current Release**: v1.0.0 ✅
 
 - ✅ All core commands implemented and tested
 - ✅ 60%+ unit test coverage on core modules
-- ✅ Fully functional for directory backups
-- ✅ Production-ready for non-Docker use cases
-
-**Next Steps**: Phase 2 - Build Platform Support
-
-See [implementation_plan.md](.gemini/antigravity/brain/*/implementation_plan.md) for detailed architectural decisions.
+- ✅ Production hardened (P1-P19 resolved)
+- ✅ Cross-platform builds and `.deb` packaging
+- ✅ End-to-end pipeline test in CI
 
 ## Performance
 
