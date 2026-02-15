@@ -90,7 +90,8 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P10-P13, P17, P19 COMPLETE | ⛔ P8, P14-P16 WON'T FIX | ⬜ P9, P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P10-P13, P17, P19 COMPLETE | ⛔ P8-P9, P14-P16 WON'T FIX | ⬜ P18 OPEN (production hardening round 2)  
+
 
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
@@ -399,7 +400,7 @@
 |----|--------|-------|---------|--------|
 | **P7** | [#1](https://github.com/icemarkom/secure-backup/issues/1) | ~~TOCTOU race in lock: `Stat()` + `WriteFile()` is not atomic~~ | `internal/lock/lock.go` | ✅ COMPLETE |
 | **P8** | [#2](https://github.com/icemarkom/secure-backup/issues/2) | ~~Symlink traversal on extract: link targets not validated~~ | `internal/archive/tar.go` | ⛔ WON'T FIX |
-| **P9** | [#3](https://github.com/icemarkom/secure-backup/issues/3) | No decompression bomb protection: unbounded `io.Copy` | `internal/archive/tar.go` | ⬜ OPEN |
+| **P9** | [#3](https://github.com/icemarkom/secure-backup/issues/3) | ~~No decompression bomb protection: unbounded `io.Copy`~~ | `internal/archive/tar.go` | ⛔ WON'T FIX |
 
 #### P7: TOCTOU Race in Lock ✅ COMPLETE (2026-02-15)
 
@@ -457,7 +458,7 @@
 **Week 3: Security Hardening (P7-P10)**
 - Day 1: P7 - Fix lock TOCTOU + P10 - File permissions (quick wins) ✅ COMPLETE
 - ~~Day 2: P8 - Symlink validation on extract~~ ⛔ WON'T FIX + P17 - Symlink handling on create ✅ COMPLETE
-- Day 3: P9 - Decompression bomb protection
+- ~~Day 3: P9 - Decompression bomb protection~~ ⛔ WON'T FIX
 
 **Week 4: Reliability & Quality (P11-P16)**
 - Day 1: P11 - Retention manifest cleanup + P13 - Manifest path fix
@@ -789,6 +790,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P14 Closed as Won't Fix | Go strings are immutable and cannot be zeroed. Passphrase also flows through openpgp which makes internal copies. Zeroing the `[]byte` copy gives false security. Practical attack vectors (process lists, shell history, file permissions) were addressed in P4. |
 | 2026-02-15 | P16 Closed as Won't Fix | All business logic is well-tested in `internal/` packages. `cmd/` is thin Cobra wiring; the effort-to-value ratio for 1-2 days of integration testing is poor. Flag wiring correctness is validated by manual testing and CI builds. |
 | 2026-02-15 | P8 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted so attackers can't inject malicious tar entries. Fix risks breaking legitimate restores containing symlinks with absolute or out-of-tree targets. Tool is not a general-purpose tar extractor. |
+| 2026-02-15 | P9 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted, so attackers cannot inject crafted tar entries to create decompression bombs. The tool only extracts archives it created from real files. Adding size limits risks breaking legitimate restores of large backups. |
 | 2026-02-15 | P10 Implementation Complete | Added `--file-mode` flag with `default` (0600), `system` (umask), or explicit octal modes. Secure by default, user-overridable. World-readable warning on stderr. Applied to both backup and manifest files. 3 new tests, all pass. |
 | 2026-02-15 | Go version bumped to 1.26.0 | Updated `go.mod`, `test.yml`, `release.yaml` from Go 1.25 to 1.26. |
 | 2026-02-15 | P17 Implementation Complete | Switched `filepath.Walk` → `filepath.WalkDir` in `CreateTar` to preserve symlinks as `tar.TypeSymlink` entries instead of dereferencing them. Used `os.Lstat` for source. 3 symlink tests (internal, external, round-trip), all pass. |
@@ -865,8 +867,8 @@ golangci-lint run
 **Last Updated**: 2026-02-15  
 **Last Updated By**: Agent (conversation 70401857-3f2e-4f5f-af02-e04eef183314)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
-**Production Trust Score**: 7.0/10 — Solid foundation, P9/P18 open for hardening  
-**Productionization**: P1-P7, P10-P13, P17, P19 ✅ | P8, P14-P16 ⛔ | P9, P18 ⬜ OPEN  
-**Next Milestone**: P9 decompression bomb protection, P18 armor decode fix (see GitHub issues)
+**Production Trust Score**: 7.0/10 — Solid foundation, P18 open for hardening  
+**Productionization**: P1-P7, P10-P13, P17, P19 ✅ | P8-P9, P14-P16 ⛔ | P18 ⬜ OPEN  
+**Next Milestone**: P18 armor decode fix (see GitHub issue #12)
 
 
