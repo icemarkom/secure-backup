@@ -3,24 +3,28 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
 )
 
 var (
-	backupSource     string
-	backupDest       string
-	backupRecipient  string
-	backupPublicKey  string
-	backupVerbose    bool
-	backupDryRun     bool
-	backupEncryption string
-	backupRetention  int
+	backupSource       string
+	backupDest         string
+	backupRecipient    string
+	backupPublicKey    string
+	backupVerbose      bool
+	backupDryRun       bool
+	backupEncryption   string
+	backupRetention    int
+	backupSkipManifest bool
 )
 
 var backupCmd = &cobra.Command{
@@ -48,6 +52,7 @@ func init() {
 	backupCmd.Flags().IntVar(&backupRetention, "retention", 0, "Retention period in days (0 = keep all backups)")
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
 	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "Preview backup without executing")
+	backupCmd.Flags().BoolVar(&backupSkipManifest, "skip-manifest", false, "Skip manifest generation (not recommended for production)")
 
 	backupCmd.MarkFlagRequired("source")
 	backupCmd.MarkFlagRequired("dest")
@@ -100,9 +105,17 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		DryRun:     backupDryRun,
 	}
 
-	_, err = backup.PerformBackup(backupCfg)
+	outputPath, err := backup.PerformBackup(backupCfg)
 	if err != nil {
 		return err // PerformBackup already returns user-friendly errors
+	}
+
+	// Generate manifest by default (unless dry-run or skip-manifest)
+	if !backupDryRun && !backupSkipManifest {
+		if err := generateManifest(outputPath, backupSource, backupVerbose); err != nil {
+			// Warn but don't fail the backup
+			fmt.Fprintf(os.Stderr, "Warning: Failed to create manifest: %v\n", err)
+		}
 	}
 
 	// Silent by default - verbose output handled in backup package
@@ -127,4 +140,43 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// generateManifest creates a manifest file for the backup
+func generateManifest(backupPath, sourcePath string, verbose bool) error {
+	// Create manifest
+	m, err := manifest.New(sourcePath, filepath.Base(backupPath), GetVersion())
+	if err != nil {
+		return fmt.Errorf("failed to create manifest: %w", err)
+	}
+
+	// Compute checksum
+	checksum, err := manifest.ComputeChecksum(backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to compute checksum: %w", err)
+	}
+	m.ChecksumValue = checksum
+
+	// Get file size
+	info, err := os.Stat(backupPath)
+	if err == nil {
+		m.SizeBytes = info.Size()
+	}
+
+	// Write manifest
+	manifestPath := getManifestPath(backupPath)
+	if err := m.Write(manifestPath); err != nil {
+		return fmt.Errorf("failed to write manifest: %w", err)
+	}
+
+	if verbose {
+		fmt.Printf("Manifest created: %s\n", manifestPath)
+	}
+
+	return nil
+}
+
+// getManifestPath returns the manifest path for a given backup file
+func getManifestPath(backupPath string) string {
+	return strings.TrimSuffix(backupPath, ".tar.gz.gpg") + ".json"
 }

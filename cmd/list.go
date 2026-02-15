@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
 )
@@ -47,21 +50,26 @@ func runList(cmd *cobra.Command, args []string) error {
 	})
 
 	fmt.Printf("Found %d backup(s) in %s:\n\n", len(backups), listDir)
-	fmt.Printf("%-50s %-15s %-10s %s\n", "Filename", "Size", "Age", "Modified")
-	fmt.Println("─────────────────────────────────────────────────────────────────────────────────────────")
 
 	for _, backup := range backups {
-		age := formatAge(backup.Age)
-		modTime := backup.ModTime.Format("2006-01-02 15:04")
-		size := retention.FormatSize(backup.Size)
+		fmt.Printf("%s\n", backup.Name)
+		fmt.Printf("  Modified: %s (%s ago)\n",
+			backup.ModTime.Format("2006-01-02 15:04"),
+			formatAge(backup.Age))
+		fmt.Printf("  Size:     %s\n", retention.FormatSize(backup.Size))
 
-		// Truncate filename if too long
-		name := backup.Name
-		if len(name) > 47 {
-			name = name[:44] + "..."
+		// Try to read manifest
+		manifestPath := filepath.Join(listDir,
+			strings.TrimSuffix(backup.Name, ".tar.gz.gpg")+".json")
+		if m, err := manifest.Read(manifestPath); err == nil {
+			fmt.Printf("  Source:   %s\n", m.SourcePath)
+			fmt.Printf("  Tool:     %s %s\n", m.CreatedBy.Tool, m.CreatedBy.Version)
+			fmt.Printf("  Host:     %s\n", m.CreatedBy.Hostname)
+			fmt.Printf("  Checksum: %s...\n", m.ChecksumValue[:16])
+		} else {
+			fmt.Printf("  (No manifest available)\n")
 		}
-
-		fmt.Printf("%-50s %-15s %-10s %s\n", name, size, age, modTime)
+		fmt.Println()
 	}
 
 	return nil

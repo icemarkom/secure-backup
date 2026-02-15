@@ -2,21 +2,24 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/spf13/cobra"
 )
 
 var (
-	verifyFile       string
-	verifyPrivateKey string
-	verifyPassphrase string
-	verifyQuick      bool
-	verifyVerbose    bool
-	verifyDryRun     bool
+	verifyFile         string
+	verifyPrivateKey   string
+	verifyPassphrase   string
+	verifyQuick        bool
+	verifyVerbose      bool
+	verifyDryRun       bool
+	verifySkipManifest bool
 )
 
 var verifyCmd = &cobra.Command{
@@ -43,6 +46,13 @@ func init() {
 }
 
 func runVerify(cmd *cobra.Command, args []string) error {
+	// Validate manifest first (unless skipped or dry-run)
+	if !verifySkipManifest && !verifyDryRun {
+		if _, err := validateAndDisplayManifest(verifyFile, verifyVerbose); err != nil {
+			return err
+		}
+	}
+
 	// For quick mode, we don't need encryptor/compressor
 	if verifyQuick {
 		verifyCfg := backup.VerifyConfig{
@@ -104,4 +114,51 @@ func runVerify(cmd *cobra.Command, args []string) error {
 
 	// Silent by default - verbose output handled in backup package
 	return nil
+}
+
+// validateAndDisplayManifest validates the manifest and displays metadata
+func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Manifest, error) {
+	manifestPath := strings.TrimSuffix(backupFile, ".tar.gz.gpg") + ".json"
+
+	m, err := manifest.Read(manifestPath)
+	if err != nil {
+		return nil, errors.New(
+			fmt.Sprintf("Manifest not found: %s", manifestPath),
+			"Use --skip-manifest to verify without manifest",
+		)
+	}
+
+	if err := m.ValidateChecksum(backupFile); err != nil {
+		return nil, errors.New(
+			"Backup file checksum mismatch",
+			"File may be corrupted",
+		)
+	}
+
+	// Display manifest info
+	fmt.Printf("Manifest: ✓ Found\n")
+	fmt.Printf("Checksum: ✓ Valid (%s: %s...)\n", m.ChecksumAlgorithm, m.ChecksumValue[:16])
+	if verbose {
+		fmt.Printf("Created:  %s by %s %s on %s\n",
+			m.CreatedAt.Format("2006-01-02 15:04:05"),
+			m.CreatedBy.Tool, m.CreatedBy.Version, m.CreatedBy.Hostname)
+		fmt.Printf("Source:   %s\n", m.SourcePath)
+		fmt.Printf("Size:     %s\n", formatSize(m.SizeBytes))
+	}
+
+	return m, nil
+}
+
+// formatSize formats bytes as human-readable string
+func formatSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

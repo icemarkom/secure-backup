@@ -43,6 +43,11 @@ func SetVersion(version, commit, date string) {
 	appDate = date
 }
 
+// GetVersion returns the current application version
+func GetVersion() string {
+	return appVersion
+}
+
 // Execute runs the root command
 func Execute() error {
 	return rootCmd.Execute()

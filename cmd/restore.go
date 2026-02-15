@@ -1,20 +1,25 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/spf13/cobra"
 )
 
 var (
-	restoreFile       string
-	restoreDest       string
-	restorePrivateKey string
-	restorePassphrase string
-	restoreVerbose    bool
-	restoreDryRun     bool
+	restoreFile         string
+	restoreDest         string
+	restorePrivateKey   string
+	restorePassphrase   string
+	restoreVerbose      bool
+	restoreDryRun       bool
+	restoreSkipManifest bool
 )
 
 var restoreCmd = &cobra.Command{
@@ -40,12 +45,20 @@ func init() {
 	restoreCmd.Flags().StringVar(&restorePassphrase, "passphrase", "", "GPG key passphrase")
 	restoreCmd.Flags().BoolVarP(&restoreVerbose, "verbose", "v", false, "Verbose output")
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "Preview restore without executing")
+	restoreCmd.Flags().BoolVar(&restoreSkipManifest, "skip-manifest", false, "Skip manifest validation (use for old backups without manifests)")
 
 	restoreCmd.MarkFlagRequired("file")
 	restoreCmd.MarkFlagRequired("dest")
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
+	// Validate manifest first (unless skipped or dry-run)
+	if !restoreSkipManifest && !restoreDryRun {
+		if err := validateManifest(restoreFile, restoreVerbose); err != nil {
+			return err
+		}
+	}
+
 	// Create compressor (gzip - should match backup)
 	compressor, err := compress.NewCompressor(compress.Config{
 		Method: "gzip",
@@ -92,5 +105,36 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	// Silent by default - verbose output handled in backup package
+	return nil
+}
+
+// validateManifest validates the manifest file for the backup
+func validateManifest(backupFile string, verbose bool) error {
+	manifestPath := strings.TrimSuffix(backupFile, ".tar.gz.gpg") + ".json"
+
+	m, err := manifest.Read(manifestPath)
+	if err != nil {
+		return errors.New(
+			fmt.Sprintf("Manifest not found: %s", manifestPath),
+			"Use --skip-manifest to restore without validation (not recommended for old backups)",
+		)
+	}
+
+	if err := m.Validate(); err != nil {
+		return errors.Wrap(err, "Invalid manifest file",
+			"The manifest may be corrupted. Use --skip-manifest to bypass (not recommended)")
+	}
+
+	if err := m.ValidateChecksum(backupFile); err != nil {
+		return errors.New(
+			"Backup file checksum mismatch",
+			"File may be corrupted. Use --skip-manifest to bypass (not recommended)",
+		)
+	}
+
+	if verbose {
+		fmt.Println("✓ Manifest validation passed")
+	}
+
 	return nil
 }
