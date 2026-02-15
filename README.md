@@ -225,11 +225,23 @@ secure-backup verify \
 ### 7. Restore When Needed
 
 ```bash
+# Restore to an empty or non-existent directory
 secure-backup restore \
   --file /path/to/backup.tar.gz.gpg \
   --dest /path/to/restore/location \
   --private-key ~/.gnupg/backup-priv.asc
+
+# Restore to a non-empty directory (requires --force)
+secure-backup restore \
+  --file /path/to/backup.tar.gz.gpg \
+  --dest /path/to/existing/directory \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --force
 ```
+
+**Safety Feature**: The restore command will fail if the destination directory is not empty, unless you specify `--force`. This prevents accidental data loss.
+
+**Note**: The `--force` flag does not delete existing files - it allows restore to proceed. Files with the same names will be overwritten, but other files remain untouched.
 
 ## Secure Passphrase Handling
 

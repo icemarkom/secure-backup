@@ -18,6 +18,7 @@ type RestoreConfig struct {
 	Compressor compress.Compressor
 	Verbose    bool
 	DryRun     bool
+	Force      bool
 }
 
 // PerformRestore executes the restore pipeline: DECRYPT → DECOMPRESS → EXTRACT
@@ -37,9 +38,27 @@ func PerformRestore(cfg RestoreConfig) error {
 			"Check file permissions")
 	}
 
+	// Check if destination directory is non-empty (safety check)
+	nonEmpty, err := isDirectoryNonEmpty(cfg.DestPath)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("Cannot check destination directory: %s", cfg.DestPath),
+			"Check directory permissions")
+	}
+
+	if nonEmpty && !cfg.Force {
+		return errors.New(
+			fmt.Sprintf("Destination directory is not empty: %s", cfg.DestPath),
+			"Use --force to overwrite existing files (this will replace files with the same names)",
+		)
+	}
+
 	// Ensure destination directory exists
 	if err := os.MkdirAll(cfg.DestPath, 0755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	if cfg.Verbose && nonEmpty && cfg.Force {
+		fmt.Println("WARNING: Restoring to non-empty directory - existing files may be overwritten")
 	}
 
 	if cfg.Verbose {
@@ -108,4 +127,29 @@ func dryRunRestore(cfg RestoreConfig) error {
 	fmt.Println("[DRY RUN]   3. EXTRACT - Extract tar archive to destination")
 
 	return nil
+}
+
+// isDirectoryNonEmpty checks if a directory exists and is non-empty
+func isDirectoryNonEmpty(path string) (bool, error) {
+	// Check if directory exists
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil // Directory doesn't exist, so it's not non-empty
+		}
+		return false, err // Some other error
+	}
+
+	// Check if it's a directory
+	if !info.IsDir() {
+		return false, fmt.Errorf("path exists but is not a directory")
+	}
+
+	// Check if directory is empty
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false, err
+	}
+
+	return len(entries) > 0, nil
 }

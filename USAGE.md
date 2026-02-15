@@ -198,9 +198,36 @@ secure-backup restore [flags]
 - `--private-key` (required): Path to GPG private key
 - `--passphrase`: GPG key passphrase (INSECURE - visible in process lists)
 - `--passphrase-file`: Path to file containing GPG key passphrase (secure)
+- `--force`: Allow restore to non-empty directory (prevents accidental data loss)
 - `--verbose, -v`: Show progress and detailed output
 - `--dry-run`: Preview operation without extracting files
 - `--skip-manifest`: Skip manifest validation (for backups without manifests)
+
+**Safety Feature - Non-Empty Directory Protection:**
+
+By default, restore will **fail** if the destination directory already exists and is not empty. This prevents accidental data loss.
+
+```bash
+# This will FAIL if /restore/location contains files
+secure-backup restore \\\n  --file /backups/backup.tar.gz.gpg \\\n  --dest /restore/location \\\n  --private-key ~/.gnupg/backup-priv.asc
+
+# Error: Destination directory is not empty: /restore/location
+# Hint: Use --force to overwrite existing files
+```
+
+To restore into a non-empty directory, use `--force`:
+
+```bash
+# This will SUCCEED and may overwrite files
+secure-backup restore \\\n  --file /backups/backup.tar.gz.gpg \\\n  --dest /restore/location \\\n  --private-key ~/.gnupg/backup-priv.asc \\\n  --force
+```
+
+**Important Notes:**
+- ✅ Empty directories: Restore succeeds without `--force`
+- ✅ Non-existent directories: Created automatically, no `--force` needed
+- ⚠️  Non-empty directories: Require `--force` to proceed
+- ⚠️  Files with same names: Will be overwritten when using `--force`
+- ℹ️  Other existing files: Remain untouched (not deleted)
 
 **Passphrase Options (choose one):**
 
@@ -238,7 +265,7 @@ secure-backup restore [flags]
 **Examples:**
 
 ```bash
-# Basic restore (silent)
+# Basic restore to empty directory (silent)
 secure-backup restore \
   --file /backups/backup_documents_20260207.tar.gz.gpg \
   --dest /restore/location \
@@ -250,12 +277,20 @@ secure-backup restore \
   --dest /tmp/etc-restore \
   --private-key /root/.gnupg/backup-priv.asc \
   --verbose
+
+# Restore to non-empty directory (requires --force)
+secure-backup restore \
+  --file /backups/backup_data_20260207.tar.gz.gpg \
+  --dest /data/restore \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --force
 ```
 
 **Important Notes:**
 - Files are restored into a subdirectory named after the original source
 - Original permissions and timestamps are preserved
 - Symlinks are preserved as symlinks (not followed)
+- Restoring to non-empty directories requires `--force` flag (safety feature)
 
 ### verify - Check Backup Integrity
 

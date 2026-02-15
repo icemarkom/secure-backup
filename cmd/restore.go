@@ -22,6 +22,7 @@ var (
 	restoreVerbose        bool
 	restoreDryRun         bool
 	restoreSkipManifest   bool
+	restoreForce          bool
 )
 
 var restoreCmd = &cobra.Command{
@@ -49,6 +50,7 @@ func init() {
 	restoreCmd.Flags().BoolVarP(&restoreVerbose, "verbose", "v", false, "Verbose output")
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "Preview restore without executing")
 	restoreCmd.Flags().BoolVar(&restoreSkipManifest, "skip-manifest", false, "Skip manifest validation (use for old backups without manifests)")
+	restoreCmd.Flags().BoolVar(&restoreForce, "force", false, "Allow restore to non-empty directory")
 
 	restoreCmd.MarkFlagRequired("file")
 	restoreCmd.MarkFlagRequired("dest")
@@ -112,6 +114,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Compressor: compressor,
 		Verbose:    restoreVerbose,
 		DryRun:     restoreDryRun,
+		Force:      restoreForce,
 	}
 
 	if err = backup.PerformRestore(restoreCfg); err != nil {

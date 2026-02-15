@@ -217,3 +217,382 @@ func TestPerformRestore_DryRun_InvalidFile(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "backup file not found")
 }
+
+// TestIsDirectoryNonEmpty tests the isDirectoryNonEmpty helper function
+func TestIsDirectoryNonEmpty(t *testing.T) {
+	tests := []struct {
+		name            string
+		setup           func(t *testing.T, tempDir string) string
+		wantNonEmpty    bool
+		wantErr         bool
+		wantErrContains string
+	}{
+		{
+			name: "nonexistent directory",
+			setup: func(t *testing.T, tempDir string) string {
+				return filepath.Join(tempDir, "nonexistent")
+			},
+			wantNonEmpty: false,
+			wantErr:      false,
+		},
+		{
+			name: "empty directory",
+			setup: func(t *testing.T, tempDir string) string {
+				emptyDir := filepath.Join(tempDir, "empty")
+				err := os.Mkdir(emptyDir, 0755)
+				require.NoError(t, err)
+				return emptyDir
+			},
+			wantNonEmpty: false,
+			wantErr:      false,
+		},
+		{
+			name: "directory with files",
+			setup: func(t *testing.T, tempDir string) string {
+				dir := filepath.Join(tempDir, "with-files")
+				err := os.Mkdir(dir, 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0644)
+				require.NoError(t, err)
+				return dir
+			},
+			wantNonEmpty: true,
+			wantErr:      false,
+		},
+		{
+			name: "directory with subdirectories",
+			setup: func(t *testing.T, tempDir string) string {
+				dir := filepath.Join(tempDir, "with-subdirs")
+				err := os.Mkdir(dir, 0755)
+				require.NoError(t, err)
+				err = os.Mkdir(filepath.Join(dir, "subdir"), 0755)
+				require.NoError(t, err)
+				return dir
+			},
+			wantNonEmpty: true,
+			wantErr:      false,
+		},
+		{
+			name: "path is a file not directory",
+			setup: func(t *testing.T, tempDir string) string {
+				filePath := filepath.Join(tempDir, "file.txt")
+				err := os.WriteFile(filePath, []byte("content"), 0644)
+				require.NoError(t, err)
+				return filePath
+			},
+			wantNonEmpty:    false,
+			wantErr:         true,
+			wantErrContains: "not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			path := tt.setup(t, tempDir)
+
+			gotNonEmpty, err := isDirectoryNonEmpty(path)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.wantErrContains != "" {
+					assert.Contains(t, err.Error(), tt.wantErrContains)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantNonEmpty, gotNonEmpty)
+			}
+		})
+	}
+}
+
+// TestPerformRestore_NonEmptyDestination_WithoutForce tests that restore fails for non-empty directory without --force
+func TestPerformRestore_NonEmptyDestination_WithoutForce(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create a backup
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	backupDir := filepath.Join(tempRoot, "backups")
+
+	// Generate test keys
+	keyPaths, err := generateTestKeys(t, tempRoot)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	// Create a backup
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	backupCfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    backupDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(backupCfg)
+	require.NoError(t, err)
+
+	// Create non-empty restore destination
+	restoreDir := filepath.Join(tempRoot, "restore")
+	err = os.Mkdir(restoreDir, 0755)
+	require.NoError(t, err)
+
+	existingFile := filepath.Join(restoreDir, "existing.txt")
+	err = os.WriteFile(existingFile, []byte("existing content"), 0644)
+	require.NoError(t, err)
+
+	// Try to restore without --force (should fail)
+	restoreCfg := RestoreConfig{
+		BackupFile: backupPath,
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		Force:      false,
+	}
+
+	err = PerformRestore(restoreCfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Destination directory is not empty")
+	assert.Contains(t, err.Error(), "--force")
+}
+
+// TestPerformRestore_NonEmptyDestination_WithForce tests that restore succeeds for non-empty directory with --force
+func TestPerformRestore_NonEmptyDestination_WithForce(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create a backup
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	backupDir := filepath.Join(tempRoot, "backups")
+
+	// Generate test keys
+	keyPaths, err := generateTestKeys(t, tempRoot)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	// Create a backup
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	backupCfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    backupDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(backupCfg)
+	require.NoError(t, err)
+
+	// Create non-empty restore destination
+	restoreDir := filepath.Join(tempRoot, "restore")
+	err = os.Mkdir(restoreDir, 0755)
+	require.NoError(t, err)
+
+	existingFile := filepath.Join(restoreDir, "existing.txt")
+	err = os.WriteFile(existingFile, []byte("existing content"), 0644)
+	require.NoError(t, err)
+
+	// Restore with --force (should succeed)
+	restoreCfg := RestoreConfig{
+		BackupFile: backupPath,
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		Force:      true,
+	}
+
+	err = PerformRestore(restoreCfg)
+	require.NoError(t, err)
+
+	// Verify both files exist
+	restoredFile := filepath.Join(restoreDir, "source", "test.txt")
+	content, err := os.ReadFile(restoredFile)
+	require.NoError(t, err)
+	assert.Equal(t, "test content", string(content))
+
+	// Existing file should still be there
+	existingContent, err := os.ReadFile(existingFile)
+	require.NoError(t, err)
+	assert.Equal(t, "existing content", string(existingContent))
+}
+
+// TestPerformRestore_EmptyDestination_WithoutForce tests that restore succeeds for empty directory without --force
+func TestPerformRestore_EmptyDestination_WithoutForce(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create a backup
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	backupDir := filepath.Join(tempRoot, "backups")
+
+	// Generate test keys
+	keyPaths, err := generateTestKeys(t, tempRoot)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	// Create a backup
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	backupCfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    backupDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(backupCfg)
+	require.NoError(t, err)
+
+	// Create empty restore destination
+	restoreDir := filepath.Join(tempRoot, "restore")
+	err = os.Mkdir(restoreDir, 0755)
+	require.NoError(t, err)
+
+	// Restore without --force (should succeed because directory is empty)
+	restoreCfg := RestoreConfig{
+		BackupFile: backupPath,
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		Force:      false,
+	}
+
+	err = PerformRestore(restoreCfg)
+	require.NoError(t, err)
+
+	// Verify files were restored
+	restoredFile := filepath.Join(restoreDir, "source", "test.txt")
+	content, err := os.ReadFile(restoredFile)
+	require.NoError(t, err)
+	assert.Equal(t, "test content", string(content))
+}
+
+// TestPerformRestore_NonexistentDestination_WithoutForce tests that restore succeeds for non-existent directory without --force
+func TestPerformRestore_NonexistentDestination_WithoutForce(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create a backup
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	backupDir := filepath.Join(tempRoot, "backups")
+
+	// Generate test keys
+	keyPaths, err := generateTestKeys(t, tempRoot)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	// Create a backup
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	backupCfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    backupDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(backupCfg)
+	require.NoError(t, err)
+
+	// Don't create restore directory - it should be created automatically
+	restoreDir := filepath.Join(tempRoot, "restore")
+
+	// Restore without --force (should succeed because directory doesn't exist)
+	restoreCfg := RestoreConfig{
+		BackupFile: backupPath,
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		Force:      false,
+	}
+
+	err = PerformRestore(restoreCfg)
+	require.NoError(t, err)
+
+	// Verify files were restored
+	restoredFile := filepath.Join(restoreDir, "source", "test.txt")
+	content, err := os.ReadFile(restoredFile)
+	require.NoError(t, err)
+	assert.Equal(t, "test content", string(content))
+}
