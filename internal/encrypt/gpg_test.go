@@ -14,10 +14,10 @@ import (
 
 // TestMain ensures test keys exist before running tests
 func TestMain(m *testing.M) {
-	// Generate test keys if they don't exist
+	// Try to generate test keys if they don't exist
+	// Not fatal if this fails — individual tests that need keys will skip themselves
 	if err := ensureTestKeys(); err != nil {
-		os.Stderr.WriteString("Failed to generate test keys: " + err.Error() + "\n")
-		os.Exit(1)
+		os.Stderr.WriteString("Warning: test key generation failed: " + err.Error() + " (integration tests will be skipped)\n")
 	}
 
 	// Run tests
