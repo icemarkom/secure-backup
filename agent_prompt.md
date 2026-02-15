@@ -664,13 +664,17 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 
 **GitHub Issues: NEVER close before code is pushed**
 
+> **⚠️ IMPORTANT**: Auto-close keywords (`Fixes #N`) in commit messages do NOT work
+> for this repository. Always close issues manually with `gh issue close`.
+
 ✅ **CORRECT:**
 ```
 1. Make changes and stage files
 2. Ask user: "Ready to commit?"
 3. WAIT for user approval
-4. git commit -m "fix: description (Fixes #N)"  ← auto-closes issue on push
+4. git commit -m "fix: description (#N)"
 5. git push
+6. gh issue close N --comment "Fixed in <commit-hash> — <brief summary>"
 ```
 
 ❌ **WRONG:**
@@ -680,7 +684,7 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 3. git commit + push later
 ```
 
-**Pattern: Code pushed FIRST → issue closed AFTER (use `Fixes #N` in commit message)**
+**Pattern: Code pushed FIRST → then `gh issue close` AFTER**
 
 ### 2. Documentation
 
