@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 )
 
@@ -83,7 +84,7 @@ func ApplyPolicy(policy Policy) (int, error) {
 			if policy.Verbose {
 				fmt.Printf("Deleting old backup: %s (age: %s)\n",
 					filepath.Base(file),
-					formatAge(age))
+					format.Age(age))
 			}
 
 			if err := os.Remove(file); err != nil {
@@ -165,35 +166,6 @@ type BackupInfo struct {
 	Size    int64
 	ModTime time.Time
 	Age     time.Duration
-}
-
-// formatAge formats a duration as a human-readable age string
-func formatAge(d time.Duration) string {
-	days := int(d.Hours() / 24)
-	hours := int(d.Hours()) % 24
-
-	if days > 0 {
-		return fmt.Sprintf("%dd%dh", days, hours)
-	}
-	if hours > 0 {
-		return fmt.Sprintf("%dh", hours)
-	}
-	minutes := int(d.Minutes())
-	return fmt.Sprintf("%dm", minutes)
-}
-
-// FormatSize formats bytes as human-readable string
-func FormatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // IsBackupFile checks if a filename matches the backup pattern

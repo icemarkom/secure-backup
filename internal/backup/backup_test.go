@@ -13,47 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFormatSize(t *testing.T) {
-	tests := []struct {
-		name  string
-		bytes int64
-		want  string
-	}{
-		{
-			name:  "zero bytes",
-			bytes: 0,
-			want:  "0 B",
-		},
-		{
-			name:  "bytes",
-			bytes: 500,
-			want:  "500 B",
-		},
-		{
-			name:  "kilobytes",
-			bytes: 1500,
-			want:  "1.5 KiB",
-		},
-		{
-			name:  "megabytes",
-			bytes: 2 * 1024 * 1024,
-			want:  "2.0 MiB",
-		},
-		{
-			name:  "gigabytes",
-			bytes: 3 * 1024 * 1024 * 1024,
-			want:  "3.0 GiB",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatSize(tt.bytes)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestGetDirectorySize(t *testing.T) {
 	// Create temp directory with known files
 	tempDir := t.TempDir()

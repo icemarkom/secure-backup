@@ -8,6 +8,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/format"
 )
 
 // VerifyConfig holds configuration for verify operations
@@ -39,7 +40,7 @@ func PerformVerify(cfg VerifyConfig) error {
 	}
 
 	if cfg.Verbose {
-		fmt.Printf("Verifying: %s (%s)\n", cfg.BackupFile, formatSize(fileInfo.Size()))
+		fmt.Printf("Verifying: %s (%s)\n", cfg.BackupFile, format.Size(fileInfo.Size()))
 	}
 
 	if cfg.Quick {
@@ -129,7 +130,7 @@ func fullVerify(cfg VerifyConfig) error {
 	}
 
 	if cfg.Verbose {
-		fmt.Printf("✓ Successfully verified %s of decompressed data\n", formatSize(bytesRead))
+		fmt.Printf("✓ Successfully verified %s of decompressed data\n", format.Size(bytesRead))
 		fmt.Println("✓ Full verification passed")
 	}
 
@@ -147,7 +148,7 @@ func dryRunVerify(cfg VerifyConfig) error {
 
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Verify preview:")
-	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, formatSize(fileInfo.Size()))
+	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, format.Size(fileInfo.Size()))
 
 	if cfg.Quick {
 		fmt.Printf("[DRY RUN]   Mode: Quick verification (header check only)\n")

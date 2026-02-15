@@ -8,6 +8,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/format"
 )
 
 // RestoreConfig holds configuration for restore operations
@@ -118,7 +119,7 @@ func dryRunRestore(cfg RestoreConfig) error {
 
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Restore preview:")
-	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, formatSize(fileInfo.Size()))
+	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, format.Size(fileInfo.Size()))
 	fmt.Printf("[DRY RUN]   Destination: %s\n", cfg.DestPath)
 	fmt.Println("[DRY RUN]")
 	fmt.Println("[DRY RUN] Pipeline stages that would execute:")

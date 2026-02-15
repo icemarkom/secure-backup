@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 	"sort"
-	"time"
 
+	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
@@ -53,8 +53,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s\n", backup.Name)
 		fmt.Printf("  Modified: %s (%s ago)\n",
 			backup.ModTime.Format("2006-01-02 15:04"),
-			formatAge(backup.Age))
-		fmt.Printf("  Size:     %s\n", retention.FormatSize(backup.Size))
+			format.Age(backup.Age))
+		fmt.Printf("  Size:     %s\n", format.Size(backup.Size))
 
 		// Try to read manifest
 		manifestPath := manifest.ManifestPath(backup.Path)
@@ -70,19 +70,4 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// formatAge formats a duration as a human-readable age string
-func formatAge(d time.Duration) string {
-	days := int(d.Hours() / 24)
-	hours := int(d.Hours()) % 24
-
-	if days > 0 {
-		return fmt.Sprintf("%dd%dh", days, hours)
-	}
-	if hours > 0 {
-		return fmt.Sprintf("%dh", hours)
-	}
-	minutes := int(d.Minutes())
-	return fmt.Sprintf("%dm", minutes)
 }

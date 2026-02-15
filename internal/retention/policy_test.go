@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +51,7 @@ func TestFormatAge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatAge(tt.duration)
+			got := format.Age(tt.duration)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -96,7 +97,7 @@ func TestFormatSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FormatSize(tt.bytes)
+			got := format.Size(tt.bytes)
 			assert.Equal(t, tt.want, got)
 		})
 	}

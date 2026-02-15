@@ -12,6 +12,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/format"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -59,7 +60,7 @@ func PerformBackup(cfg Config) (string, error) {
 	tmpPath := outputPath + ".tmp"
 
 	if cfg.Verbose {
-		fmt.Printf("Starting backup of %s (%s)\n", cfg.SourcePath, formatSize(getDirectorySize(cfg.SourcePath)))
+		fmt.Printf("Starting backup of %s (%s)\n", cfg.SourcePath, format.Size(getDirectorySize(cfg.SourcePath)))
 		fmt.Printf("Destination: %s\n", outputPath)
 	}
 
@@ -98,7 +99,7 @@ func PerformBackup(cfg Config) (string, error) {
 	if cfg.Verbose {
 		fmt.Printf("Backup completed successfully: %s\n", outputPath)
 		if finalInfo != nil {
-			fmt.Printf("Backup size: %s\n", formatSize(finalInfo.Size()))
+			fmt.Printf("Backup size: %s\n", format.Size(finalInfo.Size()))
 		}
 	}
 
@@ -161,20 +162,6 @@ func getDirectorySize(path string) int64 {
 	return size
 }
 
-// formatSize formats bytes as human-readable string
-func formatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
 // dryRunBackup previews backup operation without executing
 // Note: Dry-run mode always shows verbose output for useful preview
 func dryRunBackup(cfg Config) (string, error) {
@@ -198,7 +185,7 @@ func dryRunBackup(cfg Config) (string, error) {
 
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Backup preview:")
-	fmt.Printf("[DRY RUN]   Source: %s (%s)\n", cfg.SourcePath, formatSize(sourceSize))
+	fmt.Printf("[DRY RUN]   Source: %s (%s)\n", cfg.SourcePath, format.Size(sourceSize))
 	fmt.Printf("[DRY RUN]   Destination: %s\n", outputPath)
 	fmt.Printf("[DRY RUN]   Compression: %s\n", "gzip")
 	fmt.Printf("[DRY RUN]   Encryption: GPG\n")

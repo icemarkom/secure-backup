@@ -7,6 +7,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/passphrase"
 	"github.com/spf13/cobra"
@@ -156,22 +157,8 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 			m.CreatedAt.Format("2006-01-02 15:04:05"),
 			m.CreatedBy.Tool, m.CreatedBy.Version, m.CreatedBy.Hostname)
 		fmt.Printf("Source:   %s\n", m.SourcePath)
-		fmt.Printf("Size:     %s\n", formatSize(m.SizeBytes))
+		fmt.Printf("Size:     %s\n", format.Size(m.SizeBytes))
 	}
 
 	return m, nil
-}
-
-// formatSize formats bytes as human-readable string
-func formatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
