@@ -12,7 +12,7 @@
 **Binary**: `secure-backup`  
 **License**: Apache 2.0  
 **Author**: Marko Milivojevic (markom@gmail.com)  
-**Language**: Go 1.21+
+**Language**: Go 1.26+
 
 **Mission**: Production-ready tool for secure, encrypted backups of any directory.
 
@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P10-P13, P19 COMPLETE | ⛔ P8, P14-P16 WON'T FIX | ⬜ P9, P17-P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P10-P13, P17, P19 COMPLETE | ⛔ P8, P14-P16 WON'T FIX | ⬜ P9, P18 OPEN (production hardening round 2)  
 
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
@@ -436,7 +436,7 @@
 
 | ID | GitHub | Issue | File(s) | Effort |
 |----|--------|-------|---------|--------|
-| **P17** | [#11](https://github.com/icemarkom/secure-backup/issues/11) | `filepath.Walk` follows symlinks during backup creation | `internal/archive/tar.go` | 1h |
+| **P17** | [#11](https://github.com/icemarkom/secure-backup/issues/11) | ~~`filepath.Walk` follows symlinks during backup creation~~ | `internal/archive/tar.go` | ✅ COMPLETE |
 | **P18** | [#12](https://github.com/icemarkom/secure-backup/issues/12) | Armor decode fallback corrupts stream (partial read) | `internal/encrypt/gpg.go` | 1h |
 | **P19** | [#13](https://github.com/icemarkom/secure-backup/issues/13) | ~~`formatSize()` duplicated in 3 files~~ | `internal/format/` | ✅ COMPLETE |
 
@@ -456,7 +456,7 @@
 
 **Week 3: Security Hardening (P7-P10)**
 - Day 1: P7 - Fix lock TOCTOU + P10 - File permissions (quick wins) ✅ COMPLETE
-- ~~Day 2: P8 - Symlink validation on extract~~ ⛔ WON'T FIX + P17 - Symlink handling on create
+- ~~Day 2: P8 - Symlink validation on extract~~ ⛔ WON'T FIX + P17 - Symlink handling on create ✅ COMPLETE
 - Day 3: P9 - Decompression bomb protection
 
 **Week 4: Reliability & Quality (P11-P16)**
@@ -790,6 +790,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P16 Closed as Won't Fix | All business logic is well-tested in `internal/` packages. `cmd/` is thin Cobra wiring; the effort-to-value ratio for 1-2 days of integration testing is poor. Flag wiring correctness is validated by manual testing and CI builds. |
 | 2026-02-15 | P8 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted so attackers can't inject malicious tar entries. Fix risks breaking legitimate restores containing symlinks with absolute or out-of-tree targets. Tool is not a general-purpose tar extractor. |
 | 2026-02-15 | P10 Implementation Complete | Added `--file-mode` flag with `default` (0600), `system` (umask), or explicit octal modes. Secure by default, user-overridable. World-readable warning on stderr. Applied to both backup and manifest files. 3 new tests, all pass. |
+| 2026-02-15 | Go version bumped to 1.26.0 | Updated `go.mod`, `test.yml`, `release.yaml` from Go 1.25 to 1.26. |
+| 2026-02-15 | P17 Implementation Complete | Switched `filepath.Walk` → `filepath.WalkDir` in `CreateTar` to preserve symlinks as `tar.TypeSymlink` entries instead of dereferencing them. Used `os.Lstat` for source. 3 symlink tests (internal, external, round-trip), all pass. |
 
 ---
 
@@ -861,10 +863,10 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation 187c6c4b-e73e-4fbb-8be1-0a9f2b689b9c)  
+**Last Updated By**: Agent (conversation 70401857-3f2e-4f5f-af02-e04eef183314)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
-**Production Trust Score**: 7.0/10 — Solid foundation, P9/P17/P18 open for hardening  
-**Productionization**: P1-P7, P10-P13, P19 ✅ | P8, P14-P16 ⛔ | P9, P17-P18 ⬜ OPEN  
-**Next Milestone**: P9 decompression bomb protection, P17-P18 reliability & polish (see GitHub issues)
+**Production Trust Score**: 7.0/10 — Solid foundation, P9/P18 open for hardening  
+**Productionization**: P1-P7, P10-P13, P17, P19 ✅ | P8, P14-P16 ⛔ | P9, P18 ⬜ OPEN  
+**Next Milestone**: P9 decompression bomb protection, P18 armor decode fix (see GitHub issues)
 
 

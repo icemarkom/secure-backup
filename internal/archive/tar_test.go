@@ -207,9 +207,9 @@ func TestCreateTar_Symlink(t *testing.T) {
 	err := os.WriteFile(targetFile, []byte("target content"), 0644)
 	require.NoError(t, err)
 
-	// Create symlink
+	// Create symlink to target
 	linkFile := filepath.Join(tmpDir, "link.txt")
-	err = os.Symlink(targetFile, linkFile)
+	err = os.Symlink("target.txt", linkFile)
 	require.NoError(t, err)
 
 	// Create tar
@@ -222,9 +222,97 @@ func TestCreateTar_Symlink(t *testing.T) {
 	err = ExtractTar(&buf, destDir)
 	require.NoError(t, err)
 
-	// Verify symlink was preserved
+	// Verify symlink was preserved as a symlink (not dereferenced)
 	extractedLink := filepath.Join(destDir, filepath.Base(tmpDir), "link.txt")
 	info, err := os.Lstat(extractedLink)
+	require.NoError(t, err)
+	assert.Equal(t, os.ModeSymlink, info.Mode()&os.ModeSymlink, "expected symlink, got regular file")
+
+	// Verify symlink target is correct
+	got, err := os.Readlink(extractedLink)
+	require.NoError(t, err)
+	assert.Equal(t, "target.txt", got)
+}
+
+func TestCreateTar_SymlinkToExternal(t *testing.T) {
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("Symlink test skipped on Windows")
+	}
+
+	// Create an external file outside the source directory
+	externalDir := t.TempDir()
+	externalFile := filepath.Join(externalDir, "external.txt")
+	err := os.WriteFile(externalFile, []byte("external secret"), 0644)
+	require.NoError(t, err)
+
+	// Create source directory with a symlink to external file
+	srcDir := t.TempDir()
+	err = os.WriteFile(filepath.Join(srcDir, "regular.txt"), []byte("regular content"), 0644)
+	require.NoError(t, err)
+	err = os.Symlink(externalFile, filepath.Join(srcDir, "external_link.txt"))
+	require.NoError(t, err)
+
+	// Create tar
+	var buf bytes.Buffer
+	err = CreateTar(srcDir, &buf)
+	require.NoError(t, err)
+
+	// Extract and verify the external file content was NOT included
+	destDir := t.TempDir()
+	err = ExtractTar(&buf, destDir)
+	require.NoError(t, err)
+
+	srcBase := filepath.Base(srcDir)
+
+	// Regular file should be present
+	content, err := os.ReadFile(filepath.Join(destDir, srcBase, "regular.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "regular content", string(content))
+
+	// Symlink should exist as a symlink, not a regular file with external content
+	linkPath := filepath.Join(destDir, srcBase, "external_link.txt")
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.ModeSymlink, info.Mode()&os.ModeSymlink, "expected symlink, got regular file")
+
+	// Symlink target should be the original path (will be dangling in extracted location)
+	got, err := os.Readlink(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, externalFile, got)
+}
+
+func TestCreateTar_SymlinkRoundTrip(t *testing.T) {
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("Symlink test skipped on Windows")
+	}
+
+	srcDir := t.TempDir()
+
+	// Create a file and a relative symlink to it
+	err := os.WriteFile(filepath.Join(srcDir, "data.txt"), []byte("hello"), 0644)
+	require.NoError(t, err)
+	err = os.Symlink("data.txt", filepath.Join(srcDir, "alias.txt"))
+	require.NoError(t, err)
+
+	// Backup
+	var buf bytes.Buffer
+	err = CreateTar(srcDir, &buf)
+	require.NoError(t, err)
+
+	// Restore
+	destDir := t.TempDir()
+	err = ExtractTar(&buf, destDir)
+	require.NoError(t, err)
+
+	srcBase := filepath.Base(srcDir)
+
+	// Reading through the symlink should return the original content
+	content, err := os.ReadFile(filepath.Join(destDir, srcBase, "alias.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "hello", string(content))
+
+	// Verify it's actually a symlink, not a copied file
+	info, err := os.Lstat(filepath.Join(destDir, srcBase, "alias.txt"))
 	require.NoError(t, err)
 	assert.Equal(t, os.ModeSymlink, info.Mode()&os.ModeSymlink)
 }

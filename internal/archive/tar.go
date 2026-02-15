@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,8 +18,8 @@ func CreateTar(sourcePath string, w io.Writer) error {
 		return fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
-	// Verify source exists
-	sourceInfo, err := os.Stat(absPath)
+	// Verify source exists (Lstat to avoid following if source itself is a symlink)
+	sourceInfo, err := os.Lstat(absPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat source path: %w", err)
 	}
@@ -30,10 +31,48 @@ func CreateTar(sourcePath string, w io.Writer) error {
 	baseDir := filepath.Dir(absPath)
 	baseName := filepath.Base(absPath)
 
-	// Walk the directory tree
-	return filepath.Walk(absPath, func(file string, fi os.FileInfo, err error) error {
+	// Walk the directory tree (WalkDir uses Lstat — does not follow symlinks)
+	return filepath.WalkDir(absPath, func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("walk error at %s: %w", file, err)
+		}
+
+		// Compute relative path for archive
+		var relPath string
+		if sourceInfo.IsDir() {
+			relPath, err = filepath.Rel(baseDir, file)
+			if err != nil {
+				return fmt.Errorf("failed to get relative path: %w", err)
+			}
+		} else {
+			if file == absPath {
+				relPath = baseName
+			} else {
+				relPath = filepath.Base(file)
+			}
+		}
+
+		// Handle symlinks before calling d.Info() (which would follow them)
+		if d.Type()&os.ModeSymlink != 0 {
+			linkTarget, err := os.Readlink(file)
+			if err != nil {
+				return fmt.Errorf("failed to read symlink %s: %w", file, err)
+			}
+			header := &tar.Header{
+				Typeflag: tar.TypeSymlink,
+				Name:     relPath,
+				Linkname: linkTarget,
+			}
+			if err := tw.WriteHeader(header); err != nil {
+				return fmt.Errorf("failed to write tar header for symlink %s: %w", file, err)
+			}
+			return nil
+		}
+
+		// Get file info for non-symlink entries
+		fi, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("failed to get file info for %s: %w", file, err)
 		}
 
 		// Create tar header from file info
@@ -41,34 +80,7 @@ func CreateTar(sourcePath string, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("failed to create tar header for %s: %w", file, err)
 		}
-
-		// Set relative path in archive
-		// If source is a file, use just the filename
-		// If source is a directory, preserve structure relative to parent
-		if sourceInfo.IsDir() {
-			relPath, err := filepath.Rel(baseDir, file)
-			if err != nil {
-				return fmt.Errorf("failed to get relative path: %w", err)
-			}
-			header.Name = relPath
-		} else {
-			// Single file backup - use just the filename
-			if file == absPath {
-				header.Name = baseName
-			} else {
-				// This shouldn't happen for single file, but handle gracefully
-				header.Name = filepath.Base(file)
-			}
-		}
-
-		// Handle symlinks
-		if fi.Mode()&os.ModeSymlink != 0 {
-			linkTarget, err := os.Readlink(file)
-			if err != nil {
-				return fmt.Errorf("failed to read symlink %s: %w", file, err)
-			}
-			header.Linkname = linkTarget
-		}
+		header.Name = relPath
 
 		// Write header
 		if err := tw.WriteHeader(header); err != nil {
