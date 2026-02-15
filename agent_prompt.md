@@ -90,8 +90,8 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ **ALL ITEMS COMPLETE** (P1-P6)  
-> **Trust Score**: 9.0/10 ⭐ **PRODUCTION READY**
+> **Status**: ✅ P1-P6 COMPLETE | ⬜ P7-P19 OPEN (production hardening round 2)  
+> **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
 
@@ -387,21 +387,68 @@
 
 ---
 
+### Production Hardening Round 2 (P7-P19)
+
+> **Source**: Code review (2026-02-15, conversation fd1d5446)  
+> **Status**: ⬜ All items open — GitHub issues created
+
+#### Critical Priority
+
+| ID | GitHub | Issue | File(s) | Effort |
+|----|--------|-------|---------|--------|
+| **P7** | [#1](https://github.com/icemarkom/secure-backup/issues/1) | TOCTOU race in lock: `Stat()` + `WriteFile()` is not atomic | `internal/lock/lock.go` | 1-2h |
+| **P8** | [#2](https://github.com/icemarkom/secure-backup/issues/2) | Symlink traversal on extract: link targets not validated | `internal/archive/tar.go` | 1-2h |
+| **P9** | [#3](https://github.com/icemarkom/secure-backup/issues/3) | No decompression bomb protection: unbounded `io.Copy` | `internal/archive/tar.go` | 1-2h |
+
+#### High Priority
+
+| ID | GitHub | Issue | File(s) | Effort |
+|----|--------|-------|---------|--------|
+| **P10** | [#4](https://github.com/icemarkom/secure-backup/issues/4) | Backup file permissions 0666 (umask-dependent) instead of 0600 | `internal/backup/backup.go` | 15min |
+| **P11** | [#5](https://github.com/icemarkom/secure-backup/issues/5) | Retention deletes backups but orphans manifest `.json` files | `internal/retention/policy.go`, `cmd/backup.go` | 30min |
+| **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | Context not propagated; no SIGTERM/signal handling | `internal/backup/backup.go`, `main.go` | 2-3h |
+| **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | Manifest path derived via brittle `TrimSuffix` on extension | `cmd/backup.go`, `cmd/restore.go`, `cmd/verify.go` | 1h |
+| **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | Passphrase stored as `string`, never zeroed after use | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | 1-2h |
+| **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | `err` variable shadowing in backup defer/cleanup logic | `internal/backup/backup.go` | 1h |
+| **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | Zero `cmd/` test coverage — all CLI wiring untested | `cmd/*.go` | 1-2d |
+
+#### Medium Priority
+
+| ID | GitHub | Issue | File(s) | Effort |
+|----|--------|-------|---------|--------|
+| **P17** | [#11](https://github.com/icemarkom/secure-backup/issues/11) | `filepath.Walk` follows symlinks during backup creation | `internal/archive/tar.go` | 1h |
+| **P18** | [#12](https://github.com/icemarkom/secure-backup/issues/12) | Armor decode fallback corrupts stream (partial read) | `internal/encrypt/gpg.go` | 1h |
+| **P19** | [#13](https://github.com/icemarkom/secure-backup/issues/13) | `formatSize()` duplicated in 3 files | `cmd/verify.go`, `internal/backup/`, `internal/retention/` | 30min |
+
+---
+
 ### Implementation Strategy
 
-**Week 1: Critical Fixes (P1-P4)**
+**Week 1: Critical Fixes (P1-P4)** ✅ COMPLETE
 - Day 1-2: P1 - Backup Metadata & Verification (unified `--manifest` flag)
 - Day 2-3: P2 - Atomic Writes (temp file + rename, no cleanup)
 - Day 3-4: P3 - Error Propagation (errgroup)
 - Day 4-5: P4 - Passphrase Handling (hybrid with warning)
 
-**Week 2: High Priority (P5-P6)**
+**Week 2: High Priority (P5-P6)** ✅ COMPLETE
 - Day 1: P5 - Backup Locking (fail loudly with PID, no cleanup)
 - Day 2: P6 - Restore Safety (--force flag)
 
-**Total Estimated Effort**: 1.5-2 weeks
+**Week 3: Security Hardening (P7-P10)**
+- Day 1: P7 - Fix lock TOCTOU + P10 - File permissions (quick wins)
+- Day 2: P8 - Symlink validation on extract + P17 - Symlink handling on create
+- Day 3: P9 - Decompression bomb protection
 
----
+**Week 4: Reliability & Quality (P11-P16)**
+- Day 1: P11 - Retention manifest cleanup + P13 - Manifest path fix
+- Day 2: P12 - Context/signal propagation
+- Day 3: P14 - Passphrase zeroing + P15 - Error shadowing fix  
+- Day 4-5: P16 - cmd/ integration tests
+
+**Week 5: Polish (P17-P19)**
+- P18 - Armor decode fix + P19 - Deduplicate formatSize
+
+**Total Estimated Effort**: P1-P6 done (1.5 weeks) + P7-P19 (~2.5 weeks)
 
 ## Future Phases
 
@@ -759,9 +806,10 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation 030b125b-fdae-4877-84e9-5fe89bc11d8c)  
-**Project Phase**: Phase 5 Complete (User Experience), Productionization Effort **COMPLETE** ✅  
-**Production Trust Score**: 9.0/10 ⭐ **PRODUCTION READY**  
-**Productionization**: P1 ✅, P2 ✅, P3 ✅, P4 ✅, P5 ✅, P6 ✅ **ALL COMPLETE**  
-**Next Milestone**: Future enhancements (age encryption, advanced compression)
+**Last Updated By**: Agent (conversation fd1d5446-2b24-42ef-b28a-067d6fb5fbd6)  
+**Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
+**Production Trust Score**: 7.0/10 — Solid foundation, P7-P19 open for hardening  
+**Productionization**: P1 ✅, P2 ✅, P3 ✅, P4 ✅, P5 ✅, P6 ✅ | P7-P19 ⬜ OPEN  
+**Next Milestone**: P7-P19 security & reliability hardening (see GitHub issues)
+
 
