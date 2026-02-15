@@ -333,3 +333,22 @@ func TestGPGEncryptor_WrongKey(t *testing.T) {
 	_, err = decryptor.Decrypt(bytes.NewReader(encryptedData))
 	assert.Error(t, err)
 }
+
+func TestGPGEncryptor_DecryptNonArmored(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping GPG integration test in short mode")
+	}
+
+	_, privateKey := getTestKeyPaths(t)
+
+	decryptor, err := NewGPGEncryptor(Config{
+		Method:     "gpg",
+		PrivateKey: privateKey,
+	})
+	require.NoError(t, err)
+
+	// Pass raw binary data (not armored) — should return explicit error
+	_, err = decryptor.Decrypt(bytes.NewReader([]byte("this is not armored GPG data")))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode armored input")
+}

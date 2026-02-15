@@ -100,18 +100,14 @@ func (e *GPGEncryptor) Decrypt(ciphertext io.Reader) (io.Reader, error) {
 		}
 	}
 
-	// Try to unarmor if needed
+	// Decode armored input (secure-backup always produces armored output)
 	block, err := armor.Decode(ciphertext)
-	var reader io.Reader
-	if err == nil {
-		reader = block.Body
-	} else {
-		// Not armored, use ciphertext directly
-		reader = ciphertext
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode armored input: %w", err)
 	}
 
 	// Read the encrypted message
-	md, err := openpgp.ReadMessage(reader, keyring, nil, nil)
+	md, err := openpgp.ReadMessage(block.Body, keyring, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read encrypted message: %w", err)
 	}

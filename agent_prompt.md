@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P10-P13, P17, P19 COMPLETE | ⛔ P8-P9, P14-P16 WON'T FIX | ⬜ P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P10-P13, P17-P19 COMPLETE | ⛔ P8-P9, P14-P16 WON'T FIX | All items resolved  
 
 
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
@@ -438,7 +438,7 @@
 | ID | GitHub | Issue | File(s) | Effort |
 |----|--------|-------|---------|--------|
 | **P17** | [#11](https://github.com/icemarkom/secure-backup/issues/11) | ~~`filepath.Walk` follows symlinks during backup creation~~ | `internal/archive/tar.go` | ✅ COMPLETE |
-| **P18** | [#12](https://github.com/icemarkom/secure-backup/issues/12) | Armor decode fallback corrupts stream (partial read) | `internal/encrypt/gpg.go` | 1h |
+| **P18** | [#12](https://github.com/icemarkom/secure-backup/issues/12) | ~~Armor decode fallback corrupts stream (partial read)~~ | `internal/encrypt/gpg.go` | ✅ COMPLETE |
 | **P19** | [#13](https://github.com/icemarkom/secure-backup/issues/13) | ~~`formatSize()` duplicated in 3 files~~ | `internal/format/` | ✅ COMPLETE |
 
 ---
@@ -467,7 +467,7 @@
 - ~~Day 4-5: P16 - cmd/ integration tests~~ ⛔ WON'T FIX
 
 **Week 5: Polish (P17-P19)**
-- P18 - Armor decode fix + P19 - Deduplicate formatSize
+- P18 - Armor decode fix ✅ COMPLETE + P19 - Deduplicate formatSize ✅ COMPLETE
 
 **Total Estimated Effort**: P1-P6 done (1.5 weeks) + P7-P19 (~2.5 weeks)
 
@@ -794,6 +794,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P10 Implementation Complete | Added `--file-mode` flag with `default` (0600), `system` (umask), or explicit octal modes. Secure by default, user-overridable. World-readable warning on stderr. Applied to both backup and manifest files. 3 new tests, all pass. |
 | 2026-02-15 | Go version bumped to 1.26.0 | Updated `go.mod`, `test.yml`, `release.yaml` from Go 1.25 to 1.26. |
 | 2026-02-15 | P17 Implementation Complete | Switched `filepath.Walk` → `filepath.WalkDir` in `CreateTar` to preserve symlinks as `tar.TypeSymlink` entries instead of dereferencing them. Used `os.Lstat` for source. 3 symlink tests (internal, external, round-trip), all pass. |
+| 2026-02-15 | P18 Implementation Complete | Removed armor decode fallback in `Decrypt()`. Now always requires armored input (which is all the tool produces). Non-armored input returns explicit error instead of silently corrupting stream. 1 new test added. |
 
 ---
 
@@ -867,8 +868,8 @@ golangci-lint run
 **Last Updated**: 2026-02-15  
 **Last Updated By**: Agent (conversation 70401857-3f2e-4f5f-af02-e04eef183314)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
-**Production Trust Score**: 7.0/10 — Solid foundation, P18 open for hardening  
-**Productionization**: P1-P7, P10-P13, P17, P19 ✅ | P8-P9, P14-P16 ⛔ | P18 ⬜ OPEN  
-**Next Milestone**: P18 armor decode fix (see GitHub issue #12)
+**Production Trust Score**: 7.5/10 — All productionization items resolved  
+**Productionization**: P1-P7, P10-P13, P17-P19 ✅ | P8-P9, P14-P16 ⛔ | **ALL ITEMS RESOLVED** 🎉  
+**Next Milestone**: Future phases (age encryption, zstd compression, Docker integration)
 
 
