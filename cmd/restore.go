@@ -43,7 +43,7 @@ func init() {
 
 	restoreCmd.Flags().StringVar(&restoreFile, "file", "", "Backup file to restore (required)")
 	restoreCmd.Flags().StringVar(&restoreDest, "dest", "", "Destination directory for restored files (required)")
-	restoreCmd.Flags().StringVar(&restorePrivateKey, "private-key", "", "Path to GPG private key file")
+	restoreCmd.Flags().StringVar(&restorePrivateKey, "private-key", "", "Path to GPG private key file (required)")
 	restoreCmd.Flags().StringVar(&restorePassphrase, "passphrase", "", "GPG key passphrase (insecure - use env var or file instead)")
 	restoreCmd.Flags().StringVar(&restorePassphraseFile, "passphrase-file", "", "Path to file containing GPG key passphrase")
 	restoreCmd.Flags().BoolVarP(&restoreVerbose, "verbose", "v", false, "Verbose output")
@@ -53,9 +53,11 @@ func init() {
 
 	restoreCmd.MarkFlagRequired("file")
 	restoreCmd.MarkFlagRequired("dest")
+	restoreCmd.MarkFlagRequired("private-key")
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
 	ctx := cmd.Context()
 	// Validate manifest first (unless skipped or dry-run)
 	if !restoreSkipManifest && !restoreDryRun {
@@ -90,14 +92,6 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Method:     "gpg",
 		PrivateKey: restorePrivateKey,
 		Passphrase: passphraseValue,
-	}
-
-	// If no explicit private key file, try to use system keyring
-	if encryptCfg.PrivateKey == "" {
-		// For now, we'll require explicit private key path
-		// Future: integrate with GPG keyring
-		return errors.MissingRequired("--private-key",
-			"Export your GPG private key with: gpg --export-secret-keys your@email.com > ~/.gnupg/backup-priv.asc")
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)

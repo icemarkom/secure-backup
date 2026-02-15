@@ -49,7 +49,7 @@ func init() {
 	backupCmd.Flags().StringVar(&backupSource, "source", "", "Source directory to backup (required)")
 	backupCmd.Flags().StringVar(&backupDest, "dest", "", "Destination directory for backup file (required)")
 	backupCmd.Flags().StringVar(&backupRecipient, "recipient", "", "GPG recipient email or key ID")
-	backupCmd.Flags().StringVar(&backupPublicKey, "public-key", "", "Path to GPG public key file")
+	backupCmd.Flags().StringVar(&backupPublicKey, "public-key", "", "Path to GPG public key file (required)")
 	backupCmd.Flags().StringVar(&backupEncryption, "encryption", "gpg", "Encryption method (gpg, age)")
 	backupCmd.Flags().IntVar(&backupRetention, "retention", 0, "Retention period in days (0 = keep all backups)")
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
@@ -59,15 +59,12 @@ func init() {
 
 	backupCmd.MarkFlagRequired("source")
 	backupCmd.MarkFlagRequired("dest")
+	backupCmd.MarkFlagRequired("public-key")
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
 	ctx := cmd.Context()
-	// Validate flags
-	if backupRecipient == "" && backupPublicKey == "" {
-		return errors.MissingRequired("--public-key",
-			"Specify your GPG public key with --public-key ~/.gnupg/backup-pub.asc")
-	}
 
 	// Acquire lock to prevent concurrent backups (skip in dry-run — no writes)
 	if !backupDryRun {
@@ -92,14 +89,6 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		Method:    backupEncryption,
 		Recipient: backupRecipient,
 		PublicKey: backupPublicKey,
-	}
-
-	// If no explicit public key file, try to use system keyring with recipient
-	if encryptCfg.PublicKey == "" && encryptCfg.Recipient != "" {
-		// For now, we'll require explicit public key path
-		// Future: integrate with GPG keyring
-		return errors.MissingRequired("--public-key",
-			"Export your GPG public key with: gpg --export your@email.com > ~/.gnupg/backup-pub.asc")
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)

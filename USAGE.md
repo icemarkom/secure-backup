@@ -391,18 +391,12 @@ secure-backup list [flags]
 
 **Flags:**
 - `--dest` (required): Backup directory to list
-- `--pattern`: Filename pattern (default: `backup_*.tar.gz.gpg`)
 
 **Examples:**
 
 ```bash
 # List all backups (always shows output)
 secure-backup list --dest /backups
-
-# List backups matching custom pattern
-secure-backup list \
-  --dest /backups \
-  --pattern "backup_etc_*.tar.gz.gpg"
 ```
 
 **Output includes manifest information when available:**

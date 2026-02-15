@@ -14,17 +14,10 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "secure-backup",
-	Short: "Secure, encrypted backups for any directory",
-	Long: `secure-backup is a tool for creating encrypted, compressed backups 
-of any directory with optional Docker volume support.
-
-Features:
-  - Native Go implementation (no external dependencies for core functions)
-  - GPG encryption support
-  - gzip compression
-  - Automated retention management
-  - Streaming architecture (efficient memory usage)`,
+	Use:           "secure-backup",
+	Short:         "Secure, encrypted backups for any directory",
+	Long:          `Create GPG-encrypted, compressed backups of any directory with automated retention management.`,
+	SilenceErrors: true,
 }
 
 var versionCmd = &cobra.Command{
