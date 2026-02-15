@@ -657,6 +657,8 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 
 **NEVER auto-commit without explicit user instruction**
 
+**NEVER merge PRs without explicit user instruction — the user decides when to merge**
+
 ✅ **CORRECT:**
 ```
 1. Create feature branch: git checkout -b <branch-name>
@@ -666,7 +668,9 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 5. WAIT for user to say "commit" or "commit and push"
 6. ONLY THEN: git commit + git push -u origin <branch-name>
 7. Create PR: gh pr create --title "..." --body "..."
-8. After user merges PR, optionally tag release
+8. WAIT for user to say "merge"
+9. ONLY THEN: gh pr merge
+10. After merge, issue #N auto-closes
 ```
 
 ❌ **WRONG:**
@@ -675,7 +679,7 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 2. git commit + git push directly to main  ← VIOLATION
 ```
 
-**Pattern: BRANCH → MAKE → STAGE → ASK → WAIT → COMMIT → PUSH → PR**
+**Pattern: BRANCH → MAKE → STAGE → ASK → WAIT → COMMIT → PUSH → PR → ASK → WAIT → MERGE**
 
 **Branch naming**: Use descriptive names like `release/v1.0.0`, `fix/issue-description`, `feat/feature-name`.
 
@@ -703,7 +707,13 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 3. git commit + push later
 ```
 
-**Pattern: Branch → Push → PR → Merge → Issue auto-closes**
+❌ **ALSO WRONG:**
+```
+1. Make changes, commit, push, create PR
+2. gh pr merge  ← VIOLATION: User hasn't approved the merge!
+```
+
+**Pattern: Branch → Push → PR → ASK → WAIT → Merge → Issue auto-closes**
 
 ### 2. Documentation
 
@@ -849,7 +859,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 
 ### Critical Reminders:
 
-- ⚠️ **NEVER auto-commit** - This is the #1 rule
+- ⚠️ **NEVER auto-commit** - Stage and ASK, don't assume
+- ⚠️ **NEVER auto-merge PRs** - Create the PR and ASK, the user decides when to merge
 - ⚠️ **ALWAYS update this file** after significant work
 - ⚠️ **ALWAYS ask before committing** - Stage and ask, don't assume
 - ⚠️ **USE want/got** nomenclature in all tests
