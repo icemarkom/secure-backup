@@ -80,6 +80,9 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			"Full verification requires --private-key, or use --quick for header-only check")
 	}
 
+	// All flag validation passed — suppress usage for runtime errors from here on
+	cmd.SilenceUsage = true
+
 	// Create compressor
 	compressor, err := compress.NewCompressor(compress.Config{
 		Method: "gzip",
