@@ -645,54 +645,59 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 
 ## User Preferences (CRITICAL - MUST FOLLOW)
 
-### 1. Git Workflow
+### 1. Git Workflow — Branch + PR (MANDATORY)
+
+**All changes MUST go through feature branches and Pull Requests. Never push directly to `main`.**
 
 **NEVER auto-commit without explicit user instruction**
 
 ✅ **CORRECT:**
 ```
-1. Make changes
-2. git add <files>
-3. Ask user: "Ready to commit?"
-4. WAIT for user to say "commit" or "commit and push"
-5. ONLY THEN: git commit + git push
+1. Create feature branch: git checkout -b <branch-name>
+2. Make changes
+3. git add <files>
+4. Ask user: "Ready to commit?"
+5. WAIT for user to say "commit" or "commit and push"
+6. ONLY THEN: git commit + git push -u origin <branch-name>
+7. Create PR: gh pr create --title "..." --body "..."
+8. After user merges PR, optionally tag release
 ```
 
 ❌ **WRONG:**
 ```
-1. Make changes
-2. git add <files>
-3. git commit (WITHOUT ASKING)  ← VIOLATION
-4. git push (WITHOUT ASKING)     ← VIOLATION
+1. Make changes on main
+2. git commit + git push directly to main  ← VIOLATION
 ```
 
-**Pattern: MAKE → STAGE → ASK → WAIT → COMMIT (only when authorized)**
+**Pattern: BRANCH → MAKE → STAGE → ASK → WAIT → COMMIT → PUSH → PR**
 
-**GitHub Issues: NEVER close before code is pushed**
+**Branch naming**: Use descriptive names like `release/v1.0.0`, `fix/issue-description`, `feat/feature-name`.
 
-> **⚠️ IMPORTANT**: Auto-close keywords (`Fixes #N`) in commit messages do NOT work
-> with direct pushes to `main` — only via merged PRs. Currently we push directly to `main`;
-> after 1.0 release we will switch to a PR-based workflow. Until then, close issues manually
-> with `gh issue close`.
+**GitHub Issues: Use auto-close keywords in PR descriptions**
+
+> **✅ Auto-close keywords** (`Fixes #N`, `Closes #N`) in PR descriptions/commit messages
+> now work correctly since we use merged PRs. Include them in commit messages or PR body
+> to automatically close issues when the PR is merged.
 
 ✅ **CORRECT:**
 ```
-1. Make changes and stage files
+1. Create branch and make changes
 2. Ask user: "Ready to commit?"
 3. WAIT for user approval
-4. git commit -m "fix: description (#N)"
-5. git push
-6. gh issue close N --comment "Fixed in <commit-hash> — <brief summary>"
+4. git commit -m "fix: description (Fixes #N)"
+5. git push -u origin <branch-name>
+6. gh pr create --title "fix: description" --body "Fixes #N"
+7. After PR is merged, issue #N auto-closes
 ```
 
 ❌ **WRONG:**
 ```
 1. Make changes
-2. gh issue close #N  ← VIOLATION: code hasn't been pushed yet!
+2. gh issue close #N  ← VIOLATION: PR hasn't been merged yet!
 3. git commit + push later
 ```
 
-**Pattern: Code pushed FIRST → then `gh issue close` AFTER**
+**Pattern: Branch → Push → PR → Merge → Issue auto-closes**
 
 ### 2. Documentation
 
@@ -803,6 +808,9 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P17 Implementation Complete | Switched `filepath.Walk` → `filepath.WalkDir` in `CreateTar` to preserve symlinks as `tar.TypeSymlink` entries instead of dereferencing them. Used `os.Lstat` for source. 3 symlink tests (internal, external, round-trip), all pass. |
 | 2026-02-15 | P18 Implementation Complete | Removed armor decode fallback in `Decrypt()`. Now always requires armored input (which is all the tool produces). Non-armored input returns explicit error instead of silently corrupting stream. 1 new test added. |
 | 2026-02-15 | E2E Pipeline Test (#17) Complete | POSIX shell script in `e2e/e2e_test.sh` exercising full `backup → list → verify → restore → diff` through compiled binary. Chose shell over Go tests for production-realistic testing. Separate CI job, `make e2e` target. |
+| 2026-02-15 | GoReleaser config updated for v2 | Fixed deprecated `snapshot.name_template` → `version_template` and `format_overrides.format` → `formats`. Config passes `goreleaser check` cleanly. |
+| 2026-02-15 | v1.0.0 Release | All productionization complete. Validated GoReleaser snapshot build: 5 platform archives + 2 .deb packages (amd64/arm64). README cleaned up for 1.0.0. Apt repo signing via Release/InRelease is standard Debian practice; individual .deb signing not needed. |
+| 2026-02-15 | Branch+PR workflow | Switched from direct-to-main pushes to mandatory branch+PR workflow. All changes must go through feature branches and Pull Requests. Auto-close keywords (`Fixes #N`) now work via merged PRs. |
 
 ---
 
@@ -872,8 +880,8 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation f6f11230-c5cf-40d7-98d6-76590abdda8b)  
-**Project Phase**: Phase 5 Complete (User Experience), Productionization **COMPLETE** ✅  
+**Last Updated By**: Agent (conversation e0d4cb87-465d-49b4-9efb-ef69b110f07e)  
+**Project Phase**: v1.0.0 Release ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P17-P19 ✅ | P8-P9, P14-P16 ⛔ | **ALL ITEMS RESOLVED** 🎉  
 **Next Milestone**: Future phases — [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
