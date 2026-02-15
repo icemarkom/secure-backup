@@ -196,9 +196,44 @@ secure-backup restore [flags]
 - `--file` (required): Backup file to restore
 - `--dest` (required): Where to extract files
 - `--private-key` (required): Path to GPG private key
-- `--passphrase`: GPG key passphrase (or enter when prompted)
+- `--passphrase`: GPG key passphrase (INSECURE - visible in process lists)
+- `--passphrase-file`: Path to file containing GPG key passphrase (secure)
 - `--verbose, -v`: Show progress and detailed output
 - `--dry-run`: Preview operation without extracting files
+- `--skip-manifest`: Skip manifest validation (for backups without manifests)
+
+**Passphrase Options (choose one):**
+
+1. **Environment Variable** (Recommended for automation):
+   ```bash
+   export SECURE_BACKUP_PASSPHRASE="your-secret-passphrase"
+   secure-backup restore \
+     --file /backups/backup.tar.gz.gpg \
+     --dest /restore \
+     --private-key ~/.gnupg/backup-priv.asc
+   ```
+
+2. **File** (Recommended for interactive use):
+   ```bash
+   echo "your-secret-passphrase" > ~/.gpg-passphrase
+   chmod 600 ~/.gpg-passphrase
+   secure-backup restore \
+     --file /backups/backup.tar.gz.gpg \
+     --dest /restore \
+     --private-key ~/.gnupg/backup-priv.asc \
+     --passphrase-file ~/.gpg-passphrase
+   ```
+
+3. **Command Line Flag** (NOT RECOMMENDED - insecure):
+   ```bash
+   # ⚠️  Passphrase visible in process list and shell history
+   secure-backup restore \
+     --file /backups/backup.tar.gz.gpg \
+     --dest /restore \
+     --private-key ~/.gnupg/backup-priv.asc \
+     --passphrase "your-secret-passphrase"
+   # WARNING: Passphrase on command line is insecure and visible in process lists.
+   ```
 
 **Examples:**
 
@@ -233,9 +268,12 @@ secure-backup verify [flags]
 - `--file` (required): Backup file to verify
 - `--quick`: Fast check (header validation only)
 - `--private-key`: GPG private key (required for full verify)
-- `--passphrase`: GPG key passphrase
+- `--passphrase`: GPG key passphrase (INSECURE - visible in process lists)
+- `--passphrase-file`: Path to file containing GPG key passphrase (secure)
 - `--verbose, -v`: Show detailed output
 - `--dry-run`: Preview operation without performing verification
+
+**Passphrase Options:** Same as restore command (see above).
 
 **Examples:**
 

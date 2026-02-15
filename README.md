@@ -231,6 +231,63 @@ secure-backup restore \
   --private-key ~/.gnupg/backup-priv.asc
 ```
 
+## Secure Passphrase Handling
+
+**New in v0.3.0**: Multiple secure options for providing GPG key passphrases.
+
+### Three Methods (in priority order)
+
+#### 1. Environment Variable (Recommended for automation)
+
+```bash
+export SECURE_BACKUP_PASSPHRASE="your-secret-passphrase"
+secure-backup restore \
+  --file /backups/backup.tar.gz.gpg \
+  --dest /restore \
+  --private-key ~/.gnupg/backup-priv.asc
+```
+
+**Best for**: Cron jobs, scripts, CI/CD pipelines
+
+#### 2. Passphrase File (Recommended for interactive use)
+
+```bash
+echo "your-secret-passphrase" > ~/.gpg-passphrase
+chmod 600 ~/.gpg-passphrase  # CRITICAL - secure the file
+
+secure-backup restore \
+  --file /backups/backup.tar.gz.gpg \
+  --dest /restore \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --passphrase-file ~/.gpg-passphrase
+```
+
+**Best for**: Interactive use, personal backups
+
+#### 3. Command Line Flag (NOT RECOMMENDED)
+
+```bash
+# ⚠️  WARNING: Insecure - visible in process lists and shell history
+secure-backup restore \
+  --file /backups/backup.tar.gz.gpg \
+  --dest /restore \
+  --private-key ~/.gnupg/backup-priv.asc \
+  --passphrase "your-secret-passphrase"
+  
+# Security warning will be displayed:
+# WARNING: Passphrase on command line is insecure and visible in process lists.
+#          Use SECURE_BACKUP_PASSPHRASE environment variable or --passphrase-file instead.
+```
+
+**Only use when**: Rapid testing, throwaway keys
+
+### Security Notes
+
+- **Mutually exclusive**: Only one method can be used at a time
+- **Priority order**: Flag → Environment Variable → File
+- **File permissions**: Always use `chmod 600` on passphrase files
+- **Keys without passphrases**: All methods work with empty passphrases (just omit all options)
+
 ## Commands
 
 | Command | Description | Dry-Run Support |

@@ -9,17 +9,19 @@ import (
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/manifest"
+	"github.com/icemarkom/secure-backup/internal/passphrase"
 	"github.com/spf13/cobra"
 )
 
 var (
-	verifyFile         string
-	verifyPrivateKey   string
-	verifyPassphrase   string
-	verifyQuick        bool
-	verifyVerbose      bool
-	verifyDryRun       bool
-	verifySkipManifest bool
+	verifyFile           string
+	verifyPrivateKey     string
+	verifyPassphrase     string
+	verifyPassphraseFile string
+	verifyQuick          bool
+	verifyVerbose        bool
+	verifyDryRun         bool
+	verifySkipManifest   bool
 )
 
 var verifyCmd = &cobra.Command{
@@ -37,7 +39,8 @@ func init() {
 
 	verifyCmd.Flags().StringVar(&verifyFile, "file", "", "Backup file to verify (required)")
 	verifyCmd.Flags().StringVar(&verifyPrivateKey, "private-key", "", "Path to GPG private key file (for full verify)")
-	verifyCmd.Flags().StringVar(&verifyPassphrase, "passphrase", "", "GPG key passphrase (for full verify)")
+	verifyCmd.Flags().StringVar(&verifyPassphrase, "passphrase", "", "GPG key passphrase (insecure - use env var or file instead)")
+	verifyCmd.Flags().StringVar(&verifyPassphraseFile, "passphrase-file", "", "Path to file containing GPG key passphrase")
 	verifyCmd.Flags().BoolVar(&verifyQuick, "quick", false, "Quick verification (headers only)")
 	verifyCmd.Flags().BoolVarP(&verifyVerbose, "verbose", "v", false, "Verbose output")
 	verifyCmd.Flags().BoolVar(&verifyDryRun, "dry-run", false, "Preview verification without executing")
@@ -85,11 +88,22 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create compressor: %w", err)
 	}
 
+	// Retrieve passphrase using priority order: flag → env → file
+	passphraseValue, err := passphrase.Get(
+		verifyPassphrase,
+		"SECURE_BACKUP_PASSPHRASE",
+		verifyPassphraseFile,
+	)
+	if err != nil {
+		return errors.Wrap(err, "Failed to retrieve passphrase",
+			"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
+	}
+
 	// Create encryptor
 	encryptCfg := encrypt.Config{
 		Method:     "gpg",
 		PrivateKey: verifyPrivateKey,
-		Passphrase: verifyPassphrase,
+		Passphrase: passphraseValue,
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)

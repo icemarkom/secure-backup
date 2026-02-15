@@ -9,17 +9,19 @@ import (
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/manifest"
+	"github.com/icemarkom/secure-backup/internal/passphrase"
 	"github.com/spf13/cobra"
 )
 
 var (
-	restoreFile         string
-	restoreDest         string
-	restorePrivateKey   string
-	restorePassphrase   string
-	restoreVerbose      bool
-	restoreDryRun       bool
-	restoreSkipManifest bool
+	restoreFile           string
+	restoreDest           string
+	restorePrivateKey     string
+	restorePassphrase     string
+	restorePassphraseFile string
+	restoreVerbose        bool
+	restoreDryRun         bool
+	restoreSkipManifest   bool
 )
 
 var restoreCmd = &cobra.Command{
@@ -42,7 +44,8 @@ func init() {
 	restoreCmd.Flags().StringVar(&restoreFile, "file", "", "Backup file to restore (required)")
 	restoreCmd.Flags().StringVar(&restoreDest, "dest", "", "Destination directory for restored files (required)")
 	restoreCmd.Flags().StringVar(&restorePrivateKey, "private-key", "", "Path to GPG private key file")
-	restoreCmd.Flags().StringVar(&restorePassphrase, "passphrase", "", "GPG key passphrase")
+	restoreCmd.Flags().StringVar(&restorePassphrase, "passphrase", "", "GPG key passphrase (insecure - use env var or file instead)")
+	restoreCmd.Flags().StringVar(&restorePassphraseFile, "passphrase-file", "", "Path to file containing GPG key passphrase")
 	restoreCmd.Flags().BoolVarP(&restoreVerbose, "verbose", "v", false, "Verbose output")
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "Preview restore without executing")
 	restoreCmd.Flags().BoolVar(&restoreSkipManifest, "skip-manifest", false, "Skip manifest validation (use for old backups without manifests)")
@@ -69,11 +72,22 @@ func runRestore(cmd *cobra.Command, args []string) error {
 			"This is an internal error - please report if it persists")
 	}
 
+	// Retrieve passphrase using priority order: flag → env → file
+	passphraseValue, err := passphrase.Get(
+		restorePassphrase,
+		"SECURE_BACKUP_PASSPHRASE",
+		restorePassphraseFile,
+	)
+	if err != nil {
+		return errors.Wrap(err, "Failed to retrieve passphrase",
+			"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
+	}
+
 	// Create encryptor for decryption
 	encryptCfg := encrypt.Config{
 		Method:     "gpg",
 		PrivateKey: restorePrivateKey,
-		Passphrase: restorePassphrase,
+		Passphrase: passphraseValue,
 	}
 
 	// If no explicit private key file, try to use system keyring
