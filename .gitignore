@@ -36,7 +36,6 @@ backups/
 tmp/
 *.tmp
 
-# Test data - ignore everything except generation script
-!test_data/generate_test_keys.sh
-test_data/*
+# Test data - generated keys and artifacts (scripts are in test-scripts/)
+test_data/
 restore_test/

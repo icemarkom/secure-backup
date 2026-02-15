@@ -34,10 +34,10 @@ func ensureTestKeys() error {
 		return nil // Keys exist
 	}
 
-	// Generate keys
-	script := filepath.Join(testDataDir, "generate_test_keys.sh")
+	// Generate keys using test-scripts/
+	script := filepath.Join("..", "..", "test-scripts", "generate_test_keys.sh")
 	cmd := exec.Command("bash", script)
-	cmd.Dir = testDataDir
+	cmd.Dir = filepath.Join("..", "..")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

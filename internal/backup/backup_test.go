@@ -273,7 +273,7 @@ func generateTestKeys(t *testing.T, outputDir string) (*TestKeyPaths, error) {
 
 	// Find the test_data directory (go up from internal/backup to project root)
 	projectRoot := filepath.Join("..", "..")
-	scriptPath := filepath.Join(projectRoot, "test_data", "generate_test_keys.sh")
+	scriptPath := filepath.Join(projectRoot, "test-scripts", "generate_test_keys.sh")
 
 	// Check if script exists
 	if _, err := os.Stat(scriptPath); err != nil {

@@ -2,15 +2,22 @@
 # Generate GPG test keys for integration testing
 # Called automatically by tests if keys don't exist
 # POSIX-compliant for CI/CD compatibility
+#
+# Scripts live in test-scripts/, generated data goes to test_data/
 
 set -e
 
-# Get script directory (POSIX-compliant)
+# Get project root (one level up from script directory)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-GNUPGHOME="$SCRIPT_DIR/gnupg"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DATA_DIR="$PROJECT_ROOT/test_data"
+GNUPGHOME="$DATA_DIR/gnupg"
 export GNUPGHOME
 
-echo "Generating test GPG keys in $SCRIPT_DIR..."
+echo "Generating test GPG keys in $DATA_DIR..."
+
+# Ensure data directory exists
+mkdir -p "$DATA_DIR"
 
 # Clean and create GPG home
 rm -rf "$GNUPGHOME"
@@ -31,13 +38,13 @@ GPGEOF
 gpg --batch --gen-key "$GNUPGHOME/gen-key-script" 2>&1 | grep -v "^gpg:" || true
 
 # Export keys
-gpg --armor --export test@secure-backup.local > "$SCRIPT_DIR/test-public.asc"
-gpg --armor --export-secret-keys test@secure-backup.local > "$SCRIPT_DIR/test-private.asc"
+gpg --armor --export test@secure-backup.local > "$DATA_DIR/test-public.asc"
+gpg --armor --export-secret-keys test@secure-backup.local > "$DATA_DIR/test-private.asc"
 
 # Create sample test file
-echo "This is a test file for secure-backup integration tests." > "$SCRIPT_DIR/sample.txt"
+echo "This is a test file for secure-backup integration tests." > "$DATA_DIR/sample.txt"
 
 echo "✓ Test keys generated successfully"
-echo "  Public key: $SCRIPT_DIR/test-public.asc"
-echo "  Private key: $SCRIPT_DIR/test-private.asc"
+echo "  Public key: $DATA_DIR/test-public.asc"
+echo "  Private key: $DATA_DIR/test-private.asc"
 echo "  No passphrase required"

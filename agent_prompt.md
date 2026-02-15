@@ -483,9 +483,10 @@
 - `--volume` flag for volume backups
 - Container pause/restart support
 
-**Testing**: End-to-End Pipeline Test — [#17](https://github.com/icemarkom/secure-backup/issues/17)
-- Full `backup → verify → restore → diff` cycle in CI
-- Validates the complete pipeline, not just individual packages
+**Testing**: End-to-End Pipeline Test ✅ COMPLETE — [#17](https://github.com/icemarkom/secure-backup/issues/17)
+- Full `backup → list → verify → restore → diff` cycle in CI
+- POSIX shell script (`e2e/e2e_test.sh`) testing the compiled binary
+- Separate CI job gated on unit test success
 
 ---
 
@@ -521,7 +522,8 @@ secure-backup/
 │   ├── passphrase/        # Secure passphrase handling (flag/env/file)
 │   ├── progress/          # Progress tracking
 │   └── retention/         # Retention management
-├── test_data/             # Test infrastructure (keys gitignored)
+├── test-scripts/          # Test scripts (key generation, E2E)
+├── test_data/             # Generated test data (keys, gitignored)
 ├── main.go                # Entry point
 ├── README.md              # User documentation
 ├── USAGE.md               # Detailed usage guide
@@ -569,7 +571,7 @@ internal/encrypt/     67.9%  ✅ Real GPG encryption
 - ✅ Retention policy (file creation, deletion, time-based filtering)
 
 **Test Key Management:**
-- Script: `test_data/generate_test_keys.sh` (POSIX-compliant)
+- Script: `test-scripts/generate_test_keys.sh` (POSIX-compliant)
 - Keys are **ALWAYS** generated, **NEVER** checked into git
 - CI runs script before tests
 - Keys gitignored for security best practices
@@ -800,6 +802,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Go version bumped to 1.26.0 | Updated `go.mod`, `test.yml`, `release.yaml` from Go 1.25 to 1.26. |
 | 2026-02-15 | P17 Implementation Complete | Switched `filepath.Walk` → `filepath.WalkDir` in `CreateTar` to preserve symlinks as `tar.TypeSymlink` entries instead of dereferencing them. Used `os.Lstat` for source. 3 symlink tests (internal, external, round-trip), all pass. |
 | 2026-02-15 | P18 Implementation Complete | Removed armor decode fallback in `Decrypt()`. Now always requires armored input (which is all the tool produces). Non-armored input returns explicit error instead of silently corrupting stream. 1 new test added. |
+| 2026-02-15 | E2E Pipeline Test (#17) Complete | POSIX shell script in `e2e/e2e_test.sh` exercising full `backup → list → verify → restore → diff` through compiled binary. Chose shell over Go tests for production-realistic testing. Separate CI job, `make e2e` target. |
 
 ---
 
@@ -873,4 +876,4 @@ golangci-lint run
 **Project Phase**: Phase 5 Complete (User Experience), Productionization **COMPLETE** ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P17-P19 ✅ | P8-P9, P14-P16 ⛔ | **ALL ITEMS RESOLVED** 🎉  
-**Next Milestone**: Future phases — [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker, [#17](https://github.com/icemarkom/secure-backup/issues/17) E2E tests
+**Next Milestone**: Future phases — [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker

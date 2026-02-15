@@ -8,7 +8,7 @@ on:
   workflow_dispatch:  # Enables manual triggering from GitHub UI
 
 jobs:
-  test:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,15 +20,8 @@ jobs:
           go-version: '1.26'
           check-latest: true
 
-      - name: Generate test GPG keys
-        run: |
-          cd test_data
-          chmod +x generate_test_keys.sh
-          sh generate_test_keys.sh
-          ls -la *.asc
-
-      - name: Run tests
-        run: go test ./... -v -race -coverprofile=coverage.out
+      - name: Run unit tests
+        run: go test ./... -short -v -race -coverprofile=coverage.out
 
       - name: Check coverage
         run: |
@@ -50,3 +43,42 @@ jobs:
             gofmt -d .
             exit 1
           fi
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+
+      - name: Generate test GPG keys
+        run: |
+          cd test-scripts
+          chmod +x generate_test_keys.sh
+          sh generate_test_keys.sh
+          ls -la ../test_data/*.asc
+
+      - name: Run all tests (unit + integration)
+        run: go test ./... -v -race
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+
+      - name: Run E2E pipeline test
+        run: sh test-scripts/e2e_test.sh

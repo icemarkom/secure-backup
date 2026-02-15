@@ -1,4 +1,4 @@
-.PHONY: all build test clean install coverage lint fmt vet dev run help
+.PHONY: all build test clean install coverage lint fmt vet dev run e2e help
 
 # Binary name
 BINARY := secure-backup
@@ -73,6 +73,10 @@ dev: clean fmt vet test build
 ## run: Build and run
 run: build
 	./$(BINARY)
+
+## e2e: Run end-to-end pipeline test
+e2e: build
+	sh test-scripts/e2e_test.sh
 
 ## help: Show this help message
 help:
