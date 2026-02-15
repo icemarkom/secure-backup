@@ -78,7 +78,7 @@ func TestWrite(t *testing.T) {
 	m.ChecksumValue = "abc123"
 	m.SizeBytes = 1024
 
-	err = m.Write(manifestPath)
+	err = m.Write(manifestPath, nil)
 	require.NoError(t, err)
 
 	// Verify file exists
@@ -102,7 +102,7 @@ func TestRead(t *testing.T) {
 	original.ChecksumValue = "abc123"
 	original.SizeBytes = 2048
 
-	err = original.Write(manifestPath)
+	err = original.Write(manifestPath, nil)
 	require.NoError(t, err)
 
 	// Read it back
@@ -130,7 +130,7 @@ func TestReadWrite_RoundTrip(t *testing.T) {
 	m1.SizeBytes = 4096
 
 	// Write
-	err = m1.Write(manifestPath)
+	err = m1.Write(manifestPath, nil)
 	require.NoError(t, err)
 
 	// Read
@@ -345,7 +345,7 @@ func TestWrite_InvalidPath(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to write to invalid path (directory doesn't exist and can't be created)
-	err = m.Write("/root/nonexistent/dir/manifest.json")
+	err = m.Write("/root/nonexistent/dir/manifest.json", nil)
 	assert.Error(t, err)
 	assert.Contains(t, strings.ToLower(err.Error()), "failed to write")
 }
@@ -361,7 +361,7 @@ func TestWrite_NoTempFilesOnSuccess(t *testing.T) {
 	m.ChecksumValue = "test123"
 	m.SizeBytes = 1024
 
-	err = m.Write(manifestPath)
+	err = m.Write(manifestPath, nil)
 	require.NoError(t, err)
 
 	// Verify final manifest file exists
@@ -381,4 +381,25 @@ func TestWrite_NoTempFilesOnSuccess(t *testing.T) {
 		assert.False(t, strings.HasSuffix(file.Name(), ".tmp"),
 			"no .tmp files should remain in directory: found %s", file.Name())
 	}
+}
+
+// TestWrite_FilePermissions tests that manifest files get the specified file permissions
+func TestWrite_FilePermissions(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "permissions-test.json")
+
+	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0")
+	require.NoError(t, err)
+	m.ChecksumValue = "abc123"
+	m.SizeBytes = 1024
+
+	mode := os.FileMode(0600)
+	err = m.Write(manifestPath, &mode)
+	require.NoError(t, err)
+
+	// Verify file permissions
+	info, err := os.Stat(manifestPath)
+	require.NoError(t, err)
+	got := info.Mode().Perm()
+	assert.Equal(t, os.FileMode(0600), got, "manifest file should have 0600 permissions, got %04o", got)
 }

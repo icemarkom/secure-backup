@@ -515,3 +515,119 @@ func TestPerformBackup_TempFileCleanupOnError(t *testing.T) {
 		}
 	}
 }
+
+// TestPerformBackup_FilePermissions_Default tests that backup files get explicit 0600 permissions
+func TestPerformBackup_FilePermissions_Default(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create source directory with a file
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("permissions test"), 0644)
+	require.NoError(t, err)
+
+	destDir := filepath.Join(tempRoot, "backups")
+
+	// Setup encryption test keys
+	testKeysDir := filepath.Join(tempRoot, "test_keys")
+	err = os.Mkdir(testKeysDir, 0755)
+	require.NoError(t, err)
+
+	keyPaths, err := generateTestKeys(t, testKeysDir)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	mode := os.FileMode(0600)
+	cfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    destDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		FileMode:   &mode,
+	}
+
+	backupPath, err := PerformBackup(context.Background(), cfg)
+	require.NoError(t, err)
+
+	// Verify file permissions
+	info, err := os.Stat(backupPath)
+	require.NoError(t, err)
+	got := info.Mode().Perm()
+	assert.Equal(t, os.FileMode(0600), got, "backup file should have 0600 permissions, got %04o", got)
+}
+
+// TestPerformBackup_FilePermissions_Custom tests that custom file mode is applied
+func TestPerformBackup_FilePermissions_Custom(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create source directory with a file
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("custom mode test"), 0644)
+	require.NoError(t, err)
+
+	destDir := filepath.Join(tempRoot, "backups")
+
+	// Setup encryption test keys
+	testKeysDir := filepath.Join(tempRoot, "test_keys")
+	err = os.Mkdir(testKeysDir, 0755)
+	require.NoError(t, err)
+
+	keyPaths, err := generateTestKeys(t, testKeysDir)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	mode := os.FileMode(0640)
+	cfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    destDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+		FileMode:   &mode,
+	}
+
+	backupPath, err := PerformBackup(context.Background(), cfg)
+	require.NoError(t, err)
+
+	// Verify file permissions
+	info, err := os.Stat(backupPath)
+	require.NoError(t, err)
+	got := info.Mode().Perm()
+	assert.Equal(t, os.FileMode(0640), got, "backup file should have 0640 permissions, got %04o", got)
+}

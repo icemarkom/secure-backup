@@ -111,8 +111,34 @@ secure-backup backup [flags]
 - `--encryption`: Encryption method (default: "gpg")
 - `--retention`: Delete backups older than N days (default: 0 = keep all)
 - `--skip-manifest`: Disable manifest generation (not recommended)
+- `--file-mode`: File permissions for backup and manifest files (default: `"default"`)
 - `--verbose, -v`: Show progress and detailed output
 - `--dry-run`: Preview operation without creating files
+
+#### File Permissions
+
+By default, backup and manifest files are created with **`0600`** (owner read/write only). This prevents other users on the system from reading encrypted backup files.
+
+| `--file-mode` value | Behavior |
+|---|---|
+| `default` | `0600` — owner-only permissions (secure default) |
+| `system` | Defers to system umask (e.g., `0644` with typical `022` umask) |
+| `0640`, `0600`, etc. | Explicit octal permissions |
+
+**Examples:**
+
+```bash
+# Default: secure 0600 permissions (recommended)
+secure-backup backup --source /data --dest /backups --public-key key.asc
+
+# Use system umask
+secure-backup backup --source /data --dest /backups --public-key key.asc --file-mode=system
+
+# Explicit group-readable permissions
+secure-backup backup --source /data --dest /backups --public-key key.asc --file-mode=0640
+```
+
+> ⚠️ **Warning**: If `--file-mode` makes files world-readable (e.g., `0644`), a warning is printed to stderr.
 
 **Examples:**
 

@@ -24,6 +24,7 @@ type Config struct {
 	Compressor compress.Compressor
 	Verbose    bool
 	DryRun     bool
+	FileMode   *os.FileMode // nil = use system umask (os.Create); non-nil = explicit permissions
 }
 
 // PerformBackup executes the backup pipeline: TAR → COMPRESS → ENCRYPT
@@ -65,7 +66,12 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	}
 
 	// Create temp output file for atomic operation
-	outFile, err := os.Create(tmpPath)
+	var outFile *os.File
+	if cfg.FileMode != nil {
+		outFile, err = os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, *cfg.FileMode)
+	} else {
+		outFile, err = os.Create(tmpPath)
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to create output file: %w", err)
 	}

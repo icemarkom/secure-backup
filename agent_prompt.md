@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P11-P13, P19 COMPLETE | ⛔ P8, P14-P16 WON'T FIX | ⬜ P9-P10, P17-P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P10-P13, P19 COMPLETE | ⛔ P8, P14-P16 WON'T FIX | ⬜ P9, P17-P18 OPEN (production hardening round 2)  
 
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
@@ -424,7 +424,7 @@
 
 | ID | GitHub | Issue | File(s) | Effort |
 |----|--------|-------|---------|--------|
-| **P10** | [#4](https://github.com/icemarkom/secure-backup/issues/4) | Backup file permissions 0666 (umask-dependent) instead of 0600 | `internal/backup/backup.go` | 15min |
+| **P10** | [#4](https://github.com/icemarkom/secure-backup/issues/4) | ~~Backup file permissions 0666 (umask-dependent) instead of 0600~~ | `internal/backup/backup.go`, `internal/manifest/manifest.go`, `cmd/backup.go` | ✅ COMPLETE |
 | **P11** | [#5](https://github.com/icemarkom/secure-backup/issues/5) | ~~Retention deletes backups but orphans manifest files~~ | `internal/retention/policy.go` | ✅ COMPLETE |
 | **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | ~~Context not propagated; no SIGTERM/signal handling~~ | `main.go`, `cmd/root.go`, `cmd/*.go`, `internal/backup/*.go` | ✅ COMPLETE |
 | **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | ~~Manifest path derived via brittle `TrimSuffix` on extension~~ | `internal/manifest/manifest.go` | ✅ COMPLETE |
@@ -455,7 +455,7 @@
 - Day 2: P6 - Restore Safety (--force flag)
 
 **Week 3: Security Hardening (P7-P10)**
-- Day 1: P7 - Fix lock TOCTOU + P10 - File permissions (quick wins)
+- Day 1: P7 - Fix lock TOCTOU + P10 - File permissions (quick wins) ✅ COMPLETE
 - ~~Day 2: P8 - Symlink validation on extract~~ ⛔ WON'T FIX + P17 - Symlink handling on create
 - Day 3: P9 - Decompression bomb protection
 
@@ -789,6 +789,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P14 Closed as Won't Fix | Go strings are immutable and cannot be zeroed. Passphrase also flows through openpgp which makes internal copies. Zeroing the `[]byte` copy gives false security. Practical attack vectors (process lists, shell history, file permissions) were addressed in P4. |
 | 2026-02-15 | P16 Closed as Won't Fix | All business logic is well-tested in `internal/` packages. `cmd/` is thin Cobra wiring; the effort-to-value ratio for 1-2 days of integration testing is poor. Flag wiring correctness is validated by manual testing and CI builds. |
 | 2026-02-15 | P8 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted so attackers can't inject malicious tar entries. Fix risks breaking legitimate restores containing symlinks with absolute or out-of-tree targets. Tool is not a general-purpose tar extractor. |
+| 2026-02-15 | P10 Implementation Complete | Added `--file-mode` flag with `default` (0600), `system` (umask), or explicit octal modes. Secure by default, user-overridable. World-readable warning on stderr. Applied to both backup and manifest files. 3 new tests, all pass. |
 
 ---
 
@@ -862,8 +863,8 @@ golangci-lint run
 **Last Updated**: 2026-02-15  
 **Last Updated By**: Agent (conversation 187c6c4b-e73e-4fbb-8be1-0a9f2b689b9c)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
-**Production Trust Score**: 7.0/10 — Solid foundation, P8-P19 open for hardening  
-**Productionization**: P1-P7 ✅, P11-P13 ✅ | P8-P10, P14-P19 ⬜ OPEN  
-**Next Milestone**: P8-P10 security hardening, P14-P19 reliability & polish (see GitHub issues)
+**Production Trust Score**: 7.0/10 — Solid foundation, P9/P17/P18 open for hardening  
+**Productionization**: P1-P7, P10-P13, P19 ✅ | P8, P14-P16 ⛔ | P9, P17-P18 ⬜ OPEN  
+**Next Milestone**: P9 decompression bomb protection, P17-P18 reliability & polish (see GitHub issues)
 
 

@@ -457,7 +457,9 @@ See [implementation_plan.md](.gemini/antigravity/brain/*/implementation_plan.md)
 - **Encryption**: RSA 4096-bit GPG keys (industry standard)
 - **Compression**: Applied before encryption (critical for efficiency)
 - **Path Validation**: Protection against path traversal attacks
-- **Permissions**: Preserved during backup/restore
+- **File Permissions**: Backup and manifest files default to `0600` (owner read/write only)
+  - Override with `--file-mode=system` (use system umask) or `--file-mode=0640` (explicit octal)
+  - Warning issued if permissions are world-readable
 
 ## Contributing
 

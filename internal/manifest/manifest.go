@@ -77,16 +77,22 @@ func New(sourcePath, backupFile, version string) (*Manifest, error) {
 	}, nil
 }
 
-// Write serializes the manifest to a JSON file with indentation using atomic write
-func (m *Manifest) Write(path string) error {
+// Write serializes the manifest to a JSON file with indentation using atomic write.
+// If fileMode is non-nil, the file is created with the specified permissions;
+// otherwise it uses 0666 (modified by umask), matching os.Create behavior.
+func (m *Manifest) Write(path string, fileMode *os.FileMode) error {
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
 	// Write to temp file first for atomic operation
+	perm := os.FileMode(0666) // default: umask-dependent, same as os.Create
+	if fileMode != nil {
+		perm = *fileMode
+	}
 	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, perm); err != nil {
 		return fmt.Errorf("failed to write manifest file: %w", err)
 	}
 

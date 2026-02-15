@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -25,6 +26,7 @@ var (
 	backupEncryption   string
 	backupRetention    int
 	backupSkipManifest bool
+	backupFileMode     string
 )
 
 var backupCmd = &cobra.Command{
@@ -53,6 +55,7 @@ func init() {
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
 	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "Preview backup without executing")
 	backupCmd.Flags().BoolVar(&backupSkipManifest, "skip-manifest", false, "Skip manifest generation (not recommended for production)")
+	backupCmd.Flags().StringVar(&backupFileMode, "file-mode", "default", `File permissions for backup and manifest files ("default"=0600, "system"=umask, or octal like "0640")`)
 
 	backupCmd.MarkFlagRequired("source")
 	backupCmd.MarkFlagRequired("dest")
@@ -103,6 +106,12 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			"Check that your public key file exists and is a valid GPG key")
 	}
 
+	// Parse file mode
+	fileMode, err := parseFileMode(backupFileMode)
+	if err != nil {
+		return err
+	}
+
 	// Execute backup
 	backupCfg := backup.Config{
 		SourcePath: backupSource,
@@ -111,6 +120,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		Compressor: compressor,
 		Verbose:    backupVerbose,
 		DryRun:     backupDryRun,
+		FileMode:   fileMode,
 	}
 
 	outputPath, err := backup.PerformBackup(ctx, backupCfg)
@@ -120,7 +130,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// Generate manifest by default (unless dry-run or skip-manifest)
 	if !backupDryRun && !backupSkipManifest {
-		if err := generateManifest(outputPath, backupSource, backupVerbose); err != nil {
+		if err := generateManifest(outputPath, backupSource, backupVerbose, fileMode); err != nil {
 			// Warn but don't fail the backup
 			fmt.Fprintf(os.Stderr, "Warning: Failed to create manifest: %v\n", err)
 		}
@@ -151,7 +161,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 }
 
 // generateManifest creates a manifest file for the backup
-func generateManifest(backupPath, sourcePath string, verbose bool) error {
+func generateManifest(backupPath, sourcePath string, verbose bool, fileMode *os.FileMode) error {
 	// Create manifest
 	m, err := manifest.New(sourcePath, filepath.Base(backupPath), GetVersion())
 	if err != nil {
@@ -173,7 +183,7 @@ func generateManifest(backupPath, sourcePath string, verbose bool) error {
 
 	// Write manifest
 	manifestPath := getManifestPath(backupPath)
-	if err := m.Write(manifestPath); err != nil {
+	if err := m.Write(manifestPath, fileMode); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 
@@ -187,4 +197,31 @@ func generateManifest(backupPath, sourcePath string, verbose bool) error {
 // getManifestPath returns the manifest path for a given backup file
 func getManifestPath(backupPath string) string {
 	return manifest.ManifestPath(backupPath)
+}
+
+// parseFileMode parses the --file-mode flag value.
+// Returns nil for "system" (use umask), or a concrete os.FileMode for "default" or an octal string.
+func parseFileMode(value string) (*os.FileMode, error) {
+	switch value {
+	case "system":
+		return nil, nil
+	case "default":
+		mode := os.FileMode(0600)
+		return &mode, nil
+	default:
+		parsed, err := strconv.ParseUint(value, 8, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --file-mode value %q: must be \"default\", \"system\", or an octal mode like \"0640\"", value)
+		}
+		mode := os.FileMode(parsed)
+		if mode > 0777 {
+			return nil, fmt.Errorf("invalid --file-mode value %q: must be a valid permission mode (0000-0777)", value)
+		}
+		// Warn if world-readable
+		if mode&0004 != 0 {
+			fmt.Fprintf(os.Stderr, "WARNING: --file-mode %04o makes backup files world-readable. "+
+				"Consider using 0600 (owner-only) or 0640 (group-readable) instead.\n", mode)
+		}
+		return &mode, nil
+	}
 }
