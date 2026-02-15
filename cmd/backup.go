@@ -69,12 +69,14 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			"Specify your GPG public key with --public-key ~/.gnupg/backup-pub.asc")
 	}
 
-	// Acquire lock to prevent concurrent backups to same destination
-	lockPath, err := lock.Acquire(backupDest)
-	if err != nil {
-		return err // Already wrapped with helpful message
+	// Acquire lock to prevent concurrent backups (skip in dry-run — no writes)
+	if !backupDryRun {
+		lockPath, err := lock.Acquire(backupDest)
+		if err != nil {
+			return err // Already wrapped with helpful message
+		}
+		defer lock.Release(lockPath) // Always release on exit
 	}
-	defer lock.Release(lockPath) // Always release on exit
 
 	// Create compressor (gzip by default)
 	compressor, err := compress.NewCompressor(compress.Config{

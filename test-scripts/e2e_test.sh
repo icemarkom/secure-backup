@@ -96,7 +96,24 @@ ln -s small.txt "$SOURCE_DIR/link_to_small.txt"
 FILE_COUNT=$(find "$SOURCE_DIR" -type f | wc -l | tr -d ' ')
 pass "Test data created: $FILE_COUNT files + 1 symlink"
 
-# --- Step 3: Backup ---
+# --- Step 3: Backup dry-run (regression for #20) ---
+step "Running backup dry-run"
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --dry-run --verbose
+
+# Verify no side effects
+test ! -f "$BACKUP_DIR/.backup.lock" || fail "Dry-run created .backup.lock"
+DRY_BACKUP_COUNT=$(find "$BACKUP_DIR" -name "backup_*.tar.gz.gpg" | wc -l | tr -d ' ')
+test "$DRY_BACKUP_COUNT" -eq 0 || fail "Dry-run created a backup file"
+DRY_MANIFEST_COUNT=$(find "$BACKUP_DIR" -name "*_manifest.json" | wc -l | tr -d ' ')
+test "$DRY_MANIFEST_COUNT" -eq 0 || fail "Dry-run created a manifest file"
+
+pass "Backup dry-run produced no side effects"
+
+# --- Step 4: Backup ---
 step "Running backup"
 "$BINARY" backup \
   --source "$SOURCE_DIR" \
@@ -132,17 +149,40 @@ echo "$LIST_OUTPUT" | grep -q "$(basename "$BACKUP_FILE")" || fail "List output 
 
 pass "List shows backup with manifest metadata"
 
-# --- Step 5: Verify (quick) ---
+# --- Step 5.1: Verify dry-run (quick) ---
+step "Running quick verify dry-run"
+"$BINARY" verify --file "$BACKUP_FILE" --quick --dry-run
+pass "Quick verify dry-run exited successfully"
+
+# --- Step 5.2: Verify (quick) ---
 step "Running quick verify"
 "$BINARY" verify --file "$BACKUP_FILE" --quick
 pass "Quick verification passed"
 
-# --- Step 6: Verify (full) ---
+# --- Step 6.1: Verify dry-run (full) ---
+step "Running full verify dry-run"
+"$BINARY" verify --file "$BACKUP_FILE" --private-key "$PRIVATE_KEY" --dry-run
+pass "Full verify dry-run exited successfully"
+
+# --- Step 6.2: Verify (full) ---
 step "Running full verify"
 "$BINARY" verify --file "$BACKUP_FILE" --private-key "$PRIVATE_KEY" --verbose
 pass "Full verification passed"
 
-# --- Step 7: Restore ---
+# --- Step 7.1: Restore dry-run ---
+step "Running restore dry-run"
+DRY_RESTORE_DIR="$TMPDIR_E2E/dry-restore"
+"$BINARY" restore \
+  --file "$BACKUP_FILE" \
+  --dest "$DRY_RESTORE_DIR" \
+  --private-key "$PRIVATE_KEY" \
+  --dry-run --verbose
+
+# Verify no files were extracted
+test ! -d "$DRY_RESTORE_DIR" || fail "Dry-run created restore directory"
+pass "Restore dry-run produced no side effects"
+
+# --- Step 7.2: Restore ---
 step "Running restore"
 "$BINARY" restore \
   --file "$BACKUP_FILE" \
