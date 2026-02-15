@@ -70,19 +70,23 @@ func TestAcquire_LockExistsButCorrupted(t *testing.T) {
 	assert.Contains(t, err.Error(), "manually remove")
 }
 
-func TestAcquire_AtomicWrite(t *testing.T) {
+func TestAcquire_AtomicCreation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	lockPath, err := Acquire(tmpDir)
 	require.NoError(t, err)
 	defer os.Remove(lockPath)
 
-	// Verify no .tmp file exists
-	tmpPath := lockPath + ".tmp"
-	_, err = os.Stat(tmpPath)
-	assert.True(t, os.IsNotExist(err), ".tmp file should not exist after successful acquire")
+	// Verify lock file contains valid JSON immediately
+	data, err := os.ReadFile(lockPath)
+	require.NoError(t, err)
 
-	// Verify no .tmp files in directory
+	var lockInfo LockInfo
+	err = json.Unmarshal(data, &lockInfo)
+	require.NoError(t, err, "lock file should contain valid JSON immediately after creation")
+	assert.Equal(t, os.Getpid(), lockInfo.PID)
+
+	// Verify no temp files in directory
 	files, err := os.ReadDir(tmpDir)
 	require.NoError(t, err)
 
@@ -90,6 +94,40 @@ func TestAcquire_AtomicWrite(t *testing.T) {
 		assert.False(t, strings.HasSuffix(file.Name(), ".tmp"),
 			"no .tmp files should remain in directory: found %s", file.Name())
 	}
+}
+
+func TestAcquire_ConcurrentRace(t *testing.T) {
+	tmpDir := t.TempDir()
+	defer os.Remove(filepath.Join(tmpDir, ".backup.lock"))
+
+	const goroutines = 10
+	results := make(chan error, goroutines)
+
+	// Launch goroutines simultaneously
+	start := make(chan struct{})
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			<-start // Wait for signal so all goroutines start together
+			_, err := Acquire(tmpDir)
+			results <- err
+		}()
+	}
+	close(start) // Release all goroutines at once
+
+	// Collect results
+	var successes, failures int
+	for i := 0; i < goroutines; i++ {
+		err := <-results
+		if err == nil {
+			successes++
+		} else {
+			failures++
+			assert.Contains(t, err.Error(), "already in progress")
+		}
+	}
+
+	assert.Equal(t, 1, successes, "exactly one goroutine should acquire the lock")
+	assert.Equal(t, goroutines-1, failures, "all other goroutines should fail")
 }
 
 func TestRelease_Success(t *testing.T) {

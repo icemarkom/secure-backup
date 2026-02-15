@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P6 COMPLETE | ⬜ P7-P19 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7 COMPLETE | ⬜ P8-P19 OPEN (production hardening round 2)  
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
@@ -394,11 +394,30 @@
 
 #### Critical Priority
 
-| ID | GitHub | Issue | File(s) | Effort |
+| ID | GitHub | Issue | File(s) | Status |
 |----|--------|-------|---------|--------|
-| **P7** | [#1](https://github.com/icemarkom/secure-backup/issues/1) | TOCTOU race in lock: `Stat()` + `WriteFile()` is not atomic | `internal/lock/lock.go` | 1-2h |
-| **P8** | [#2](https://github.com/icemarkom/secure-backup/issues/2) | Symlink traversal on extract: link targets not validated | `internal/archive/tar.go` | 1-2h |
-| **P9** | [#3](https://github.com/icemarkom/secure-backup/issues/3) | No decompression bomb protection: unbounded `io.Copy` | `internal/archive/tar.go` | 1-2h |
+| **P7** | [#1](https://github.com/icemarkom/secure-backup/issues/1) | ~~TOCTOU race in lock: `Stat()` + `WriteFile()` is not atomic~~ | `internal/lock/lock.go` | ✅ COMPLETE |
+| **P8** | [#2](https://github.com/icemarkom/secure-backup/issues/2) | Symlink traversal on extract: link targets not validated | `internal/archive/tar.go` | ⬜ OPEN |
+| **P9** | [#3](https://github.com/icemarkom/secure-backup/issues/3) | No decompression bomb protection: unbounded `io.Copy` | `internal/archive/tar.go` | ⬜ OPEN |
+
+#### P7: TOCTOU Race in Lock ✅ COMPLETE (2026-02-15)
+
+**Problem**: `Acquire()` used `os.Stat()` + temp file + `os.Rename()` — a TOCTOU race allowed concurrent processes to both pass the check and overwrite each other's lock.
+
+**Fix**: Replaced with `os.OpenFile(lockPath, O_WRONLY|O_CREATE|O_EXCL, 0644)` — kernel-guaranteed atomic create-or-fail. No race window.
+
+**What Was Delivered**:
+- ✅ Atomic lock creation using `O_CREATE|O_EXCL`
+- ✅ Eliminated temp file + rename pattern entirely
+- ✅ Extracted `lockExistsError()` helper for cleaner code
+- ✅ New `TestAcquire_ConcurrentRace` test (10 goroutines, exactly 1 wins)
+- ✅ Updated `TestAcquire_AtomicCreation` (validates JSON content immediately)
+- ✅ All 15 lock tests pass, full test suite passes with no regressions
+
+**Files Modified**:
+- Modified: `internal/lock/lock.go` — Atomic `O_CREATE|O_EXCL` lock creation
+- Modified: `internal/lock/lock_test.go` — Updated atomic test + new concurrent race test
+
 
 #### High Priority
 
@@ -643,6 +662,26 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 
 **Pattern: MAKE → STAGE → ASK → WAIT → COMMIT (only when authorized)**
 
+**GitHub Issues: NEVER close before code is pushed**
+
+✅ **CORRECT:**
+```
+1. Make changes and stage files
+2. Ask user: "Ready to commit?"
+3. WAIT for user approval
+4. git commit -m "fix: description (Fixes #N)"  ← auto-closes issue on push
+5. git push
+```
+
+❌ **WRONG:**
+```
+1. Make changes
+2. gh issue close #N  ← VIOLATION: code hasn't been pushed yet!
+3. git commit + push later
+```
+
+**Pattern: Code pushed FIRST → issue closed AFTER (use `Fixes #N` in commit message)**
+
 ### 2. Documentation
 
 - **ALWAYS update agent_prompt.md** after significant work
@@ -735,6 +774,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P4 Implementation Complete | Secure passphrase handling with env var/file support, 94.9% coverage, trust score 8.0→8.5 |
 | 2026-02-15 | P5 Implementation Complete | Per-destination backup locking, 81.8% lock coverage, fail loudly with manual cleanup, trust score 8.5→8.8 |
 | 2026-02-15 | Per-destination locking chosen | Prioritized simplicity over maximum concurrency, aligns with project philosophy |
+| 2026-02-15 | P7 Implementation Complete | Fixed TOCTOU race with O_CREATE|O_EXCL atomic lock creation, 15 tests pass, concurrent race test added |
 
 ---
 

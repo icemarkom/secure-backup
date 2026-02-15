@@ -17,33 +17,11 @@ type LockInfo struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// Acquire creates a lock file in the destination directory
-// Returns the lock file path on success, or an error if a lock already exists
+// Acquire creates a lock file in the destination directory.
+// Uses O_CREATE|O_EXCL for atomic create-or-fail — no TOCTOU race.
+// Returns the lock file path on success, or an error if a lock already exists.
 func Acquire(destDir string) (string, error) {
 	lockPath := filepath.Join(destDir, ".backup.lock")
-
-	// Check if lock file already exists
-	if _, err := os.Stat(lockPath); err == nil {
-		// Lock exists - read it to get details for error message
-		existingLock, readErr := Read(lockPath)
-		if readErr != nil {
-			// Lock file exists but we can't read it
-			return "", errors.New(
-				fmt.Sprintf("Backup already in progress (lock file exists: %s)", lockPath),
-				fmt.Sprintf("If the process is not running, manually remove the lock file with: rm %s", lockPath),
-			)
-		}
-
-		// Provide detailed error with PID and timestamp
-		return "", errors.New(
-			fmt.Sprintf("Backup already in progress (PID %d on %s, started %s)",
-				existingLock.PID,
-				existingLock.Hostname,
-				existingLock.Timestamp.Format("2006-01-02 15:04:05")),
-			fmt.Sprintf("Lock file: %s\nIf the process is not running, manually remove the lock file with: rm %s",
-				lockPath, lockPath),
-		)
-	}
 
 	// Create lock info
 	hostname, err := os.Hostname()
@@ -63,19 +41,50 @@ func Acquire(destDir string) (string, error) {
 		return "", fmt.Errorf("failed to serialize lock info: %w", err)
 	}
 
-	// Write to temp file first for atomic operation
-	tmpPath := lockPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		return "", fmt.Errorf("failed to write lock file: %w", err)
-	}
-
-	// Atomic rename to final path
-	if err := os.Rename(tmpPath, lockPath); err != nil {
-		os.Remove(tmpPath) // Clean up temp file on failure
+	// Atomic exclusive creation — kernel-guaranteed to fail if file exists
+	f, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		if os.IsExist(err) {
+			return "", lockExistsError(lockPath)
+		}
 		return "", fmt.Errorf("failed to create lock file: %w", err)
 	}
 
+	// Write lock info to the exclusively-created file
+	_, writeErr := f.Write(data)
+	closeErr := f.Close()
+	if writeErr != nil {
+		os.Remove(lockPath) // Clean up on write failure
+		return "", fmt.Errorf("failed to write lock info: %w", writeErr)
+	}
+	if closeErr != nil {
+		os.Remove(lockPath) // Clean up on close failure
+		return "", fmt.Errorf("failed to finalize lock file: %w", closeErr)
+	}
+
 	return lockPath, nil
+}
+
+// lockExistsError reads the existing lock file and returns a detailed error message.
+func lockExistsError(lockPath string) error {
+	existingLock, readErr := Read(lockPath)
+	if readErr != nil {
+		// Lock file exists but we can't read it
+		return errors.New(
+			fmt.Sprintf("Backup already in progress (lock file exists: %s)", lockPath),
+			fmt.Sprintf("If the process is not running, manually remove the lock file with: rm %s", lockPath),
+		)
+	}
+
+	// Provide detailed error with PID and timestamp
+	return errors.New(
+		fmt.Sprintf("Backup already in progress (PID %d on %s, started %s)",
+			existingLock.PID,
+			existingLock.Hostname,
+			existingLock.Timestamp.Format("2006-01-02 15:04:05")),
+		fmt.Sprintf("Lock file: %s\nIf the process is not running, manually remove the lock file with: rm %s",
+			lockPath, lockPath),
+	)
 }
 
 // Release removes the lock file
