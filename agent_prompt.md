@@ -665,7 +665,9 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 **GitHub Issues: NEVER close before code is pushed**
 
 > **⚠️ IMPORTANT**: Auto-close keywords (`Fixes #N`) in commit messages do NOT work
-> for this repository. Always close issues manually with `gh issue close`.
+> with direct pushes to `main` — only via merged PRs. Currently we push directly to `main`;
+> after 1.0 release we will switch to a PR-based workflow. Until then, close issues manually
+> with `gh issue close`.
 
 ✅ **CORRECT:**
 ```
