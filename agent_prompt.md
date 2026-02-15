@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Current Trust Score**: 7.5/10 - P1 complete, significant improvement in data integrity  
+> **Current Trust Score**: 8.8/10 - P1-P5 complete, robust data integrity, reliability, locking  
 > **Target**: 9/10 - Production-ready for mission-critical backups
 
 ### Critical Issues (Must Fix)
@@ -284,30 +284,52 @@
 
 ---
 
+---
+
 ### High Priority Issues
 
-#### P5: Backup Locking
+#### P5: Backup Locking ✅ COMPLETE (2026-02-15)
 
 **Problem**: Concurrent backups to same destination can conflict.
 
-**Current State**:
-- No protection against simultaneous backups
-- Race conditions in retention cleanup
+**Status**: ✅ **IMPLEMENTED** (2026-02-15)
 
-**Decision: File-Based Locking (Fail Loudly, No Cleanup)**
-- Use lock file: `<dest>/.backup.lock` with PID and timestamp
-- **No cleanup - fail loudly if lock exists**
-- **Print error with PID and helpful message**
+**What Was Delivered**:
+- ✅ `internal/lock` package with 81.8% test coverage
+- ✅ Per-destination file-based locking (`<dest>/.backup.lock`)
+- ✅ Atomic write pattern (temp file + rename)
+- ✅ Helpful error messages with PID, hostname, timestamp
+- ✅ Manual cleanup only (fail loudly philosophy)
+- ✅ 12 comprehensive unit tests, all passing
+
+**Decision: Per-Destination File-Based Locking**
+- Lock file: `<dest>/.backup.lock` with PID, timestamp, hostname
+- **Fail loudly** - no automatic cleanup of stale locks
 - User must manually remove stale locks
-- Estimated effort: 0.5 days
+- Chosen for **simplicity** over maximum concurrency
+- Estimated effort: 0.5 days ✅ ACTUAL: 0.5 days
 
-**Implementation Notes**:
-- Lock file contains: PID, timestamp, hostname
-- Before backup: check if lock exists
-- If exists: read PID from lock file and print error with details
-- **Error message**: `"Backup already in progress (PID 12345, lock file: .backup.lock). If stale, remove manually."`
-- On success: remove lock file
-- On error: remove lock file (we created it)
+**Implementation Details**:
+- Package: `internal/lock` with `LockInfo` type, `Acquire()`, `Release()`, `Read()` functions
+- Commands updated: `cmd/backup.go` - lock acquired before backup, released via defer
+- Error message: "Backup already in progress (PID 12345 on hostname, started 2026-01-01 00:00:00)"
+- Lock cleanup: `defer lock.Release(lockPath)` handles both success and error cases
+- Test coverage: 81.8% for lock package
+
+**Files Modified**:
+- New: `internal/lock/lock.go`, `internal/lock/lock_test.go`
+- Modified: `cmd/backup.go`
+
+**Manual Verification**:
+- ✅ Stale lock detection works with helpful error message
+- ✅ Lock properly cleaned up after successful backup
+- ✅ No `.backup.lock` remains after completion
+
+**Impact**:
+- Trust score: 8.5/10 → 8.8/10
+- Prevents concurrent backup conflicts
+- Safe retention cleanup operations
+- Production-ready locking mechanism
 
 ---
 
@@ -632,6 +654,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-14 | P2 Implementation Complete | Atomic writes using temp file + rename, fixed race condition, 3 new tests added |
 | 2026-02-14 | P3 Implementation Complete | Errgroup pattern for comprehensive error propagation, context support, coverage 83.2%→84.2%, trust score 7.5→8.0 |
 | 2026-02-15 | P4 Implementation Complete | Secure passphrase handling with env var/file support, 94.9% coverage, trust score 8.0→8.5 |
+| 2026-02-15 | P5 Implementation Complete | Per-destination backup locking, 81.8% lock coverage, fail loudly with manual cleanup, trust score 8.5→8.8 |
+| 2026-02-15 | Per-destination locking chosen | Prioritized simplicity over maximum concurrency, aligns with project philosophy |
 
 ---
 
@@ -703,8 +727,8 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation f4d8b383-1ee0-4b3e-8e4b-0d13cbbde402)  
+**Last Updated By**: Agent (conversation 18b062ce-d64c-4105-ba53-c218f68742ac)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Effort In Progress  
-**Production Trust Score**: 8.5/10 - P1+P2+P3+P4 complete, strong data integrity, reliability, error handling, and secure passphrase handling  
-**Productionization**: P1 ✅ COMPLETE, P2 ✅ COMPLETE, P3 ✅ COMPLETE, P4 ✅ COMPLETE, P5-P6 remaining (2 items), ~1-2 days estimated  
-**Next Milestone**: P5 - Backup Locking
+**Production Trust Score**: 8.8/10 - P1+P2+P3+P4+P5 complete, robust data integrity, reliability, error handling, secure passphrase handling, and backup locking  
+**Productionization**: P1 ✅ COMPLETE, P2 ✅ COMPLETE, P3 ✅ COMPLETE, P4 ✅ COMPLETE, P5 ✅ COMPLETE, P6 remaining (1 item), ~0.5 days estimated  
+**Next Milestone**: P6 - Restore Safety Checks

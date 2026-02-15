@@ -10,6 +10,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/lock"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
@@ -64,6 +65,13 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return errors.MissingRequired("--public-key",
 			"Specify your GPG public key with --public-key ~/.gnupg/backup-pub.asc")
 	}
+
+	// Acquire lock to prevent concurrent backups to same destination
+	lockPath, err := lock.Acquire(backupDest)
+	if err != nil {
+		return err // Already wrapped with helpful message
+	}
+	defer lock.Release(lockPath) // Always release on exit
 
 	// Create compressor (gzip by default)
 	compressor, err := compress.NewCompressor(compress.Config{
