@@ -90,7 +90,8 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P11-P13, P19 COMPLETE | ⛔ P15 WON'T FIX | ⬜ P8-P10, P14, P16-P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P11-P13, P19 COMPLETE | ⛔ P14-P16 WON'T FIX | ⬜ P8-P10, P17-P18 OPEN (production hardening round 2)  
+
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
@@ -427,9 +428,9 @@
 | **P11** | [#5](https://github.com/icemarkom/secure-backup/issues/5) | ~~Retention deletes backups but orphans manifest files~~ | `internal/retention/policy.go` | ✅ COMPLETE |
 | **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | ~~Context not propagated; no SIGTERM/signal handling~~ | `main.go`, `cmd/root.go`, `cmd/*.go`, `internal/backup/*.go` | ✅ COMPLETE |
 | **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | ~~Manifest path derived via brittle `TrimSuffix` on extension~~ | `internal/manifest/manifest.go` | ✅ COMPLETE |
-| **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | Passphrase stored as `string`, never zeroed after use | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | 1-2h |
+| **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | ~~Passphrase stored as `string`, never zeroed after use~~ | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | ⛔ WON'T FIX |
 | **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | ~~`err` variable shadowing in backup defer/cleanup logic~~ | `internal/backup/backup.go` | ⛔ WON'T FIX |
-| **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | Zero `cmd/` test coverage — all CLI wiring untested | `cmd/*.go` | 1-2d |
+| **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | ~~Zero `cmd/` test coverage — all CLI wiring untested~~ | `cmd/*.go` | ⛔ WON'T FIX |
 
 #### Medium Priority
 
@@ -461,8 +462,8 @@
 **Week 4: Reliability & Quality (P11-P16)**
 - Day 1: P11 - Retention manifest cleanup + P13 - Manifest path fix
 - Day 2: P12 - Context/signal propagation
-- Day 3: P14 - Passphrase zeroing + P15 - Error shadowing fix  
-- Day 4-5: P16 - cmd/ integration tests
+- ~~Day 3: P14 - Passphrase zeroing~~ ⛔ WON'T FIX + ~~P15 - Error shadowing fix~~ ⛔ WON'T FIX
+- ~~Day 4-5: P16 - cmd/ integration tests~~ ⛔ WON'T FIX
 
 **Week 5: Polish (P17-P19)**
 - P18 - Armor decode fix + P19 - Deduplicate formatSize
@@ -785,6 +786,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P11 Implementation Complete | Retention `ApplyPolicy()` now deletes manifest files alongside backups, dry-run reports manifests, 2 new tests |
 | 2026-02-15 | P19 Implementation Complete | Consolidated `formatSize()` (3 copies) and `formatAge()` (2 copies) into new `internal/format` package with `Size()` and `Age()` functions |
 | 2026-02-15 | P15 Closed as Won't Fix | `err` shadowing is inherent to Go; no scoping trick prevents all future mistakes. Current code is correct. Code review and linting are the right mitigation. |
+| 2026-02-15 | P14 Closed as Won't Fix | Go strings are immutable and cannot be zeroed. Passphrase also flows through openpgp which makes internal copies. Zeroing the `[]byte` copy gives false security. Practical attack vectors (process lists, shell history, file permissions) were addressed in P4. |
+| 2026-02-15 | P16 Closed as Won't Fix | All business logic is well-tested in `internal/` packages. `cmd/` is thin Cobra wiring; the effort-to-value ratio for 1-2 days of integration testing is poor. Flag wiring correctness is validated by manual testing and CI builds. |
 
 ---
 
