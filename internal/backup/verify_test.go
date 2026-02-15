@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,7 +60,7 @@ func TestPerformVerify_InvalidFile(t *testing.T) {
 				Verbose:    false,
 			}
 
-			err = PerformVerify(cfg)
+			err = PerformVerify(context.Background(), cfg)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErrMsg)
 		})
@@ -99,7 +100,7 @@ func TestQuickVerify_SmallFile(t *testing.T) {
 		Verbose:    false,
 	}
 
-	err = PerformVerify(cfg)
+	err = PerformVerify(context.Background(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "file too small")
 }
@@ -140,7 +141,7 @@ func TestQuickVerify_ValidFile(t *testing.T) {
 	}
 
 	// Quick verify should pass (it only checks headers, not actual decryption)
-	err = PerformVerify(cfg)
+	err = PerformVerify(context.Background(), cfg)
 	assert.NoError(t, err, "quick verify should pass for valid-looking GPG file")
 }
 
@@ -187,7 +188,7 @@ func TestFullVerify_WithRealBackup(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Test quick verify
@@ -200,7 +201,7 @@ func TestFullVerify_WithRealBackup(t *testing.T) {
 			Verbose:    false,
 		}
 
-		err = PerformVerify(verifyCfg)
+		err = PerformVerify(context.Background(), verifyCfg)
 		assert.NoError(t, err, "quick verify should pass")
 	})
 
@@ -214,7 +215,7 @@ func TestFullVerify_WithRealBackup(t *testing.T) {
 			Verbose:    false,
 		}
 
-		err = PerformVerify(verifyCfg)
+		err = PerformVerify(context.Background(), verifyCfg)
 		assert.NoError(t, err, "full verify should pass")
 	})
 }
@@ -254,7 +255,7 @@ func TestPerformVerify_DryRun_Quick(t *testing.T) {
 		DryRun:     true,
 	}
 
-	err = PerformVerify(cfg)
+	err = PerformVerify(context.Background(), cfg)
 	require.NoError(t, err)
 
 	// In dry-run mode, no actual verification is performed
@@ -296,7 +297,7 @@ func TestPerformVerify_DryRun_Full(t *testing.T) {
 		DryRun:     true,
 	}
 
-	err = PerformVerify(cfg)
+	err = PerformVerify(context.Background(), cfg)
 	require.NoError(t, err)
 
 	// In dry-run mode, no actual decryption/decompression is performed
@@ -331,7 +332,7 @@ func TestPerformVerify_DryRun_InvalidFile(t *testing.T) {
 		DryRun:     true,
 	}
 
-	err = PerformVerify(cfg)
+	err = PerformVerify(context.Background(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "backup file not found")
 }

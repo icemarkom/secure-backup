@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -77,7 +78,7 @@ func TestIntegration_BackupRestoreCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 	assert.FileExists(t, backupPath, "backup file should exist")
 
@@ -95,7 +96,7 @@ func TestIntegration_BackupRestoreCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	require.NoError(t, err)
 
 	// Step 3: Verify restored files match source
@@ -155,7 +156,7 @@ func TestIntegration_BackupVerifyCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Test quick verification
@@ -168,7 +169,7 @@ func TestIntegration_BackupVerifyCycle(t *testing.T) {
 			Verbose:    false,
 		}
 
-		err := PerformVerify(verifyCfg)
+		err := PerformVerify(context.Background(), verifyCfg)
 		assert.NoError(t, err, "quick verification should pass")
 	})
 
@@ -182,7 +183,7 @@ func TestIntegration_BackupVerifyCycle(t *testing.T) {
 			Verbose:    false,
 		}
 
-		err := PerformVerify(verifyCfg)
+		err := PerformVerify(context.Background(), verifyCfg)
 		assert.NoError(t, err, "full verification should pass")
 	})
 }
@@ -238,7 +239,7 @@ func TestIntegration_VerboseMode(t *testing.T) {
 			Verbose:    true, // Enable verbose mode
 		}
 
-		backupPath, err := PerformBackup(backupCfg)
+		backupPath, err := PerformBackup(context.Background(), backupCfg)
 		require.NoError(t, err)
 
 		// Restore stdout and read captured output
@@ -274,7 +275,7 @@ func TestIntegration_VerboseMode(t *testing.T) {
 				Verbose:    true,
 			}
 
-			err := PerformRestore(restoreCfg)
+			err := PerformRestore(context.Background(), restoreCfg)
 			require.NoError(t, err)
 
 			// Restore stdout and read output
@@ -337,7 +338,7 @@ func TestIntegration_CorruptedBackup(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Corrupt the backup file by truncating it
@@ -354,7 +355,7 @@ func TestIntegration_CorruptedBackup(t *testing.T) {
 		Verbose:    false,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	assert.Error(t, err, "restore should fail with corrupted backup")
 	assert.Contains(t, err.Error(), "restore pipeline failed", "error should indicate pipeline failure")
 }

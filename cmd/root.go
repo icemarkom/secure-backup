@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -51,6 +52,11 @@ func GetVersion() string {
 // Execute runs the root command
 func Execute() error {
 	return rootCmd.Execute()
+}
+
+// ExecuteContext runs the root command with a context for signal handling
+func ExecuteContext(ctx context.Context) error {
+	return rootCmd.ExecuteContext(ctx)
 }
 
 func init() {

@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -23,7 +24,7 @@ type RestoreConfig struct {
 }
 
 // PerformRestore executes the restore pipeline: DECRYPT → DECOMPRESS → EXTRACT
-func PerformRestore(cfg RestoreConfig) error {
+func PerformRestore(ctx context.Context, cfg RestoreConfig) error {
 	// Handle dry-run mode
 	if cfg.DryRun {
 		return dryRunRestore(cfg)
@@ -68,7 +69,7 @@ func PerformRestore(cfg RestoreConfig) error {
 	}
 
 	// Execute the restore pipeline: FILE → DECRYPT → DECOMPRESS → EXTRACT
-	if err := executeRestorePipeline(cfg); err != nil {
+	if err := executeRestorePipeline(ctx, cfg); err != nil {
 		return fmt.Errorf("restore pipeline failed: %w", err)
 	}
 
@@ -80,7 +81,7 @@ func PerformRestore(cfg RestoreConfig) error {
 }
 
 // executeRestorePipeline runs the restore pipeline
-func executeRestorePipeline(cfg RestoreConfig) error {
+func executeRestorePipeline(ctx context.Context, cfg RestoreConfig) error {
 	// Step 1: Open encrypted backup file
 	backupFile, err := os.Open(cfg.BackupFile)
 	if err != nil {

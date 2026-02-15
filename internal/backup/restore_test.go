@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,7 +61,7 @@ func TestPerformRestore_InvalidBackupFile(t *testing.T) {
 				Verbose:    false,
 			}
 
-			err = PerformRestore(cfg)
+			err = PerformRestore(context.Background(), cfg)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErrMsg)
 		})
@@ -110,7 +111,7 @@ func TestPerformRestore_DestinationCreation(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Now restore to a nested destination path that doesn't exist
@@ -125,7 +126,7 @@ func TestPerformRestore_DestinationCreation(t *testing.T) {
 		Verbose:    false,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	require.NoError(t, err)
 
 	// Verify destination directory was created
@@ -176,7 +177,7 @@ func TestPerformRestore_DryRun(t *testing.T) {
 		DryRun:     true,
 	}
 
-	err = PerformRestore(cfg)
+	err = PerformRestore(context.Background(), cfg)
 	require.NoError(t, err)
 
 	// Verify no files were extracted
@@ -213,7 +214,7 @@ func TestPerformRestore_DryRun_InvalidFile(t *testing.T) {
 		DryRun:     true,
 	}
 
-	err = PerformRestore(cfg)
+	err = PerformRestore(context.Background(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "backup file not found")
 }
@@ -349,7 +350,7 @@ func TestPerformRestore_NonEmptyDestination_WithoutForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Create non-empty restore destination
@@ -371,7 +372,7 @@ func TestPerformRestore_NonEmptyDestination_WithoutForce(t *testing.T) {
 		Force:      false,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Destination directory is not empty")
 	assert.Contains(t, err.Error(), "--force")
@@ -420,7 +421,7 @@ func TestPerformRestore_NonEmptyDestination_WithForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Create non-empty restore destination
@@ -442,7 +443,7 @@ func TestPerformRestore_NonEmptyDestination_WithForce(t *testing.T) {
 		Force:      true,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	require.NoError(t, err)
 
 	// Verify both files exist
@@ -500,7 +501,7 @@ func TestPerformRestore_EmptyDestination_WithoutForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Create empty restore destination
@@ -518,7 +519,7 @@ func TestPerformRestore_EmptyDestination_WithoutForce(t *testing.T) {
 		Force:      false,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	require.NoError(t, err)
 
 	// Verify files were restored
@@ -571,7 +572,7 @@ func TestPerformRestore_NonexistentDestination_WithoutForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(backupCfg)
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Don't create restore directory - it should be created automatically
@@ -587,7 +588,7 @@ func TestPerformRestore_NonexistentDestination_WithoutForce(t *testing.T) {
 		Force:      false,
 	}
 
-	err = PerformRestore(restoreCfg)
+	err = PerformRestore(context.Background(), restoreCfg)
 	require.NoError(t, err)
 
 	// Verify files were restored

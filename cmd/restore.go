@@ -56,6 +56,7 @@ func init() {
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
 	// Validate manifest first (unless skipped or dry-run)
 	if !restoreSkipManifest && !restoreDryRun {
 		if err := validateManifest(restoreFile, restoreVerbose); err != nil {
@@ -116,7 +117,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Force:      restoreForce,
 	}
 
-	if err = backup.PerformRestore(restoreCfg); err != nil {
+	if err = backup.PerformRestore(ctx, restoreCfg); err != nil {
 		return err // PerformRestore already returns user-friendly errors
 	}
 

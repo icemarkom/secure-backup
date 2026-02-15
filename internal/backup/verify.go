@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -22,7 +23,7 @@ type VerifyConfig struct {
 }
 
 // PerformVerify verifies the integrity of a backup file
-func PerformVerify(cfg VerifyConfig) error {
+func PerformVerify(ctx context.Context, cfg VerifyConfig) error {
 	// Handle dry-run mode
 	if cfg.DryRun {
 		return dryRunVerify(cfg)
@@ -49,7 +50,7 @@ func PerformVerify(cfg VerifyConfig) error {
 	}
 
 	// Full verification: decrypt and decompress to verify integrity
-	return fullVerify(cfg)
+	return fullVerify(ctx, cfg)
 }
 
 // quickVerify performs a quick check of file headers
@@ -94,7 +95,7 @@ func quickVerify(cfg VerifyConfig) error {
 }
 
 // fullVerify performs full decryption and decompression to verify integrity
-func fullVerify(cfg VerifyConfig) error {
+func fullVerify(ctx context.Context, cfg VerifyConfig) error {
 	// Open backup file
 	backupFile, err := os.Open(cfg.BackupFile)
 	if err != nil {

@@ -27,7 +27,7 @@ type Config struct {
 }
 
 // PerformBackup executes the backup pipeline: TAR → COMPRESS → ENCRYPT
-func PerformBackup(cfg Config) (string, error) {
+func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	// Handle dry-run mode
 	if cfg.DryRun {
 		return dryRunBackup(cfg)
@@ -78,7 +78,7 @@ func PerformBackup(cfg Config) (string, error) {
 	}()
 
 	// Execute the pipeline: TAR → COMPRESS → ENCRYPT → FILE
-	if err = executePipeline(cfg, outFile); err != nil {
+	if err = executePipeline(ctx, cfg, outFile); err != nil {
 		return "", fmt.Errorf("backup pipeline failed: %w", err)
 	}
 
@@ -107,9 +107,8 @@ func PerformBackup(cfg Config) (string, error) {
 }
 
 // executePipeline runs the backup pipeline with comprehensive error propagation
-func executePipeline(cfg Config, output io.Writer) error {
-	// Create context for pipeline coordination
-	ctx := context.Background()
+func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
+	// Use provided context for pipeline coordination
 	g, ctx := errgroup.WithContext(ctx)
 
 	// Step 1: Create tar reader pipe

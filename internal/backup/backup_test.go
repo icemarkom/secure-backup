@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,7 +102,7 @@ func TestPerformBackup_InvalidSource(t *testing.T) {
 				Verbose:    false,
 			}
 
-			_, err = PerformBackup(cfg)
+			_, err = PerformBackup(context.Background(), cfg)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErrMsg)
 		})
@@ -157,7 +158,7 @@ func TestPerformBackup_DestinationCreation(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(cfg)
+	backupPath, err := PerformBackup(context.Background(), cfg)
 	require.NoError(t, err)
 
 	// Verify destination directory was created
@@ -232,7 +233,7 @@ func TestPerformBackup_FilenameFormat(t *testing.T) {
 				Verbose:    false,
 			}
 
-			backupPath, err := PerformBackup(cfg)
+			backupPath, err := PerformBackup(context.Background(), cfg)
 			require.NoError(t, err)
 
 			filename := filepath.Base(backupPath)
@@ -337,7 +338,7 @@ func TestPerformBackup_DryRun(t *testing.T) {
 		DryRun:     true,
 	}
 
-	backupPath, err := PerformBackup(cfg)
+	backupPath, err := PerformBackup(context.Background(), cfg)
 	require.NoError(t, err)
 	assert.NotEmpty(t, backupPath, "should return expected backup path")
 
@@ -379,7 +380,7 @@ func TestPerformBackup_DryRun_InvalidSource(t *testing.T) {
 		DryRun:     true,
 	}
 
-	_, err = PerformBackup(cfg)
+	_, err = PerformBackup(context.Background(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid source path")
 }
@@ -430,7 +431,7 @@ func TestPerformBackup_NoTempFilesOnSuccess(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(cfg)
+	backupPath, err := PerformBackup(context.Background(), cfg)
 	require.NoError(t, err)
 
 	// Verify final backup file exists
@@ -489,7 +490,7 @@ func TestPerformBackup_TempFileCleanupOnError(t *testing.T) {
 	}
 
 	// Backup should fail due to invalid key
-	_, err = PerformBackup(cfg)
+	_, err = PerformBackup(context.Background(), cfg)
 	require.Error(t, err)
 
 	// Verify no .tmp files remain in destination directory

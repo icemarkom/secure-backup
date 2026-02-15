@@ -49,6 +49,7 @@ func init() {
 }
 
 func runVerify(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
 	// Validate manifest first (unless skipped or dry-run)
 	if !verifySkipManifest && !verifyDryRun {
 		if _, err := validateAndDisplayManifest(verifyFile, verifyVerbose); err != nil {
@@ -65,7 +66,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			DryRun:     verifyDryRun,
 		}
 
-		if err := backup.PerformVerify(verifyCfg); err != nil {
+		if err := backup.PerformVerify(ctx, verifyCfg); err != nil {
 			return fmt.Errorf("verification failed: %w", err)
 		}
 
@@ -122,7 +123,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		DryRun:     verifyDryRun,
 	}
 
-	if err = backup.PerformVerify(verifyCfg); err != nil {
+	if err = backup.PerformVerify(ctx, verifyCfg); err != nil {
 		return err // PerformVerify already returns user-friendly errors
 	}
 

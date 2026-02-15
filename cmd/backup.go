@@ -59,6 +59,7 @@ func init() {
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
 	// Validate flags
 	if backupRecipient == "" && backupPublicKey == "" {
 		return errors.MissingRequired("--public-key",
@@ -112,7 +113,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		DryRun:     backupDryRun,
 	}
 
-	outputPath, err := backup.PerformBackup(backupCfg)
+	outputPath, err := backup.PerformBackup(ctx, backupCfg)
 	if err != nil {
 		return err // PerformBackup already returns user-friendly errors
 	}

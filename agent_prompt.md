@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P11, P13, P19 COMPLETE | ⛔ P15 WON'T FIX | ⬜ P8-P10, P12, P14, P16-P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P11-P13, P19 COMPLETE | ⛔ P15 WON'T FIX | ⬜ P8-P10, P14, P16-P18 OPEN (production hardening round 2)  
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
@@ -425,7 +425,7 @@
 |----|--------|-------|---------|--------|
 | **P10** | [#4](https://github.com/icemarkom/secure-backup/issues/4) | Backup file permissions 0666 (umask-dependent) instead of 0600 | `internal/backup/backup.go` | 15min |
 | **P11** | [#5](https://github.com/icemarkom/secure-backup/issues/5) | ~~Retention deletes backups but orphans manifest files~~ | `internal/retention/policy.go` | ✅ COMPLETE |
-| **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | Context not propagated; no SIGTERM/signal handling | `internal/backup/backup.go`, `main.go` | 2-3h |
+| **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | ~~Context not propagated; no SIGTERM/signal handling~~ | `main.go`, `cmd/root.go`, `cmd/*.go`, `internal/backup/*.go` | ✅ COMPLETE |
 | **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | ~~Manifest path derived via brittle `TrimSuffix` on extension~~ | `internal/manifest/manifest.go` | ✅ COMPLETE |
 | **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | Passphrase stored as `string`, never zeroed after use | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | 1-2h |
 | **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | ~~`err` variable shadowing in backup defer/cleanup logic~~ | `internal/backup/backup.go` | ⛔ WON'T FIX |
@@ -859,7 +859,7 @@ golangci-lint run
 **Last Updated By**: Agent (conversation 187c6c4b-e73e-4fbb-8be1-0a9f2b689b9c)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
 **Production Trust Score**: 7.0/10 — Solid foundation, P8-P19 open for hardening  
-**Productionization**: P1-P7 ✅, P11 ✅, P13 ✅ | P8-P10, P12, P14-P19 ⬜ OPEN  
-**Next Milestone**: P8-P10 security hardening, P12-P19 reliability & polish (see GitHub issues)
+**Productionization**: P1-P7 ✅, P11-P13 ✅ | P8-P10, P14-P19 ⬜ OPEN  
+**Next Milestone**: P8-P10 security hardening, P14-P19 reliability & polish (see GitHub issues)
 
 
