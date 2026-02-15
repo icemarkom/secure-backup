@@ -486,7 +486,13 @@
 **Testing**: End-to-End Pipeline Test ✅ COMPLETE — [#17](https://github.com/icemarkom/secure-backup/issues/17)
 - Full `backup → list → verify → restore → diff` cycle in CI
 - POSIX shell script (`e2e/e2e_test.sh`) testing the compiled binary
+- Dry-run regression tests for all subcommands (backup, verify quick, verify full, restore)
 - Separate CI job gated on unit test success
+
+**Bug Fix**: Dry-Run Lock Side Effect ✅ FIXED — [#20](https://github.com/icemarkom/secure-backup/issues/20)
+- `backup --dry-run` was acquiring a real `.backup.lock` file, blocking concurrent backups
+- Fix: Guard `lock.Acquire()` with `!backupDryRun` in `cmd/backup.go`
+- E2E regression tests added for dry-run in all subcommands
 
 ---
 
@@ -808,6 +814,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P17 Implementation Complete | Switched `filepath.Walk` → `filepath.WalkDir` in `CreateTar` to preserve symlinks as `tar.TypeSymlink` entries instead of dereferencing them. Used `os.Lstat` for source. 3 symlink tests (internal, external, round-trip), all pass. |
 | 2026-02-15 | P18 Implementation Complete | Removed armor decode fallback in `Decrypt()`. Now always requires armored input (which is all the tool produces). Non-armored input returns explicit error instead of silently corrupting stream. 1 new test added. |
 | 2026-02-15 | E2E Pipeline Test (#17) Complete | POSIX shell script in `e2e/e2e_test.sh` exercising full `backup → list → verify → restore → diff` through compiled binary. Chose shell over Go tests for production-realistic testing. Separate CI job, `make e2e` target. |
+| 2026-02-15 | Dry-Run Lock Bug (#20) Fixed | `backup --dry-run` was creating `.backup.lock` on disk, blocking concurrent operations. Guarded `lock.Acquire()` with `!backupDryRun`. Added dry-run e2e regression tests for all subcommands. Reading files (GPG keys, manifests) is intentional; only writes are suppressed. |
 | 2026-02-15 | GoReleaser config updated for v2 | Fixed deprecated `snapshot.name_template` → `version_template` and `format_overrides.format` → `formats`. Config passes `goreleaser check` cleanly. |
 | 2026-02-15 | v1.0.0 Release | All productionization complete. Validated GoReleaser snapshot build: 5 platform archives + 2 .deb packages (amd64/arm64). README cleaned up for 1.0.0. Apt repo signing via Release/InRelease is standard Debian practice; individual .deb signing not needed. |
 | 2026-02-15 | Branch+PR workflow | Switched from direct-to-main pushes to mandatory branch+PR workflow. All changes must go through feature branches and Pull Requests. Auto-close keywords (`Fixes #N`) now work via merged PRs. |
@@ -880,7 +887,7 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation e0d4cb87-465d-49b4-9efb-ef69b110f07e)  
+**Last Updated By**: Agent (conversation 2bfb4839-a8e1-44df-9e3c-46af1db48e81)  
 **Project Phase**: v1.0.0 Release ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P17-P19 ✅ | P8-P9, P14-P16 ⛔ | **ALL ITEMS RESOLVED** 🎉  
