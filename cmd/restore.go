@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -127,7 +126,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 // validateManifest validates the manifest file for the backup
 func validateManifest(backupFile string, verbose bool) error {
-	manifestPath := strings.TrimSuffix(backupFile, ".tar.gz.gpg") + ".json"
+	manifestPath := manifest.ManifestPath(backupFile)
 
 	m, err := manifest.Read(manifestPath)
 	if err != nil {

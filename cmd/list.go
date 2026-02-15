@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/icemarkom/secure-backup/internal/manifest"
@@ -59,8 +57,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Size:     %s\n", retention.FormatSize(backup.Size))
 
 		// Try to read manifest
-		manifestPath := filepath.Join(listDir,
-			strings.TrimSuffix(backup.Name, ".tar.gz.gpg")+".json")
+		manifestPath := manifest.ManifestPath(backup.Path)
 		if m, err := manifest.Read(manifestPath); err == nil {
 			fmt.Printf("  Source:   %s\n", m.SourcePath)
 			fmt.Printf("  Tool:     %s %s\n", m.CreatedBy.Tool, m.CreatedBy.Version)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -186,5 +185,5 @@ func generateManifest(backupPath, sourcePath string, verbose bool) error {
 
 // getManifestPath returns the manifest path for a given backup file
 func getManifestPath(backupPath string) string {
-	return strings.TrimSuffix(backupPath, ".tar.gz.gpg") + ".json"
+	return manifest.ManifestPath(backupPath)
 }

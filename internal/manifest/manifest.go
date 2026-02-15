@@ -7,8 +7,30 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
+
+// knownBackupExtensions lists all recognized backup file extensions.
+// Order matters: longer/more-specific extensions should come first.
+var knownBackupExtensions = []string{
+	".tar.gz.gpg",
+	".tar.zst.gpg",
+	".tar.gz.age",
+}
+
+// ManifestPath returns the manifest file path for a given backup file path.
+// It strips known backup extensions and appends "_manifest.json".
+// Example: "backup_data_20260215_120000.tar.gz.gpg" → "backup_data_20260215_120000_manifest.json"
+func ManifestPath(backupPath string) string {
+	for _, ext := range knownBackupExtensions {
+		if strings.HasSuffix(backupPath, ext) {
+			return strings.TrimSuffix(backupPath, ext) + "_manifest.json"
+		}
+	}
+	// Fallback for unknown extensions
+	return backupPath + "_manifest.json"
+}
 
 // Manifest represents metadata and integrity information for a backup
 type Manifest struct {

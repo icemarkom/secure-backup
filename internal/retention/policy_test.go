@@ -420,3 +420,118 @@ func TestApplyPolicy_DryRun(t *testing.T) {
 		assert.NoError(t, err, "file %s should NOT be deleted in dry-run mode", f.name)
 	}
 }
+
+// TestApplyPolicy_DeletesManifestFiles tests that manifest files are deleted alongside backups
+func TestApplyPolicy_DeletesManifestFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	now := time.Now()
+
+	// Create old backup + manifest pairs
+	oldBackups := []struct {
+		backup   string
+		manifest string
+		age      time.Duration
+	}{
+		{
+			"backup_old1_20240101_120000.tar.gz.gpg",
+			"backup_old1_20240101_120000_manifest.json",
+			10 * 24 * time.Hour,
+		},
+		{
+			"backup_old2_20240102_120000.tar.gz.gpg",
+			"backup_old2_20240102_120000_manifest.json",
+			15 * 24 * time.Hour,
+		},
+	}
+
+	// Create a new backup + manifest pair (should NOT be deleted)
+	newBackup := "backup_new1_20240207_120000.tar.gz.gpg"
+	newManifest := "backup_new1_20240207_120000_manifest.json"
+
+	for _, f := range oldBackups {
+		backupPath := filepath.Join(tempDir, f.backup)
+		manifestPath := filepath.Join(tempDir, f.manifest)
+		require.NoError(t, os.WriteFile(backupPath, []byte("fake backup"), 0644))
+		require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0644))
+
+		modTime := now.Add(-f.age)
+		require.NoError(t, os.Chtimes(backupPath, modTime, modTime))
+		require.NoError(t, os.Chtimes(manifestPath, modTime, modTime))
+	}
+
+	// Create new backup + manifest
+	newBackupPath := filepath.Join(tempDir, newBackup)
+	newManifestPath := filepath.Join(tempDir, newManifest)
+	require.NoError(t, os.WriteFile(newBackupPath, []byte("new backup"), 0644))
+	require.NoError(t, os.WriteFile(newManifestPath, []byte("{}"), 0644))
+
+	modTime := now.Add(-1 * 24 * time.Hour)
+	require.NoError(t, os.Chtimes(newBackupPath, modTime, modTime))
+	require.NoError(t, os.Chtimes(newManifestPath, modTime, modTime))
+
+	// Apply policy with 7-day retention
+	policy := Policy{
+		RetentionDays: 7,
+		BackupDir:     tempDir,
+		Pattern:       "backup_*.tar.gz.gpg",
+		Verbose:       false,
+	}
+
+	count, err := ApplyPolicy(policy)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "should delete 2 old backups")
+
+	// Verify old backups AND manifests were deleted
+	for _, f := range oldBackups {
+		_, err := os.Stat(filepath.Join(tempDir, f.backup))
+		assert.True(t, os.IsNotExist(err), "old backup %s should be deleted", f.backup)
+
+		_, err = os.Stat(filepath.Join(tempDir, f.manifest))
+		assert.True(t, os.IsNotExist(err), "old manifest %s should be deleted", f.manifest)
+	}
+
+	// Verify new backup AND manifest were kept
+	_, err = os.Stat(newBackupPath)
+	assert.NoError(t, err, "new backup should be kept")
+
+	_, err = os.Stat(newManifestPath)
+	assert.NoError(t, err, "new manifest should be kept")
+}
+
+// TestApplyPolicy_DryRun_ReportsManifests tests that dry-run reports manifest deletion
+func TestApplyPolicy_DryRun_ReportsManifests(t *testing.T) {
+	tempDir := t.TempDir()
+	now := time.Now()
+
+	// Create old backup + manifest
+	backupName := "backup_old1_20240101_120000.tar.gz.gpg"
+	manifestName := "backup_old1_20240101_120000_manifest.json"
+
+	backupPath := filepath.Join(tempDir, backupName)
+	manifestPath := filepath.Join(tempDir, manifestName)
+	require.NoError(t, os.WriteFile(backupPath, []byte("fake backup"), 0644))
+	require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0644))
+
+	modTime := now.Add(-10 * 24 * time.Hour)
+	require.NoError(t, os.Chtimes(backupPath, modTime, modTime))
+	require.NoError(t, os.Chtimes(manifestPath, modTime, modTime))
+
+	// Apply policy with dry-run
+	policy := Policy{
+		RetentionDays: 7,
+		BackupDir:     tempDir,
+		Pattern:       "backup_*.tar.gz.gpg",
+		DryRun:        true,
+	}
+
+	count, err := ApplyPolicy(policy)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "should report 1 backup would be deleted")
+
+	// Verify neither backup nor manifest were actually deleted
+	_, err = os.Stat(backupPath)
+	assert.NoError(t, err, "backup should NOT be deleted in dry-run")
+
+	_, err = os.Stat(manifestPath)
+	assert.NoError(t, err, "manifest should NOT be deleted in dry-run")
+}

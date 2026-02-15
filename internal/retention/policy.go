@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/icemarkom/secure-backup/internal/manifest"
 )
 
 // Policy defines retention policy configuration
@@ -68,6 +70,12 @@ func ApplyPolicy(policy Policy) (int, error) {
 				// Dry-run mode: show what would be deleted
 				fmt.Printf("[DRY RUN] Would delete: %s (%d days old)\n",
 					filepath.Base(file), days)
+				// Check for associated manifest
+				manifestPath := manifest.ManifestPath(file)
+				if _, err := os.Stat(manifestPath); err == nil {
+					fmt.Printf("[DRY RUN] Would delete manifest: %s\n",
+						filepath.Base(manifestPath))
+				}
 				deletedCount++
 				continue
 			}
@@ -83,6 +91,14 @@ func ApplyPolicy(policy Policy) (int, error) {
 					fmt.Printf("Warning: failed to delete %s: %v\n", file, err)
 				}
 				continue
+			}
+
+			// Also delete associated manifest file
+			manifestPath := manifest.ManifestPath(file)
+			if err := os.Remove(manifestPath); err == nil {
+				if policy.Verbose {
+					fmt.Printf("Deleted manifest: %s\n", filepath.Base(manifestPath))
+				}
 			}
 
 			deletedCount++

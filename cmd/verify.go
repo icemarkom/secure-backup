@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -132,7 +131,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 
 // validateAndDisplayManifest validates the manifest and displays metadata
 func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Manifest, error) {
-	manifestPath := strings.TrimSuffix(backupFile, ".tar.gz.gpg") + ".json"
+	manifestPath := manifest.ManifestPath(backupFile)
 
 	m, err := manifest.Read(manifestPath)
 	if err != nil {

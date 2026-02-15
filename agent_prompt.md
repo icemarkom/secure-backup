@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7 COMPLETE | ⬜ P8-P19 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P11, P13 COMPLETE | ⬜ P8-P10, P12, P14-P19 OPEN (production hardening round 2)  
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
@@ -424,9 +424,9 @@
 | ID | GitHub | Issue | File(s) | Effort |
 |----|--------|-------|---------|--------|
 | **P10** | [#4](https://github.com/icemarkom/secure-backup/issues/4) | Backup file permissions 0666 (umask-dependent) instead of 0600 | `internal/backup/backup.go` | 15min |
-| **P11** | [#5](https://github.com/icemarkom/secure-backup/issues/5) | Retention deletes backups but orphans manifest `.json` files | `internal/retention/policy.go`, `cmd/backup.go` | 30min |
+| **P11** | [#5](https://github.com/icemarkom/secure-backup/issues/5) | ~~Retention deletes backups but orphans manifest files~~ | `internal/retention/policy.go` | ✅ COMPLETE |
 | **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | Context not propagated; no SIGTERM/signal handling | `internal/backup/backup.go`, `main.go` | 2-3h |
-| **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | Manifest path derived via brittle `TrimSuffix` on extension | `cmd/backup.go`, `cmd/restore.go`, `cmd/verify.go` | 1h |
+| **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | ~~Manifest path derived via brittle `TrimSuffix` on extension~~ | `internal/manifest/manifest.go` | ✅ COMPLETE |
 | **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | Passphrase stored as `string`, never zeroed after use | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | 1-2h |
 | **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | `err` variable shadowing in backup defer/cleanup logic | `internal/backup/backup.go` | 1h |
 | **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | Zero `cmd/` test coverage — all CLI wiring untested | `cmd/*.go` | 1-2d |
@@ -775,6 +775,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P5 Implementation Complete | Per-destination backup locking, 81.8% lock coverage, fail loudly with manual cleanup, trust score 8.5→8.8 |
 | 2026-02-15 | Per-destination locking chosen | Prioritized simplicity over maximum concurrency, aligns with project philosophy |
 | 2026-02-15 | P7 Implementation Complete | Fixed TOCTOU race with O_CREATE|O_EXCL atomic lock creation, 15 tests pass, concurrent race test added |
+| 2026-02-15 | P13 Implementation Complete | Centralized `ManifestPath()` in `internal/manifest`, replaced 4 brittle `TrimSuffix` calls, `_manifest.json` suffix (no double extension) |
+| 2026-02-15 | P11 Implementation Complete | Retention `ApplyPolicy()` now deletes manifest files alongside backups, dry-run reports manifests, 2 new tests |
 
 ---
 
@@ -846,10 +848,10 @@ golangci-lint run
 ---
 
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation fd1d5446-2b24-42ef-b28a-067d6fb5fbd6)  
+**Last Updated By**: Agent (conversation 187c6c4b-e73e-4fbb-8be1-0a9f2b689b9c)  
 **Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
-**Production Trust Score**: 7.0/10 — Solid foundation, P7-P19 open for hardening  
-**Productionization**: P1 ✅, P2 ✅, P3 ✅, P4 ✅, P5 ✅, P6 ✅ | P7-P19 ⬜ OPEN  
-**Next Milestone**: P7-P19 security & reliability hardening (see GitHub issues)
+**Production Trust Score**: 7.0/10 — Solid foundation, P8-P19 open for hardening  
+**Productionization**: P1-P7 ✅, P11 ✅, P13 ✅ | P8-P10, P12, P14-P19 ⬜ OPEN  
+**Next Milestone**: P8-P10 security hardening, P12-P19 reliability & polish (see GitHub issues)
 
 

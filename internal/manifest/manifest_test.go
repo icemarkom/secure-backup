@@ -11,6 +11,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestManifestPath(t *testing.T) {
+	tests := []struct {
+		name       string
+		backupPath string
+		want       string
+	}{
+		{
+			name:       "gpg encrypted gzip",
+			backupPath: "backup_data_20260215_120000.tar.gz.gpg",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "gpg encrypted zstd",
+			backupPath: "backup_data_20260215_120000.tar.zst.gpg",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "age encrypted gzip",
+			backupPath: "backup_data_20260215_120000.tar.gz.age",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "full path",
+			backupPath: "/backups/daily/backup_data_20260215_120000.tar.gz.gpg",
+			want:       "/backups/daily/backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "unknown extension fallback",
+			backupPath: "backup_data_20260215_120000.unknown",
+			want:       "backup_data_20260215_120000.unknown_manifest.json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ManifestPath(tt.backupPath)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestNew(t *testing.T) {
 	m, err := New("/path/to/source", "backup_test_20260214.tar.gz.gpg", "v1.0.0")
 	require.NoError(t, err)
