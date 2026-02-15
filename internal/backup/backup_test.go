@@ -424,3 +424,134 @@ func TestPerformBackup_DryRun_InvalidSource(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid source path")
 }
+
+// TestPerformBackup_NoTempFilesOnSuccess tests that no .tmp files remain after successful backup
+func TestPerformBackup_NoTempFilesOnSuccess(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create source directory with a file
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content for atomic write"), 0644)
+	require.NoError(t, err)
+
+	destDir := filepath.Join(tempRoot, "backups")
+
+	// Setup encryption test keys
+	testKeysDir := filepath.Join(tempRoot, "test_keys")
+	err = os.Mkdir(testKeysDir, 0755)
+	require.NoError(t, err)
+
+	keyPaths, err := generateTestKeys(t, testKeysDir)
+	if err != nil {
+		t.Skip("Skipping test: GPG key generation failed")
+	}
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     "gpg",
+		PublicKey:  keyPaths.PublicKey,
+		PrivateKey: keyPaths.PrivateKey,
+	})
+	require.NoError(t, err)
+
+	cfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    destDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(cfg)
+	require.NoError(t, err)
+
+	// Verify final backup file exists
+	_, err = os.Stat(backupPath)
+	assert.NoError(t, err, "final backup file should exist")
+
+	// Verify no .tmp files exist in destination directory
+	files, err := os.ReadDir(destDir)
+	require.NoError(t, err)
+
+	for _, file := range files {
+		assert.False(t, strings.HasSuffix(file.Name(), ".tmp"),
+			"no .tmp files should remain in destination directory: found %s", file.Name())
+	}
+}
+
+// TestPerformBackup_TempFileCleanupOnError tests that .tmp file is deleted on backup failure
+func TestPerformBackup_TempFileCleanupOnError(t *testing.T) {
+	tempRoot := t.TempDir()
+
+	// Create source directory with a file
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	destDir := filepath.Join(tempRoot, "backups")
+
+	// Use an invalid encryption configuration to force a failure
+	// Create a corrupted public key file
+	keyFile := filepath.Join(tempRoot, "invalid.asc")
+	err = os.WriteFile(keyFile, []byte("not a valid GPG key"), 0644)
+	require.NoError(t, err)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: "gzip",
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:    "gpg",
+		PublicKey: keyFile,
+	})
+	require.NoError(t, err)
+
+	cfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    destDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	// Backup should fail due to invalid key
+	_, err = PerformBackup(cfg)
+	require.Error(t, err)
+
+	// Verify no .tmp files remain in destination directory
+	if _, err := os.Stat(destDir); err == nil {
+		files, err := os.ReadDir(destDir)
+		require.NoError(t, err)
+
+		for _, file := range files {
+			assert.False(t, strings.HasSuffix(file.Name(), ".tmp"),
+				"no .tmp files should remain after error: found %s", file.Name())
+		}
+	}
+
+	// Also verify no final backup file was created
+	if _, err := os.Stat(destDir); err == nil {
+		files, err := os.ReadDir(destDir)
+		require.NoError(t, err)
+
+		for _, file := range files {
+			assert.False(t, strings.HasSuffix(file.Name(), ".tar.gz.gpg"),
+				"no final backup file should exist after error: found %s", file.Name())
+		}
+	}
+}

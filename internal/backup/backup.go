@@ -54,22 +54,23 @@ func PerformBackup(cfg Config) (string, error) {
 		timestamp,
 		cfg.Compressor.Extension())
 	outputPath := filepath.Join(cfg.DestDir, filename)
+	tmpPath := outputPath + ".tmp"
 
 	if cfg.Verbose {
 		fmt.Printf("Starting backup of %s (%s)\n", cfg.SourcePath, formatSize(getDirectorySize(cfg.SourcePath)))
 		fmt.Printf("Destination: %s\n", outputPath)
 	}
 
-	// Create output file
-	outFile, err := os.Create(outputPath)
+	// Create temp output file for atomic operation
+	outFile, err := os.Create(tmpPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer func() {
 		outFile.Close()
-		// Clean up on error
+		// Clean up temp file on error (only if we created it in this session)
 		if err != nil {
-			os.Remove(outputPath)
+			os.Remove(tmpPath)
 		}
 	}()
 
@@ -78,8 +79,19 @@ func PerformBackup(cfg Config) (string, error) {
 		return "", fmt.Errorf("backup pipeline failed: %w", err)
 	}
 
+	// Close file before rename (required on some platforms)
+	if err = outFile.Close(); err != nil {
+		return "", fmt.Errorf("failed to close backup file: %w", err)
+	}
+
+	// Atomic rename to final path
+	if err = os.Rename(tmpPath, outputPath); err != nil {
+		os.Remove(tmpPath) // Clean up temp file
+		return "", fmt.Errorf("failed to finalize backup file: %w", err)
+	}
+
 	// Get final file size
-	finalInfo, _ := outFile.Stat()
+	finalInfo, _ := os.Stat(outputPath)
 
 	if cfg.Verbose {
 		fmt.Printf("Backup completed successfully: %s\n", outputPath)

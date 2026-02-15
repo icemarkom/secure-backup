@@ -308,3 +308,36 @@ func TestWrite_InvalidPath(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, strings.ToLower(err.Error()), "failed to write")
 }
+
+// TestWrite_NoTempFilesOnSuccess tests that no .tmp files remain after successful write
+func TestWrite_NoTempFilesOnSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	manifestPath := filepath.Join(tmpDir, "atomic-test.json")
+
+	// Create and write manifest
+	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0")
+	require.NoError(t, err)
+	m.ChecksumValue = "test123"
+	m.SizeBytes = 1024
+
+	err = m.Write(manifestPath)
+	require.NoError(t, err)
+
+	// Verify final manifest file exists
+	_, err = os.Stat(manifestPath)
+	assert.NoError(t, err, "final manifest file should exist")
+
+	// Verify no .tmp file exists
+	tmpPath := manifestPath + ".tmp"
+	_, err = os.Stat(tmpPath)
+	assert.True(t, os.IsNotExist(err), ".tmp file should not exist after successful write")
+
+	// Verify no .tmp files in directory
+	files, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+
+	for _, file := range files {
+		assert.False(t, strings.HasSuffix(file.Name(), ".tmp"),
+			"no .tmp files should remain in directory: found %s", file.Name())
+	}
+}
