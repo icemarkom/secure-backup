@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P11, P13 COMPLETE | ⬜ P8-P10, P12, P14-P19 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P11, P13, P19 COMPLETE | ⬜ P8-P10, P12, P14-P18 OPEN (production hardening round 2)  
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
@@ -437,7 +437,7 @@
 |----|--------|-------|---------|--------|
 | **P17** | [#11](https://github.com/icemarkom/secure-backup/issues/11) | `filepath.Walk` follows symlinks during backup creation | `internal/archive/tar.go` | 1h |
 | **P18** | [#12](https://github.com/icemarkom/secure-backup/issues/12) | Armor decode fallback corrupts stream (partial read) | `internal/encrypt/gpg.go` | 1h |
-| **P19** | [#13](https://github.com/icemarkom/secure-backup/issues/13) | `formatSize()` duplicated in 3 files | `cmd/verify.go`, `internal/backup/`, `internal/retention/` | 30min |
+| **P19** | [#13](https://github.com/icemarkom/secure-backup/issues/13) | ~~`formatSize()` duplicated in 3 files~~ | `internal/format/` | ✅ COMPLETE |
 
 ---
 
@@ -777,6 +777,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P7 Implementation Complete | Fixed TOCTOU race with O_CREATE|O_EXCL atomic lock creation, 15 tests pass, concurrent race test added |
 | 2026-02-15 | P13 Implementation Complete | Centralized `ManifestPath()` in `internal/manifest`, replaced 4 brittle `TrimSuffix` calls, `_manifest.json` suffix (no double extension) |
 | 2026-02-15 | P11 Implementation Complete | Retention `ApplyPolicy()` now deletes manifest files alongside backups, dry-run reports manifests, 2 new tests |
+| 2026-02-15 | P19 Implementation Complete | Consolidated `formatSize()` (3 copies) and `formatAge()` (2 copies) into new `internal/format` package with `Size()` and `Age()` functions |
 
 ---
 
