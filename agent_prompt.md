@@ -84,16 +84,12 @@
 
 ---
 
----
-
 ## Productionization Effort
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
 > **Status**: ✅ P1-P7, P10-P13, P17-P19 COMPLETE | ⛔ P8-P9, P14-P16 WON'T FIX | All items resolved  
-
-
-> **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
+> **Trust Score**: 7.5/10 — All productionization items resolved
 
 ### Critical Issues (All Complete) ✅
 
@@ -286,8 +282,6 @@
 
 ---
 
----
-
 ### High Priority Issues
 
 #### P5: Backup Locking ✅ COMPLETE (2026-02-15)
@@ -392,7 +386,7 @@
 ### Production Hardening Round 2 (P7-P19)
 
 > **Source**: Code review (2026-02-15, conversation fd1d5446)  
-> **Status**: ⬜ All items open — GitHub issues created
+> **Status**: ✅ All items resolved — GitHub issues #1-#13 closed
 
 #### Critical Priority
 
@@ -473,21 +467,25 @@
 
 ## Future Phases
 
-**Phase 3**: Enhanced Encryption (MERGED INTO PHASE 6.8)
+**Phase 3**: Enhanced Encryption — [#14](https://github.com/icemarkom/secure-backup/issues/14)
 - age encryption support (`filippo.io/age`)
 - Modern alternative to GPG
 - Simpler key management
 
-**Phase 4**: Advanced Compression
+**Phase 4**: Advanced Compression — [#15](https://github.com/icemarkom/secure-backup/issues/15)
 - zstd compression (better ratio, faster)
 - lz4 compression (fastest)
 - Compression benchmarking
 
-**Phase 7**: Docker Integration (Optional)
+**Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
 - Docker SDK client
 - Volume discovery and listing
 - `--volume` flag for volume backups
 - Container pause/restart support
+
+**Testing**: End-to-End Pipeline Test — [#17](https://github.com/icemarkom/secure-backup/issues/17)
+- Full `backup → verify → restore → diff` cycle in CI
+- Validates the complete pipeline, not just individual packages
 
 ---
 
@@ -513,11 +511,15 @@ secure-backup/
 │   └── list.go            # list command
 ├── internal/
 │   ├── archive/           # TAR operations
+│   ├── backup/            # Pipeline orchestration
 │   ├── compress/          # Compression (gzip, future: zstd)
 │   ├── encrypt/           # Encryption (GPG, future: age)
 │   ├── errors/            # User-friendly error handling
+│   ├── format/            # Shared formatting utilities (Size, Age)
+│   ├── lock/              # Backup locking (per-destination)
+│   ├── manifest/          # Backup metadata & integrity verification
+│   ├── passphrase/        # Secure passphrase handling (flag/env/file)
 │   ├── progress/          # Progress tracking
-│   ├── backup/            # Pipeline orchestration
 │   └── retention/         # Retention management
 ├── test_data/             # Test infrastructure (keys gitignored)
 ├── main.go                # Entry point
@@ -721,17 +723,20 @@ Encrypted data is cryptographically random and **cannot be compressed**.
 - ✅ Correct: TAR → COMPRESS → ENCRYPT (60-80% smaller)
 - ❌ Wrong: TAR → ENCRYPT → COMPRESS (0% compression!)
 
-### Why GPG First, Then age?
+### Why GPG? (Design Choice)
 
-**Phase 1 (Current)**: GPG
+**GPG is an intentional design choice**, not a deficiency. The use of `golang.org/x/crypto/openpgp` is deliberate:
 - User already has GPG keys
 - Standard, widely supported
 - Proven security
+- Meets all functional requirements for this tool
+
+This library was current when the project started and remains functional. **Do not flag it as a risk or failure mode.** If a maintained alternative is desired, the planned path is adding `age` encryption (Phase 3) as a *new option*, not replacing the GPG library.
 
 **Phase 3 (Future)**: age
-- Simpler, modern alternative
+- Simpler, modern alternative via `filippo.io/age`
 - Better UX for key management
-- Both will be supported via interface
+- Both will be supported via the existing `Encryptor` interface
 
 ### Why Deprioritize Docker?
 
@@ -863,13 +868,9 @@ golangci-lint run
 
 ---
 
----
-
 **Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation 70401857-3f2e-4f5f-af02-e04eef183314)  
-**Project Phase**: Phase 5 Complete (User Experience), Productionization Round 1 **COMPLETE** ✅  
+**Last Updated By**: Agent (conversation f6f11230-c5cf-40d7-98d6-76590abdda8b)  
+**Project Phase**: Phase 5 Complete (User Experience), Productionization **COMPLETE** ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P17-P19 ✅ | P8-P9, P14-P16 ⛔ | **ALL ITEMS RESOLVED** 🎉  
-**Next Milestone**: Future phases (age encryption, zstd compression, Docker integration)
-
-
+**Next Milestone**: Future phases — [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker, [#17](https://github.com/icemarkom/secure-backup/issues/17) E2E tests
