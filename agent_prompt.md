@@ -90,7 +90,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P11, P13, P19 COMPLETE | ⬜ P8-P10, P12, P14-P18 OPEN (production hardening round 2)  
+> **Status**: ✅ P1-P7, P11, P13, P19 COMPLETE | ⛔ P15 WON'T FIX | ⬜ P8-P10, P12, P14, P16-P18 OPEN (production hardening round 2)  
 > **Trust Score**: 7.0/10 — Solid foundation, needs security and reliability hardening
 
 ### Critical Issues (All Complete) ✅
@@ -428,7 +428,7 @@
 | **P12** | [#6](https://github.com/icemarkom/secure-backup/issues/6) | Context not propagated; no SIGTERM/signal handling | `internal/backup/backup.go`, `main.go` | 2-3h |
 | **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | ~~Manifest path derived via brittle `TrimSuffix` on extension~~ | `internal/manifest/manifest.go` | ✅ COMPLETE |
 | **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | Passphrase stored as `string`, never zeroed after use | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | 1-2h |
-| **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | `err` variable shadowing in backup defer/cleanup logic | `internal/backup/backup.go` | 1h |
+| **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | ~~`err` variable shadowing in backup defer/cleanup logic~~ | `internal/backup/backup.go` | ⛔ WON'T FIX |
 | **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | Zero `cmd/` test coverage — all CLI wiring untested | `cmd/*.go` | 1-2d |
 
 #### Medium Priority
@@ -784,6 +784,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P13 Implementation Complete | Centralized `ManifestPath()` in `internal/manifest`, replaced 4 brittle `TrimSuffix` calls, `_manifest.json` suffix (no double extension) |
 | 2026-02-15 | P11 Implementation Complete | Retention `ApplyPolicy()` now deletes manifest files alongside backups, dry-run reports manifests, 2 new tests |
 | 2026-02-15 | P19 Implementation Complete | Consolidated `formatSize()` (3 copies) and `formatAge()` (2 copies) into new `internal/format` package with `Size()` and `Age()` functions |
+| 2026-02-15 | P15 Closed as Won't Fix | `err` shadowing is inherent to Go; no scoping trick prevents all future mistakes. Current code is correct. Code review and linting are the right mitigation. |
 
 ---
 
