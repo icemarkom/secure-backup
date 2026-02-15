@@ -46,7 +46,7 @@ func New(sourcePath, backupFile, version string) (*Manifest, error) {
 		Encryption:        "gpg",
 		ChecksumAlgorithm: "sha256",
 		ChecksumValue:     "", // Set later via ComputeChecksum
-		SizeBytes:         0,   // Set later
+		SizeBytes:         0,  // Set later
 		CreatedBy: CreatedBy{
 			Tool:     "secure-backup",
 			Version:  version,
@@ -55,15 +55,23 @@ func New(sourcePath, backupFile, version string) (*Manifest, error) {
 	}, nil
 }
 
-// Write serializes the manifest to a JSON file with indentation
+// Write serializes the manifest to a JSON file with indentation using atomic write
 func (m *Manifest) Write(path string) error {
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	// Write to temp file first for atomic operation
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write manifest file: %w", err)
+	}
+
+	// Atomic rename to final path
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath) // Clean up temp file on failure
+		return fmt.Errorf("failed to finalize manifest file: %w", err)
 	}
 
 	return nil
