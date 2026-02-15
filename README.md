@@ -10,6 +10,7 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 - **GPG Encryption**: Secure backups using your existing GPG keys
 - **Gzip Compression**: 60-80% size reduction for most data
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
+- **Backup Manifests**: Automatic checksum verification and metadata tracking
 - **Retention Management**: Automatic cleanup of old backups
 - **Verify Integrity**: Quick and full verification modes
 - **List Backups**: View all backups with age and size information
@@ -173,7 +174,9 @@ secure-backup backup \
 # Backup completed successfully
 ```
 
-This creates an encrypted backup like: `backup_data_20260207_165000.tar.gz.gpg`
+This creates two files:
+- `backup_data_20260207_165000.tar.gz.gpg` - Encrypted backup
+- `backup_data_20260207_165000.json` - Manifest with checksum and metadata
 
 ### 4. Preview Operations (Dry-Run)
 
@@ -241,6 +244,62 @@ All commands support `--dry-run` to preview operations without executing them.
 
 See [USAGE.md](USAGE.md) for detailed documentation.
 
+## Backup Manifests
+
+**New in v0.2.0**: Backups now include manifest files for integrity verification.
+
+### What Are Manifests?
+
+Each backup creates two files:
+- `backup_*.tar.gz.gpg` - The encrypted backup
+- `backup_*.json` - Manifest with checksum and metadata
+
+**Manifest Contents:**
+- SHA256 checksum of backup file
+- Source path and backup timestamp
+- Tool version and compression method
+- File size and hostname
+
+### Why Manifests Matter
+
+✅ **Detect corruption** before restore  
+✅ **Verify backups** without decryption  
+✅ **Track metadata** for auditing
+
+### Example Manifest
+
+```json
+{
+  "created_at": "2026-02-14T18:30:00Z",
+  "source_path": "/home/user/documents",
+  "backup_file": "backup_documents_20260214_183000.tar.gz.gpg",
+  "checksum_algorithm": "sha256",
+  "checksum_value": "abc123def456...",
+  "size_bytes": 523400000,
+  "compression": "gzip",
+  "encryption": "gpg",
+  "created_by": {
+    "tool": "secure-backup",
+    "version": "v0.2.0",
+    "hostname": "myserver"
+  }
+}
+```
+
+### Disabling Manifests
+
+Use `--skip-manifest` to create backups without manifest files (not recommended for production):
+
+```bash
+secure-backup backup \
+  --source /data \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --skip-manifest
+```
+
+**When to skip:** Testing, ephemeral backups, or when every second counts.
+
 ## Architecture
 
 ### Critical Pipeline Order
@@ -269,6 +328,41 @@ Add to your crontab (`crontab -e`):
 # Daily backup at 2 AM with 30-day retention
 0 2 * * * /usr/local/bin/secure-backup backup --source /data --dest /backups --public-key ~/.gnupg/backup-pub.asc --retention 30
 ```
+
+## Troubleshooting
+
+### Stale `.tmp` Files
+
+If a backup is interrupted (Ctrl+C, power loss), you may see `.tmp` files:
+
+```bash
+$ ls /backups/
+backup_data_20260214_120000.tar.gz.gpg
+backup_data_20260214_120000.json
+backup_data_20260214_130000.tar.gz.gpg.tmp  # ← Stale temp file
+backup_data_20260214_130000.json.tmp         # ← Stale manifest temp file
+```
+
+**How to clean up:**
+```bash
+# Remove .tmp files manually
+rm /backups/*.tmp
+
+# Or use find to remove old temp files (older than 1 day)
+find /backups -name "*.tmp" -mtime +1 -delete
+```
+
+**Why this happens:** Interrupted backups leave temp files. This is intentional - the tool only cleans up its own session files, not stale files from previous runs.
+
+**Prevention:** Always let backups complete, or use process managers that send proper termination signals.
+
+### Missing Manifest Files
+
+If you see warnings about missing manifest files:
+
+- **Cause**: Backup was created with `--skip-manifest` flag or from an older version
+- **Impact**: Verify and restore will still work, just without checksum pre-validation
+- **Solution**: Re-run backup without `--skip-manifest` to generate manifests
 
 ## Project Status
 

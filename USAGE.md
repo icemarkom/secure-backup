@@ -110,6 +110,7 @@ secure-backup backup [flags]
 - `--public-key` (required): Path to GPG public key
 - `--encryption`: Encryption method (default: "gpg")
 - `--retention`: Delete backups older than N days (default: 0 = keep all)
+- `--skip-manifest`: Disable manifest generation (not recommended)
 - `--verbose, -v`: Show progress and detailed output
 - `--dry-run`: Preview operation without creating files
 
@@ -147,8 +148,41 @@ secure-backup backup \
 
 **Output File Format:**
 ```
-backup_{dirname}_{timestamp}.tar.gz.gpg
+backup_{dirname}_{timestamp}.tar.gz.gpg  # Encrypted backup
+backup_{dirname}_{timestamp}.json        # Manifest file
 Example: backup_documents_20260207_165324.tar.gz.gpg
+         backup_documents_20260207_165324.json
+```
+
+#### Manifest Files
+
+By default, backups create manifest files for integrity verification:
+
+```bash
+# Default behavior - creates both files
+secure-backup backup \
+  --source /data \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc
+
+# Result:
+# /backups/backup_data_20260207_165000.tar.gz.gpg
+# /backups/backup_data_20260207_165000.json  ← Manifest
+```
+
+**Manifest contents:**
+- SHA256 checksum of backup file
+- Source path and timestamp
+- Tool version and settings
+- File size and hostname
+
+**Skip manifests** (not recommended for production):
+```bash
+secure-backup backup \
+  --source /data \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --skip-manifest  # No manifest file created
 ```
 
 ### restore - Restore from Backups
@@ -225,6 +259,30 @@ secure-backup verify \
   --verbose
 ```
 
+#### Manifest-Based Verification
+
+If a manifest file exists, verification automatically uses it:
+
+```bash
+# With manifest - verifies checksum first
+secure-backup verify \
+  --file /backups/backup_data_20260207.tar.gz.gpg \
+  --private-key ~/.gnupg/backup-priv.asc
+
+# Steps:
+# 1. Check for manifest file (backup_data_20260207.json)
+# 2. Verify SHA256 checksum against manifest
+# 3. Perform full decryption and integrity check
+```
+
+**Without manifest** (--skip-manifest was used during backup):
+```bash
+# No checksum pre-validation, goes straight to decryption
+secure-backup verify \
+  --file /backups/backup_data_20260207.tar.gz.gpg \
+  --private-key ~/.gnupg/backup-priv.asc
+```
+
 ### list - View Available Backups
 
 **Syntax:**
@@ -246,6 +304,29 @@ secure-backup list --dest /backups
 secure-backup list \
   --dest /backups \
   --pattern "backup_etc_*.tar.gz.gpg"
+```
+
+**Output includes manifest information when available:**
+
+```bash
+$ secure-backup list --dest /backups
+
+Found 3 backup(s) in /backups:
+
+backup_data_20260207_120000.tar.gz.gpg
+  Age: 2 days
+  Size: 1.2 GiB
+  Manifest: ✓ (checksum: abc123...)
+
+backup_docs_20260206_120000.tar.gz.gpg
+  Age: 3 days
+  Size: 450 MiB
+  Manifest: ✓ (checksum: def456...)
+
+backup_old_20260201_120000.tar.gz.gpg
+  Age: 8 days
+  Size: 800 MiB
+  Manifest: ✗ (missing)
 ```
 
 ## Dry-Run Mode
@@ -408,6 +489,60 @@ for backup in "$BACKUP_DIR"/backup_*.tar.gz.gpg; do
 done
 ```
 
+## File Management
+
+### Backup Files and Manifests
+
+Each backup creates two files:
+
+| File | Purpose | Required |
+|------|---------|----------|
+| `backup_*.tar.gz.gpg` | Encrypted backup data | Yes |
+| `backup_*.json` | Manifest with checksum | Recommended |
+
+**Both files should be kept together** for optimal reliability.
+
+### Temporary Files
+
+During backup creation, you may briefly see `.tmp` files:
+
+```bash
+/backups/backup_data_20260207_120000.tar.gz.gpg.tmp  # During write
+/backups/backup_data_20260207_120000.json.tmp        # During write
+```
+
+**Normal behavior:**
+- ✅ `.tmp` files are automatically removed on success
+- ✅ `.tmp` files are removed on error (same session)
+- ⚠️  Interrupted backups (Ctrl+C, power loss) may leave stale `.tmp` files
+
+**Cleaning up stale files:**
+
+```bash
+# Safe to remove old .tmp files
+find /backups -name "*.tmp" -mtime +1 -delete
+
+# Or manually
+rm /backups/*.tmp
+```
+
+### Retention and Cleanup
+
+The retention policy (--retention flag) automatically deletes old backups:
+
+```bash
+secure-backup backup \
+  --source /data \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --retention 30  # Delete backups older than 30 days
+```
+
+**What gets deleted:**
+- ✅ Old `.tar.gz.gpg` backup files
+- ✅ Corresponding `.json` manifest files
+- ❌ `.tmp` files (you must clean these manually)
+
 ## Automated Backups
 
 ### Crontab Examples
@@ -450,6 +585,33 @@ If you run a command and see no output:
 - Use `--verbose` flag to see progress and status messages
 
 For all other troubleshooting, see the full documentation.
+
+#### Stale .tmp Files After Interruption
+
+**Problem:** Backup was interrupted and `.tmp` files remain.
+
+**Cause:** The backup process was killed (Ctrl+C, system crash, power loss) before it could clean up.
+
+**Solution:**
+1. Verify the interruption: Check if a final backup file exists
+2. If no final file exists, the backup failed
+3. Manually remove `.tmp` files:
+   ```bash
+   rm /backups/*.tmp
+   
+   # Or use find to remove old temp files
+   find /backups -name "*.tmp" -mtime +1 -delete
+   ```
+
+**Prevention:** Use proper shutdown procedures and ensure backups complete.
+
+#### Manifest File Missing
+
+**Problem:** Verify or restore warns about missing manifest.
+
+**Cause:** Backup was created with `--skip-manifest` flag or from an older version.
+
+**Solution:** This is expected if manifests were disabled. Operations will still work, just without checksum pre-validation. To generate manifests for future backups, omit the `--skip-manifest` flag.
 
 ## Getting Help
 
