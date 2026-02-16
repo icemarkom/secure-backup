@@ -51,7 +51,19 @@ func init() {
 
 func runVerify(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	// Validate manifest first (unless skipped or dry-run)
+
+	// Validate all required flags BEFORE any output.
+	// Full verification requires --private-key; check early to avoid
+	// printing partial success (manifest/checksum) before an error.
+	if !verifyQuick && verifyPrivateKey == "" {
+		return errors.MissingRequired("--private-key",
+			"Full verification requires --private-key, or use --quick for header-only check")
+	}
+
+	// All flag validation passed — suppress usage for runtime errors from here on
+	cmd.SilenceUsage = true
+
+	// Validate manifest (produces output — safe because flags are valid)
 	if !verifySkipManifest && !verifyDryRun {
 		if _, err := validateAndDisplayManifest(verifyFile, verifyVerbose); err != nil {
 			return err
@@ -74,15 +86,6 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		// Silent by default - verbose output handled in backup package
 		return nil
 	}
-
-	// Full verification requires
-	if !verifyQuick && verifyPrivateKey == "" {
-		return errors.MissingRequired("--private-key",
-			"Full verification requires --private-key, or use --quick for header-only check")
-	}
-
-	// All flag validation passed — suppress usage for runtime errors from here on
-	cmd.SilenceUsage = true
 
 	// Create compressor
 	compressor, err := compress.NewCompressor(compress.Config{
@@ -156,7 +159,7 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 
 	// Display manifest info
 	fmt.Printf("Manifest: ✓ Found\n")
-	fmt.Printf("Checksum: ✓ Valid (%s: %s...)\n", m.ChecksumAlgorithm, m.ChecksumValue[:16])
+	fmt.Printf("Checksum: ✓ Valid (%s: %s)\n", m.ChecksumAlgorithm, m.ChecksumValue)
 	if verbose {
 		fmt.Printf("Created:  %s by %s %s on %s\n",
 			m.CreatedAt.Format("2006-01-02 15:04:05"),

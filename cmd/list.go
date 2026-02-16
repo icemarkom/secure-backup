@@ -61,7 +61,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  Source:   %s\n", m.SourcePath)
 			fmt.Printf("  Tool:     %s %s\n", m.CreatedBy.Tool, m.CreatedBy.Version)
 			fmt.Printf("  Host:     %s\n", m.CreatedBy.Hostname)
-			fmt.Printf("  Checksum: %s...\n", m.ChecksumValue[:16])
+			fmt.Printf("  Checksum: %s\n", m.ChecksumValue)
 		} else {
 			fmt.Printf("  (No manifest available)\n")
 		}
