@@ -484,12 +484,10 @@
 - `--volume` flag for volume backups
 - Container pause/restart support
 
-**Performance**: Backup Pipeline Performance — [#24](https://github.com/icemarkom/secure-backup/issues/24)
-- ASCII armor on GPG output inflates by ~33% (base64 encoding)
-- Single-threaded stdlib `compress/gzip` is slow for multi-GB data
-- Zero-buffered `io.Pipe()` creates pipeline stage contention
-- Fix: Remove armor, switch to pgzip, add buffered I/O
-- Breaking change: Decrypt must auto-detect armored vs binary format
+**Performance**: Backup Pipeline Performance ✅ COMPLETE — [#24](https://github.com/icemarkom/secure-backup/issues/24)
+- ✅ Removed ASCII armor — binary GPG output (breaking change, auto-detects armored on decrypt)
+- ✅ Switched to `klauspost/pgzip` — parallel gzip compression
+- ✅ Added 1 MB `bufio` buffer on tar→compress pipe
 
 **Testing**: End-to-End Pipeline Test ✅ COMPLETE — [#17](https://github.com/icemarkom/secure-backup/issues/17)
 - Full `backup → list → verify → restore → diff` cycle in CI
