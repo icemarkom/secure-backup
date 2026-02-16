@@ -51,7 +51,7 @@ func init() {
 	backupCmd.Flags().StringVar(&backupRecipient, "recipient", "", "GPG recipient email or key ID")
 	backupCmd.Flags().StringVar(&backupPublicKey, "public-key", "", "Path to GPG public key file (required)")
 	backupCmd.Flags().StringVar(&backupEncryption, "encryption", "gpg", "Encryption method (gpg, age)")
-	backupCmd.Flags().IntVar(&backupRetention, "retention", 0, "Retention period in days (0 = keep all backups)")
+	backupCmd.Flags().IntVar(&backupRetention, "retention", retention.DefaultKeepLast, "Number of backups to keep (0 = keep all)")
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
 	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "Preview backup without executing")
 	backupCmd.Flags().BoolVar(&backupSkipManifest, "skip-manifest", false, "Skip manifest generation (not recommended for production)")
@@ -132,11 +132,11 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	// Apply retention policy if specified
 	if backupRetention > 0 {
 		retentionPolicy := retention.Policy{
-			RetentionDays: backupRetention,
-			BackupDir:     backupDest,
-			Pattern:       "backup_*.tar.gz.gpg",
-			Verbose:       backupVerbose,
-			DryRun:        backupDryRun,
+			KeepLast:  backupRetention,
+			BackupDir: backupDest,
+			Pattern:   "backup_*.tar.gz.gpg",
+			Verbose:   backupVerbose,
+			DryRun:    backupDryRun,
 		}
 
 		deletedCount, err := retention.ApplyPolicy(retentionPolicy)
@@ -144,7 +144,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			// Don't fail the backup if retention cleanup fails
 			fmt.Fprintf(os.Stderr, "Warning: retention cleanup failed: %v\n", err)
 		} else if deletedCount > 0 && !backupVerbose {
-			fmt.Printf("Deleted %d old backup(s) (retention: %d days)\n", deletedCount, backupRetention)
+			fmt.Printf("Deleted %d old backup(s) (keeping last %d)\n", deletedCount, backupRetention)
 		}
 	}
 

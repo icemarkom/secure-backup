@@ -10,7 +10,7 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 - **Gzip Compression**: 60-80% size reduction for most data
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
 - **Backup Manifests**: Automatic checksum verification and metadata tracking
-- **Retention Management**: Automatic cleanup of old backups
+- **Retention Management**: Keep only the last N backups
 - **Verify Integrity**: Quick and full verification modes
 - **List Backups**: View all backups with age and size information
 - **Production Hardened**: Atomic writes, backup locking, signal handling, secure defaults
@@ -381,7 +381,7 @@ RESTORE: File → DECRYPT → DECOMPRESS → EXTRACT → Destination
 Add to your crontab (`crontab -e`):
 
 ```bash
-# Daily backup at 2 AM with 30-day retention
+# Daily backup at 2 AM, keep last 30 backups
 0 2 * * * /usr/local/bin/secure-backup backup --source /data --dest /backups --public-key ~/.gnupg/backup-pub.asc --retention 30
 ```
 
