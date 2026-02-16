@@ -1,4 +1,4 @@
-.PHONY: all build test clean install coverage lint fmt vet dev run e2e help
+.PHONY: all build test clean install coverage lint fmt vet dev run e2e license-check help
 
 # Binary name
 BINARY := secure-backup
@@ -77,6 +77,20 @@ run: build
 ## e2e: Run end-to-end pipeline test
 e2e: build
 	sh test-scripts/e2e_test.sh
+
+## license-check: Verify license headers are present
+license-check:
+	@echo "Checking license headers..."
+	@go install github.com/google/addlicense@latest
+	@addlicense -check -s -c "Marko Milivojevic" -y "2026" \
+		-l apache \
+		-ignore 'Makefile' \
+		-ignore '**/*.yml' \
+		-ignore '**/*.yaml' \
+		-ignore '**/*.md' \
+		-ignore 'test_data/**' \
+		-ignore 'coverage.*' \
+		.
 
 ## help: Show this help message
 help:
