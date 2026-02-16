@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -15,6 +16,11 @@ import (
 	"github.com/icemarkom/secure-backup/internal/format"
 	"golang.org/x/sync/errgroup"
 )
+
+// pipeBufferSize is the buffer size for inter-stage pipeline pipes.
+// Larger buffers let pipeline stages work more independently, reducing
+// goroutine contention from zero-buffered io.Pipe().
+const pipeBufferSize = 1024 * 1024 // 1 MB
 
 // Config holds configuration for backup operations
 type Config struct {
@@ -130,9 +136,10 @@ func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
 		return nil
 	})
 
-	// Step 2: Compress the tar stream
+	// Step 2: Compress the tar stream (with buffered reader to reduce pipe contention)
 	// Note: Compressor.Compress spawns its own goroutine internally
-	compressPR, err := cfg.Compressor.Compress(tarPR)
+	bufferedTarPR := bufio.NewReaderSize(tarPR, pipeBufferSize)
+	compressPR, err := cfg.Compressor.Compress(bufferedTarPR)
 	if err != nil {
 		return fmt.Errorf("failed to create compressor: %w", err)
 	}

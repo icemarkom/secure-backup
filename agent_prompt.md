@@ -30,9 +30,9 @@
 - `version` - Show version info
 
 **Features:**
-- GPG encryption (RSA 4096-bit)
-- Gzip compression (level 6, ~60-80% reduction)
-- Streaming architecture (constant 10-50MB memory)
+- GPG encryption (RSA 4096-bit, binary format)
+- Parallel gzip compression via pgzip (level 6, ~60-80% reduction)
+- Streaming architecture (constant 10-50MB memory, 1 MB buffered pipes)
 - Retention management (auto-cleanup old backups)
 - Path traversal protection
 
@@ -483,6 +483,13 @@
 - `--volume` flag for volume backups
 - Container pause/restart support
 
+**Performance**: Backup Pipeline Performance — [#24](https://github.com/icemarkom/secure-backup/issues/24)
+- ASCII armor on GPG output inflates by ~33% (base64 encoding)
+- Single-threaded stdlib `compress/gzip` is slow for multi-GB data
+- Zero-buffered `io.Pipe()` creates pipeline stage contention
+- Fix: Remove armor, switch to pgzip, add buffered I/O
+- Breaking change: Decrypt must auto-detect armored vs binary format
+
 **Testing**: End-to-End Pipeline Test ✅ COMPLETE — [#17](https://github.com/icemarkom/secure-backup/issues/17)
 - Full `backup → list → verify → restore → diff` cycle in CI
 - POSIX shell script (`e2e/e2e_test.sh`) testing the compiled binary
@@ -541,7 +548,7 @@ secure-backup/
 1. **Interface-Based Extensibility** - Easy to add age/zstd later
 2. **Streaming Everything** - Constant memory usage via `io.Pipe()`
 3. **Security First** - Path traversal protection, symlink validation
-4. **Minimal Dependencies** - stdlib + cobra + testify
+4. **Minimal Dependencies** - stdlib + cobra + testify + pgzip
 
 ---
 
@@ -829,6 +836,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | v1.0.0 Release | All productionization complete. Validated GoReleaser snapshot build: 5 platform archives + 2 .deb packages (amd64/arm64). README cleaned up for 1.0.0. Apt repo signing via Release/InRelease is standard Debian practice; individual .deb signing not needed. |
 | 2026-02-15 | CLI error output fix (#10) | Fixed duplicate error display and unwanted help output on runtime errors. `SilenceErrors: true` on root command, per-RunE `cmd.SilenceUsage = true` pattern preserves usage for missing required flags. 3 e2e tests added. |
 | 2026-02-15 | Branch+PR workflow | Switched from direct-to-main pushes to mandatory branch+PR workflow. All changes must go through feature branches and Pull Requests. Auto-close keywords (`Fixes #N`) now work via merged PRs. |
+| 2026-02-15 | Performance issue filed (#24) | Identified 3 bottlenecks in backup pipeline: ASCII armor (+33% output bloat), single-threaded stdlib gzip, zero-buffered io.Pipe(). Combined fix expected 3-5× speedup for multi-GB backups. |
+| 2026-02-15 | Performance fixes implemented (#24) | Removed ASCII armor (binary GPG only, breaking change), switched to pgzip (parallel gzip), added 1 MB buffered I/O on tar→compress pipe. All tests pass. |
 
 ---
 
@@ -903,4 +912,4 @@ golangci-lint run
 **Project Phase**: v1.0.0 Release ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P16-P19 ✅ | P8-P9, P14-P15 ⛔ | **ALL ITEMS RESOLVED** 🎉  
-**Next Milestone**: Future phases — [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
+**Next Milestone**: [#24](https://github.com/icemarkom/secure-backup/issues/24) performance, [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
