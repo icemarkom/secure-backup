@@ -109,7 +109,7 @@ secure-backup backup [flags]
 - `--dest` (required): Where to save backup files
 - `--public-key` (required): Path to GPG public key
 - `--encryption`: Encryption method (default: "gpg")
-- `--retention`: Delete backups older than N days (default: 0 = keep all)
+- `--retention`: Number of backups to keep (default: 0 = keep all)
 - `--skip-manifest`: Disable manifest generation (not recommended)
 - `--file-mode`: File permissions for backup and manifest files (default: `"default"`)
 - `--verbose, -v`: Show progress and detailed output
@@ -149,7 +149,7 @@ secure-backup backup \
   --dest /backups \
   --public-key ~/.gnupg/backup-pub.asc
 
-# Backup with verbose output and 30-day retention
+# Backup with verbose output, keep last 30 backups
 secure-backup backup \
   --source /var/www/html \
   --dest /backups \
@@ -497,9 +497,9 @@ secure-backup backup \
   --dry-run
 
 # Output includes:
-# [DRY RUN] Would delete: backup_data_20240101_120000.tar.gz.gpg (37 days old)
-# [DRY RUN] Would delete: backup_data_20240105_120000.tar.gz.gpg (33 days old)
-# [DRY RUN] Would delete 2 old backup(s)
+# [DRY RUN] Would delete: backup_data_20240101_120000.tar.gz.gpg (age: 37d0h)
+# [DRY RUN] Would delete: backup_data_20240105_120000.tar.gz.gpg (age: 33d0h)
+# [DRY RUN] Would delete 2 backup(s)
 ```
 
 **Preview verification:**
@@ -522,11 +522,11 @@ secure-backup verify \
 
 ### Best Practices
 
-1. **Always test new configurations** with `--dry-run` first
-2. **Use dry-run to preview operations** - detailed output is automatic
-3. **Verify retention policies** before enabling them in production
-4. **Check paths and sizes** match your expectations
-5. **Test restore operations** before you need them in an emergency
+1.  **Always test new configurations** with `--dry-run` first
+2.  **Use dry-run to preview operations** - detailed output is automatic
+3.  **Preview retention** with `--dry-run` before enabling in production
+4.  **Check paths and sizes** match your expectations
+5.  **Test restore operations** before you need them in an emergency
 
 ---
 
@@ -542,7 +542,7 @@ secure-backup backup \
   --source "$HOME/Documents" \
   --dest /mnt/backup-drive/daily \
   --public-key "$HOME/.gnupg/backup-pub.asc" \
-  --retention 90
+  --retention 90  # keep last 90 backups
 
 # Silent on success - only errors will be reported
 # Add to cron: 0 2 * * * /home/user/daily-backup.sh
@@ -558,7 +558,7 @@ if secure-backup backup \
   --source /data \
   --dest /backups \
   --public-key ~/.gnupg/backup-pub.asc \
-  --retention 30; then
+  --retention 30; then  # keep last 30 backups
   echo "Backup completed successfully" | mail -s "Backup OK" admin@example.com
 else
   echo "Backup FAILED - check logs" | mail -s "Backup FAILED" admin@example.com
@@ -621,14 +621,14 @@ rm /backups/*.tmp
 
 ### Retention and Cleanup
 
-The retention policy (--retention flag) automatically deletes old backups:
+The retention policy (`--retention N`) keeps the last N backups and deletes the rest, sorted by modification time (newest first):
 
 ```bash
 secure-backup backup \
   --source /data \
   --dest /backups \
   --public-key ~/.gnupg/backup-pub.asc \
-  --retention 30  # Delete backups older than 30 days
+  --retention 30  # Keep last 30 backups, delete the rest
 ```
 
 **What gets deleted:**
@@ -644,11 +644,11 @@ secure-backup backup \
 # Edit crontab
 crontab -e
 
-# Daily backup at 2 AM (silent - only reports errors)
+# Daily backup at 2 AM, keep last 30 backups (silent - only reports errors)
 0 2 * * * /usr/local/bin/secure-backup backup --source /data --dest /backups --public-key ~/.gnupg/backup-pub.asc --retention 30
 
-# Weekly backup with verbose logging
-0 3 * * 0 /usr/local/bin/secure-backup backup --source /home --dest /backups --public-key ~/.gnupg/backup-pub.asc --retention 365 --verbose >> /var/log/backups.log 2>&1
+# Weekly backup with verbose logging, keep last 52 backups (~1 year)
+0 3 * * 0 /usr/local/bin/secure-backup backup --source /home --dest /backups --public-key ~/.gnupg/backup-pub.asc --retention 52 --verbose >> /var/log/backups.log 2>&1
 ```
 
 ## Troubleshooting

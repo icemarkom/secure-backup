@@ -144,6 +144,10 @@ func TestIsBackupFile(t *testing.T) {
 	}
 }
 
+func TestDefaultKeepLast(t *testing.T) {
+	assert.Equal(t, 0, DefaultKeepLast, "default should be 0 (keep all)")
+}
+
 // TestApplyPolicy_InvalidConfig tests error handling for invalid policy configurations
 func TestApplyPolicy_InvalidConfig(t *testing.T) {
 	tests := []struct {
@@ -152,20 +156,20 @@ func TestApplyPolicy_InvalidConfig(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name: "zero retention days",
+			name: "zero keep count",
 			policy: Policy{
-				RetentionDays: 0,
-				BackupDir:     "/tmp/backups",
+				KeepLast:  0,
+				BackupDir: "/tmp/backups",
 			},
-			wantErrMsg: "retention days must be positive",
+			wantErrMsg: "keep count must be positive",
 		},
 		{
-			name: "negative retention days",
+			name: "negative keep count",
 			policy: Policy{
-				RetentionDays: -5,
-				BackupDir:     "/tmp/backups",
+				KeepLast:  -5,
+				BackupDir: "/tmp/backups",
 			},
-			wantErrMsg: "retention days must be positive",
+			wantErrMsg: "keep count must be positive",
 		},
 	}
 
@@ -184,10 +188,10 @@ func TestApplyPolicy_EmptyDirectory(t *testing.T) {
 	tempDir := t.TempDir()
 
 	policy := Policy{
-		RetentionDays: 7,
-		BackupDir:     tempDir,
-		Pattern:       "backup_*.tar.gz.gpg",
-		Verbose:       false,
+		KeepLast:  3,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		Verbose:   false,
 	}
 
 	count, err := ApplyPolicy(policy)
@@ -195,112 +199,99 @@ func TestApplyPolicy_EmptyDirectory(t *testing.T) {
 	assert.Equal(t, 0, count, "should delete 0 files from empty directory")
 }
 
-// TestApplyPolicy_DeleteOldBackups tests that old backups are deleted correctly
+// TestApplyPolicy_DeleteOldBackups tests that excess backups beyond KeepLast are deleted
 func TestApplyPolicy_DeleteOldBackups(t *testing.T) {
 	tempDir := t.TempDir()
-
-	// Create fake backup files with different ages
 	now := time.Now()
 
-	oldFiles := []struct {
+	// Create 6 backup files with different ages
+	allFiles := []struct {
 		name string
 		age  time.Duration
 	}{
-		{"backup_old1_20240101_120000.tar.gz.gpg", 10 * 24 * time.Hour}, // 10 days old
-		{"backup_old2_20240102_120000.tar.gz.gpg", 15 * 24 * time.Hour}, // 15 days old
-		{"backup_old3_20240103_120000.tar.gz.gpg", 30 * 24 * time.Hour}, // 30 days old
+		{"backup_newest_20240207_120000.tar.gz.gpg", 1 * time.Hour},       // newest
+		{"backup_second_20240207_110000.tar.gz.gpg", 2 * time.Hour},       // 2nd
+		{"backup_third_20240207_100000.tar.gz.gpg", 3 * time.Hour},        // 3rd
+		{"backup_fourth_20240206_120000.tar.gz.gpg", 1 * 24 * time.Hour},  // 4th (should be deleted)
+		{"backup_fifth_20240205_120000.tar.gz.gpg", 2 * 24 * time.Hour},   // 5th (should be deleted)
+		{"backup_oldest_20240201_120000.tar.gz.gpg", 10 * 24 * time.Hour}, // 6th (should be deleted)
 	}
 
-	newFiles := []struct {
-		name string
-		age  time.Duration
-	}{
-		{"backup_new1_20240207_120000.tar.gz.gpg", 1 * 24 * time.Hour}, // 1 day old
-		{"backup_new2_20240206_120000.tar.gz.gpg", 2 * 24 * time.Hour}, // 2 days old
-		{"backup_new3_20240205_120000.tar.gz.gpg", 5 * 24 * time.Hour}, // 5 days old
-	}
-
-	// Create old files
-	for _, f := range oldFiles {
+	for _, f := range allFiles {
 		path := filepath.Join(tempDir, f.name)
 		err := os.WriteFile(path, []byte("fake backup"), 0644)
 		require.NoError(t, err)
 
-		// Set modification time to the past
 		modTime := now.Add(-f.age)
 		err = os.Chtimes(path, modTime, modTime)
 		require.NoError(t, err)
 	}
 
-	// Create new files
-	for _, f := range newFiles {
-		path := filepath.Join(tempDir, f.name)
-		err := os.WriteFile(path, []byte("fake backup"), 0644)
-		require.NoError(t, err)
-
-		// Set modification time to the past
-		modTime := now.Add(-f.age)
-		err = os.Chtimes(path, modTime, modTime)
-		require.NoError(t, err)
-	}
-
-	// Apply policy with 7-day retention
+	// Keep last 3
 	policy := Policy{
-		RetentionDays: 7,
-		BackupDir:     tempDir,
-		Pattern:       "backup_*.tar.gz.gpg",
-		Verbose:       false,
+		KeepLast:  3,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		Verbose:   false,
 	}
 
 	count, err := ApplyPolicy(policy)
 	require.NoError(t, err)
-	assert.Equal(t, 3, count, "should delete 3 old files")
+	assert.Equal(t, 3, count, "should delete 3 oldest backups")
 
-	// Verify old files were deleted
-	for _, f := range oldFiles {
+	// Verify the 3 newest are kept
+	for _, f := range allFiles[:3] {
+		path := filepath.Join(tempDir, f.name)
+		_, err := os.Stat(path)
+		assert.NoError(t, err, "newest file %s should be kept", f.name)
+	}
+
+	// Verify the 3 oldest are deleted
+	for _, f := range allFiles[3:] {
 		path := filepath.Join(tempDir, f.name)
 		_, err := os.Stat(path)
 		assert.True(t, os.IsNotExist(err), "old file %s should be deleted", f.name)
-	}
-
-	// Verify new files were kept
-	for _, f := range newFiles {
-		path := filepath.Join(tempDir, f.name)
-		_, err := os.Stat(path)
-		assert.NoError(t, err, "new file %s should be kept", f.name)
 	}
 }
 
 // TestApplyPolicy_DefaultPattern tests that default pattern is used when empty
 func TestApplyPolicy_DefaultPattern(t *testing.T) {
 	tempDir := t.TempDir()
-
-	// Create a backup file with default pattern
 	now := time.Now()
-	oldFile := filepath.Join(tempDir, "backup_test_20240101_120000.tar.gz.gpg")
-	err := os.WriteFile(oldFile, []byte("old backup"), 0644)
-	require.NoError(t, err)
 
-	// Set to 10 days old
-	modTime := now.Add(-10 * 24 * time.Hour)
-	err = os.Chtimes(oldFile, modTime, modTime)
-	require.NoError(t, err)
+	// Create 2 backup files
+	files := []string{
+		"backup_old_20240101_120000.tar.gz.gpg",
+		"backup_new_20240207_120000.tar.gz.gpg",
+	}
+	for i, name := range files {
+		path := filepath.Join(tempDir, name)
+		err := os.WriteFile(path, []byte("fake backup"), 0644)
+		require.NoError(t, err)
+		modTime := now.Add(-time.Duration(len(files)-i) * 24 * time.Hour)
+		err = os.Chtimes(path, modTime, modTime)
+		require.NoError(t, err)
+	}
 
-	// Apply policy with empty pattern (should use default)
+	// Apply policy with empty pattern (should use default), keep 1
 	policy := Policy{
-		RetentionDays: 7,
-		BackupDir:     tempDir,
-		Pattern:       "", // Empty - should use default
-		Verbose:       false,
+		KeepLast:  1,
+		BackupDir: tempDir,
+		Pattern:   "", // Empty - should use default
+		Verbose:   false,
 	}
 
 	count, err := ApplyPolicy(policy)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count, "should delete 1 file using default pattern")
 
-	// Verify file was deleted
-	_, err = os.Stat(oldFile)
-	assert.True(t, os.IsNotExist(err), "old file should be deleted")
+	// Verify newer file was kept
+	_, err = os.Stat(filepath.Join(tempDir, files[1]))
+	assert.NoError(t, err, "newer file should be kept")
+
+	// Verify older file was deleted
+	_, err = os.Stat(filepath.Join(tempDir, files[0]))
+	assert.True(t, os.IsNotExist(err), "older file should be deleted")
 }
 
 // TestListBackups tests the ListBackups function
@@ -377,37 +368,36 @@ func TestListBackups_DefaultPattern(t *testing.T) {
 // TestApplyPolicy_DryRun tests that dry-run mode doesn't delete files
 func TestApplyPolicy_DryRun(t *testing.T) {
 	tempDir := t.TempDir()
-
-	// Create fake backup files with different ages
 	now := time.Now()
 
-	oldFiles := []struct {
+	// Create 4 backups
+	files := []struct {
 		name string
 		age  time.Duration
 	}{
-		{"backup_old1_20240101_120000.tar.gz.gpg", 10 * 24 * time.Hour}, // 10 days old
-		{"backup_old2_20240102_120000.tar.gz.gpg", 15 * 24 * time.Hour}, // 15 days old
+		{"backup_new1_20240207_120000.tar.gz.gpg", 1 * time.Hour},
+		{"backup_new2_20240206_120000.tar.gz.gpg", 24 * time.Hour},
+		{"backup_old1_20240101_120000.tar.gz.gpg", 10 * 24 * time.Hour},
+		{"backup_old2_20240102_120000.tar.gz.gpg", 15 * 24 * time.Hour},
 	}
 
-	// Create old files
-	for _, f := range oldFiles {
+	for _, f := range files {
 		path := filepath.Join(tempDir, f.name)
 		err := os.WriteFile(path, []byte("fake backup"), 0644)
 		require.NoError(t, err)
 
-		// Set modification time to the past
 		modTime := now.Add(-f.age)
 		err = os.Chtimes(path, modTime, modTime)
 		require.NoError(t, err)
 	}
 
-	// Apply policy with dry-run enabled
+	// Keep 2, dry-run
 	policy := Policy{
-		RetentionDays: 7,
-		BackupDir:     tempDir,
-		Pattern:       "backup_*.tar.gz.gpg",
-		Verbose:       false,
-		DryRun:        true,
+		KeepLast:  2,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		Verbose:   false,
+		DryRun:    true,
 	}
 
 	count, err := ApplyPolicy(policy)
@@ -415,7 +405,7 @@ func TestApplyPolicy_DryRun(t *testing.T) {
 	assert.Equal(t, 2, count, "should report 2 files would be deleted")
 
 	// Verify files were NOT actually deleted
-	for _, f := range oldFiles {
+	for _, f := range files {
 		path := filepath.Join(tempDir, f.name)
 		_, err := os.Stat(path)
 		assert.NoError(t, err, "file %s should NOT be deleted in dry-run mode", f.name)
@@ -427,12 +417,17 @@ func TestApplyPolicy_DeletesManifestFiles(t *testing.T) {
 	tempDir := t.TempDir()
 	now := time.Now()
 
-	// Create old backup + manifest pairs
-	oldBackups := []struct {
+	// Create backup + manifest pairs with different ages
+	pairs := []struct {
 		backup   string
 		manifest string
 		age      time.Duration
 	}{
+		{
+			"backup_new1_20240207_120000.tar.gz.gpg",
+			"backup_new1_20240207_120000_manifest.json",
+			1 * 24 * time.Hour,
+		},
 		{
 			"backup_old1_20240101_120000.tar.gz.gpg",
 			"backup_old1_20240101_120000_manifest.json",
@@ -445,58 +440,43 @@ func TestApplyPolicy_DeletesManifestFiles(t *testing.T) {
 		},
 	}
 
-	// Create a new backup + manifest pair (should NOT be deleted)
-	newBackup := "backup_new1_20240207_120000.tar.gz.gpg"
-	newManifest := "backup_new1_20240207_120000_manifest.json"
-
-	for _, f := range oldBackups {
-		backupPath := filepath.Join(tempDir, f.backup)
-		manifestPath := filepath.Join(tempDir, f.manifest)
+	for _, p := range pairs {
+		backupPath := filepath.Join(tempDir, p.backup)
+		manifestPath := filepath.Join(tempDir, p.manifest)
 		require.NoError(t, os.WriteFile(backupPath, []byte("fake backup"), 0644))
 		require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0644))
 
-		modTime := now.Add(-f.age)
+		modTime := now.Add(-p.age)
 		require.NoError(t, os.Chtimes(backupPath, modTime, modTime))
 		require.NoError(t, os.Chtimes(manifestPath, modTime, modTime))
 	}
 
-	// Create new backup + manifest
-	newBackupPath := filepath.Join(tempDir, newBackup)
-	newManifestPath := filepath.Join(tempDir, newManifest)
-	require.NoError(t, os.WriteFile(newBackupPath, []byte("new backup"), 0644))
-	require.NoError(t, os.WriteFile(newManifestPath, []byte("{}"), 0644))
-
-	modTime := now.Add(-1 * 24 * time.Hour)
-	require.NoError(t, os.Chtimes(newBackupPath, modTime, modTime))
-	require.NoError(t, os.Chtimes(newManifestPath, modTime, modTime))
-
-	// Apply policy with 7-day retention
+	// Keep 1 (newest), delete 2
 	policy := Policy{
-		RetentionDays: 7,
-		BackupDir:     tempDir,
-		Pattern:       "backup_*.tar.gz.gpg",
-		Verbose:       false,
+		KeepLast:  1,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		Verbose:   false,
 	}
 
 	count, err := ApplyPolicy(policy)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "should delete 2 old backups")
 
-	// Verify old backups AND manifests were deleted
-	for _, f := range oldBackups {
-		_, err := os.Stat(filepath.Join(tempDir, f.backup))
-		assert.True(t, os.IsNotExist(err), "old backup %s should be deleted", f.backup)
-
-		_, err = os.Stat(filepath.Join(tempDir, f.manifest))
-		assert.True(t, os.IsNotExist(err), "old manifest %s should be deleted", f.manifest)
-	}
-
-	// Verify new backup AND manifest were kept
-	_, err = os.Stat(newBackupPath)
+	// Verify newest backup AND manifest were kept
+	_, err = os.Stat(filepath.Join(tempDir, pairs[0].backup))
 	assert.NoError(t, err, "new backup should be kept")
-
-	_, err = os.Stat(newManifestPath)
+	_, err = os.Stat(filepath.Join(tempDir, pairs[0].manifest))
 	assert.NoError(t, err, "new manifest should be kept")
+
+	// Verify old backups AND manifests were deleted
+	for _, p := range pairs[1:] {
+		_, err := os.Stat(filepath.Join(tempDir, p.backup))
+		assert.True(t, os.IsNotExist(err), "old backup %s should be deleted", p.backup)
+
+		_, err = os.Stat(filepath.Join(tempDir, p.manifest))
+		assert.True(t, os.IsNotExist(err), "old manifest %s should be deleted", p.manifest)
+	}
 }
 
 // TestApplyPolicy_DryRun_ReportsManifests tests that dry-run reports manifest deletion
@@ -504,35 +484,123 @@ func TestApplyPolicy_DryRun_ReportsManifests(t *testing.T) {
 	tempDir := t.TempDir()
 	now := time.Now()
 
-	// Create old backup + manifest
-	backupName := "backup_old1_20240101_120000.tar.gz.gpg"
-	manifestName := "backup_old1_20240101_120000_manifest.json"
+	// Create 2 backups + manifests (keep 1, report 1 for deletion)
+	newBackup := "backup_new1_20240207_120000.tar.gz.gpg"
+	newManifest := "backup_new1_20240207_120000_manifest.json"
+	oldBackup := "backup_old1_20240101_120000.tar.gz.gpg"
+	oldManifest := "backup_old1_20240101_120000_manifest.json"
 
-	backupPath := filepath.Join(tempDir, backupName)
-	manifestPath := filepath.Join(tempDir, manifestName)
-	require.NoError(t, os.WriteFile(backupPath, []byte("fake backup"), 0644))
-	require.NoError(t, os.WriteFile(manifestPath, []byte("{}"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, newBackup), []byte("new"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, newManifest), []byte("{}"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, oldBackup), []byte("old"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, oldManifest), []byte("{}"), 0644))
 
-	modTime := now.Add(-10 * 24 * time.Hour)
-	require.NoError(t, os.Chtimes(backupPath, modTime, modTime))
-	require.NoError(t, os.Chtimes(manifestPath, modTime, modTime))
+	newTime := now.Add(-1 * time.Hour)
+	oldTime := now.Add(-10 * 24 * time.Hour)
+	require.NoError(t, os.Chtimes(filepath.Join(tempDir, newBackup), newTime, newTime))
+	require.NoError(t, os.Chtimes(filepath.Join(tempDir, newManifest), newTime, newTime))
+	require.NoError(t, os.Chtimes(filepath.Join(tempDir, oldBackup), oldTime, oldTime))
+	require.NoError(t, os.Chtimes(filepath.Join(tempDir, oldManifest), oldTime, oldTime))
 
-	// Apply policy with dry-run
+	// Keep 1, dry-run
 	policy := Policy{
-		RetentionDays: 7,
-		BackupDir:     tempDir,
-		Pattern:       "backup_*.tar.gz.gpg",
-		DryRun:        true,
+		KeepLast:  1,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		DryRun:    true,
 	}
 
 	count, err := ApplyPolicy(policy)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count, "should report 1 backup would be deleted")
 
-	// Verify neither backup nor manifest were actually deleted
-	_, err = os.Stat(backupPath)
-	assert.NoError(t, err, "backup should NOT be deleted in dry-run")
+	// Verify nothing was actually deleted
+	_, err = os.Stat(filepath.Join(tempDir, newBackup))
+	assert.NoError(t, err, "new backup should NOT be deleted in dry-run")
+	_, err = os.Stat(filepath.Join(tempDir, oldBackup))
+	assert.NoError(t, err, "old backup should NOT be deleted in dry-run")
+	_, err = os.Stat(filepath.Join(tempDir, oldManifest))
+	assert.NoError(t, err, "old manifest should NOT be deleted in dry-run")
+}
 
-	_, err = os.Stat(manifestPath)
-	assert.NoError(t, err, "manifest should NOT be deleted in dry-run")
+// TestApplyPolicy_KeepMoreThanExist tests that nothing is deleted when N > total files
+func TestApplyPolicy_KeepMoreThanExist(t *testing.T) {
+	tempDir := t.TempDir()
+	now := time.Now()
+
+	// Create 2 backups
+	files := []string{
+		"backup_a_20240207_120000.tar.gz.gpg",
+		"backup_b_20240206_120000.tar.gz.gpg",
+	}
+	for i, name := range files {
+		path := filepath.Join(tempDir, name)
+		require.NoError(t, os.WriteFile(path, []byte("backup"), 0644))
+		modTime := now.Add(-time.Duration(i+1) * time.Hour)
+		require.NoError(t, os.Chtimes(path, modTime, modTime))
+	}
+
+	// Keep 10 (more than we have)
+	policy := Policy{
+		KeepLast:  10,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		Verbose:   false,
+	}
+
+	count, err := ApplyPolicy(policy)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count, "should delete nothing when KeepLast > total files")
+
+	// Verify all files are still there
+	for _, name := range files {
+		_, err := os.Stat(filepath.Join(tempDir, name))
+		assert.NoError(t, err, "file %s should be kept", name)
+	}
+}
+
+// TestApplyPolicy_KeepOne tests that KeepLast=1 keeps only the newest backup
+func TestApplyPolicy_KeepOne(t *testing.T) {
+	tempDir := t.TempDir()
+	now := time.Now()
+
+	// Create 4 backups
+	files := []struct {
+		name string
+		age  time.Duration
+	}{
+		{"backup_newest_20240207_120000.tar.gz.gpg", 1 * time.Hour},
+		{"backup_second_20240206_120000.tar.gz.gpg", 24 * time.Hour},
+		{"backup_third_20240205_120000.tar.gz.gpg", 48 * time.Hour},
+		{"backup_oldest_20240201_120000.tar.gz.gpg", 7 * 24 * time.Hour},
+	}
+
+	for _, f := range files {
+		path := filepath.Join(tempDir, f.name)
+		require.NoError(t, os.WriteFile(path, []byte("backup"), 0644))
+		modTime := now.Add(-f.age)
+		require.NoError(t, os.Chtimes(path, modTime, modTime))
+	}
+
+	// Keep only 1
+	policy := Policy{
+		KeepLast:  1,
+		BackupDir: tempDir,
+		Pattern:   "backup_*.tar.gz.gpg",
+		Verbose:   false,
+	}
+
+	count, err := ApplyPolicy(policy)
+	require.NoError(t, err)
+	assert.Equal(t, 3, count, "should delete 3 backups")
+
+	// Verify only newest is kept
+	_, err = os.Stat(filepath.Join(tempDir, files[0].name))
+	assert.NoError(t, err, "newest file should be kept")
+
+	// Verify all others are deleted
+	for _, f := range files[1:] {
+		_, err := os.Stat(filepath.Join(tempDir, f.name))
+		assert.True(t, os.IsNotExist(err), "file %s should be deleted", f.name)
+	}
 }

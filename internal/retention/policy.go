@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -11,31 +12,30 @@ import (
 	"github.com/icemarkom/secure-backup/internal/manifest"
 )
 
+// DefaultKeepLast is the default retention count (0 = keep all, retention disabled).
+const DefaultKeepLast = 0
+
 // Policy defines retention policy configuration
 type Policy struct {
-	RetentionDays int
-	BackupDir     string
-	Pattern       string // File pattern to match (e.g., "backup_*.tar.gz.gpg")
-	Verbose       bool
-	DryRun        bool
+	KeepLast  int
+	BackupDir string
+	Pattern   string // File pattern to match (e.g., "backup_*.tar.gz.gpg")
+	Verbose   bool
+	DryRun    bool
 }
 
-// ApplyPolicy removes backups older than the retention period
+// ApplyPolicy removes backups beyond the retention count, keeping the newest N.
 func ApplyPolicy(policy Policy) (int, error) {
-	if policy.RetentionDays <= 0 {
-		return 0, fmt.Errorf("retention days must be positive")
+	if policy.KeepLast <= 0 {
+		return 0, fmt.Errorf("keep count must be positive")
 	}
 
 	if policy.Pattern == "" {
 		policy.Pattern = "backup_*.tar.gz.gpg"
 	}
 
-	// Calculate cutoff time
-	cutoffTime := time.Now().AddDate(0, 0, -policy.RetentionDays)
-
 	if policy.Verbose {
-		fmt.Printf("Applying retention policy: %d days\n", policy.RetentionDays)
-		fmt.Printf("Cutoff time: %s\n", cutoffTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Applying retention policy: keep last %d backup(s)\n", policy.KeepLast)
 		fmt.Printf("Backup directory: %s\n", policy.BackupDir)
 	}
 
@@ -46,8 +46,12 @@ func ApplyPolicy(policy Policy) (int, error) {
 		return 0, fmt.Errorf("failed to find backup files: %w", err)
 	}
 
-	deletedCount := 0
-
+	// Collect file info for sorting
+	type fileEntry struct {
+		path    string
+		modTime time.Time
+	}
+	var files []fileEntry
 	for _, file := range matches {
 		fileInfo, err := os.Stat(file)
 		if err != nil {
@@ -56,65 +60,69 @@ func ApplyPolicy(policy Policy) (int, error) {
 			}
 			continue
 		}
-
-		// Skip directories
 		if fileInfo.IsDir() {
 			continue
 		}
+		files = append(files, fileEntry{path: file, modTime: fileInfo.ModTime()})
+	}
 
-		// Check if file is older than retention period
-		if fileInfo.ModTime().Before(cutoffTime) {
-			age := time.Since(fileInfo.ModTime())
-			days := int(age.Hours() / 24)
+	// Sort by modification time, newest first
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].modTime.After(files[j].modTime)
+	})
 
-			if policy.DryRun {
-				// Dry-run mode: show what would be deleted
-				fmt.Printf("[DRY RUN] Would delete: %s (%d days old)\n",
-					filepath.Base(file), days)
-				// Check for associated manifest
-				manifestPath := manifest.ManifestPath(file)
-				if _, err := os.Stat(manifestPath); err == nil {
-					fmt.Printf("[DRY RUN] Would delete manifest: %s\n",
-						filepath.Base(manifestPath))
-				}
-				deletedCount++
-				continue
-			}
+	// Keep first N, delete the rest
+	deletedCount := 0
+	for i := policy.KeepLast; i < len(files); i++ {
+		file := files[i].path
+		age := time.Since(files[i].modTime)
 
-			if policy.Verbose {
-				fmt.Printf("Deleting old backup: %s (age: %s)\n",
-					filepath.Base(file),
-					format.Age(age))
-			}
-
-			if err := os.Remove(file); err != nil {
-				if policy.Verbose {
-					fmt.Printf("Warning: failed to delete %s: %v\n", file, err)
-				}
-				continue
-			}
-
-			// Also delete associated manifest file
+		if policy.DryRun {
+			fmt.Printf("[DRY RUN] Would delete: %s (age: %s)\n",
+				filepath.Base(file), format.Age(age))
+			// Check for associated manifest
 			manifestPath := manifest.ManifestPath(file)
-			if err := os.Remove(manifestPath); err == nil {
-				if policy.Verbose {
-					fmt.Printf("Deleted manifest: %s\n", filepath.Base(manifestPath))
-				}
+			if _, err := os.Stat(manifestPath); err == nil {
+				fmt.Printf("[DRY RUN] Would delete manifest: %s\n",
+					filepath.Base(manifestPath))
 			}
-
 			deletedCount++
+			continue
 		}
+
+		if policy.Verbose {
+			fmt.Printf("Deleting old backup: %s (age: %s)\n",
+				filepath.Base(file),
+				format.Age(age))
+		}
+
+		if err := os.Remove(file); err != nil {
+			if policy.Verbose {
+				fmt.Printf("Warning: failed to delete %s: %v\n", file, err)
+			}
+			continue
+		}
+
+		// Also delete associated manifest file
+		manifestPath := manifest.ManifestPath(file)
+		if err := os.Remove(manifestPath); err == nil {
+			if policy.Verbose {
+				fmt.Printf("Deleted manifest: %s\n", filepath.Base(manifestPath))
+			}
+		}
+
+		deletedCount++
 	}
 
 	if policy.DryRun {
 		if deletedCount == 0 {
-			fmt.Println("[DRY RUN] No backups would be deleted (all within retention period)")
+			fmt.Printf("[DRY RUN] No backups to delete (have %d, keeping %d)\n", len(files), policy.KeepLast)
 		} else {
-			fmt.Printf("[DRY RUN] Would delete %d old backup(s)\n", deletedCount)
+			fmt.Printf("[DRY RUN] Would delete %d backup(s)\n", deletedCount)
 		}
 	} else if policy.Verbose {
 		if deletedCount == 0 {
-			fmt.Println("No backups to delete (all within retention period)")
+			fmt.Printf("No backups to delete (have %d, keeping %d)\n", len(files), policy.KeepLast)
 		} else {
 			fmt.Printf("Deleted %d old backup(s)\n", deletedCount)
 		}

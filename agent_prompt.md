@@ -33,7 +33,7 @@
 - GPG encryption (RSA 4096-bit, binary format)
 - Parallel gzip compression via pgzip (level 6, ~60-80% reduction)
 - Streaming architecture (constant 10-50MB memory, 1 MB buffered pipes)
-- Retention management (auto-cleanup old backups)
+- Retention management (keep last N backups)
 - Path traversal protection
 
 ### ✅ Phase 2: Build & Release (COMPLETE)
@@ -848,6 +848,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Verify partial output fix (#10) | Moved `--private-key` validation before manifest output in `verify.go`. No partial success output before errors. |
 | 2026-02-15 | Full SHA256 display | Removed `[:16]` truncation from verify and list checksum output. Full hash is useful for scripting and manual comparison. |
 | 2026-02-15 | Cobra completion disabled | `CompletionOptions.DisableDefaultCmd = true` on root command. Can be re-enabled later if needed. |
+| 2026-02-15 | Retention changed from days to count ([#27](https://github.com/icemarkom/secure-backup/issues/27)) | `--retention N` now means "keep last N backups" instead of "delete backups older than N days." Count-based retention works correctly regardless of backup frequency (hourly, daily, weekly). `DefaultKeepLast = 0` constant in `internal/retention`. |
 
 ---
 
