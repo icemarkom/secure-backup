@@ -10,6 +10,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/format"
+	"github.com/icemarkom/secure-backup/internal/progress"
 )
 
 // RestoreConfig holds configuration for restore operations
@@ -89,8 +90,20 @@ func executeRestorePipeline(ctx context.Context, cfg RestoreConfig) error {
 	}
 	defer backupFile.Close()
 
+	// Wrap with progress tracking (measures encrypted bytes read)
+	fileInfo, _ := backupFile.Stat()
+	var fileSize int64
+	if fileInfo != nil {
+		fileSize = fileInfo.Size()
+	}
+	pr := progress.NewReader(backupFile, progress.Config{
+		Description: "Restoring",
+		TotalBytes:  fileSize,
+		Enabled:     cfg.Verbose,
+	})
+
 	// Step 2: Decrypt the file
-	decryptedReader, err := cfg.Encryptor.Decrypt(backupFile)
+	decryptedReader, err := cfg.Encryptor.Decrypt(pr)
 	if err != nil {
 		return fmt.Errorf("decryption failed: %w", err)
 	}
@@ -103,8 +116,10 @@ func executeRestorePipeline(ctx context.Context, cfg RestoreConfig) error {
 
 	// Step 4: Extract tar archive
 	if err := archive.ExtractTar(decompressedReader, cfg.DestPath); err != nil {
+		pr.Finish()
 		return fmt.Errorf("tar extraction failed: %w", err)
 	}
+	pr.Finish()
 
 	return nil
 }

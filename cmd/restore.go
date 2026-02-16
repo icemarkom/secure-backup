@@ -9,6 +9,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/passphrase"
+	"github.com/icemarkom/secure-backup/internal/progress"
 	"github.com/spf13/cobra"
 )
 
@@ -136,7 +137,10 @@ func validateManifest(backupFile string, verbose bool) error {
 			"The manifest may be corrupted. Use --skip-manifest to bypass (not recommended)")
 	}
 
-	if err := m.ValidateChecksum(backupFile); err != nil {
+	if err := m.ValidateChecksumProgress(backupFile, progress.Config{
+		Description: "Validating checksum",
+		Enabled:     verbose,
+	}); err != nil {
 		return errors.New(
 			"Backup file checksum mismatch",
 			"File may be corrupted. Use --skip-manifest to bypass (not recommended)",

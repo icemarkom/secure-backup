@@ -10,6 +10,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/passphrase"
+	"github.com/icemarkom/secure-backup/internal/progress"
 	"github.com/spf13/cobra"
 )
 
@@ -150,7 +151,10 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 		)
 	}
 
-	if err := m.ValidateChecksum(backupFile); err != nil {
+	if err := m.ValidateChecksumProgress(backupFile, progress.Config{
+		Description: "Validating checksum",
+		Enabled:     verbose,
+	}); err != nil {
 		return nil, errors.New(
 			"Backup file checksum mismatch",
 			"File may be corrupted",

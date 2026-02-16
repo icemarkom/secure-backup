@@ -14,6 +14,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/format"
+	"github.com/icemarkom/secure-backup/internal/progress"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -139,7 +140,15 @@ func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
 	// Step 2: Compress the tar stream (with buffered reader to reduce pipe contention)
 	// Note: Compressor.Compress spawns its own goroutine internally
 	bufferedTarPR := bufio.NewReaderSize(tarPR, pipeBufferSize)
-	compressPR, err := cfg.Compressor.Compress(bufferedTarPR)
+
+	// Wrap with progress tracking (measures source bytes read through tar)
+	pr := progress.NewReader(bufferedTarPR, progress.Config{
+		Description: "Backing up",
+		TotalBytes:  getDirectorySize(cfg.SourcePath),
+		Enabled:     cfg.Verbose,
+	})
+
+	compressPR, err := cfg.Compressor.Compress(pr)
 	if err != nil {
 		return fmt.Errorf("failed to create compressor: %w", err)
 	}
@@ -156,6 +165,7 @@ func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
 	if _, err := io.Copy(output, encryptPR); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
+	pr.Finish()
 
 	// Wait for tar goroutine to complete
 	// Any errors from compress/encrypt will have already been caught by io.Copy above
