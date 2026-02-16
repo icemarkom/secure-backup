@@ -12,6 +12,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/lock"
 	"github.com/icemarkom/secure-backup/internal/manifest"
+	"github.com/icemarkom/secure-backup/internal/progress"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
 )
@@ -158,7 +159,10 @@ func generateManifest(backupPath, sourcePath string, verbose bool, fileMode *os.
 	}
 
 	// Compute checksum
-	checksum, err := manifest.ComputeChecksum(backupPath)
+	checksum, err := manifest.ComputeChecksumProgress(backupPath, progress.Config{
+		Description: "Computing checksum",
+		Enabled:     verbose,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to compute checksum: %w", err)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/format"
+	"github.com/icemarkom/secure-backup/internal/progress"
 )
 
 // VerifyConfig holds configuration for verify operations
@@ -103,29 +104,33 @@ func fullVerify(ctx context.Context, cfg VerifyConfig) error {
 	}
 	defer backupFile.Close()
 
-	// Decrypt
-	if cfg.Verbose {
-		fmt.Println("Decrypting...")
+	// Wrap with progress tracking (measures encrypted bytes read)
+	fileInfo, _ := backupFile.Stat()
+	var fileSize int64
+	if fileInfo != nil {
+		fileSize = fileInfo.Size()
 	}
-	decryptedReader, err := cfg.Encryptor.Decrypt(backupFile)
+	pr := progress.NewReader(backupFile, progress.Config{
+		Description: "Verifying",
+		TotalBytes:  fileSize,
+		Enabled:     cfg.Verbose,
+	})
+
+	// Decrypt
+	decryptedReader, err := cfg.Encryptor.Decrypt(pr)
 	if err != nil {
 		return fmt.Errorf("decryption failed: %w", err)
 	}
 
 	// Decompress
-	if cfg.Verbose {
-		fmt.Println("Decompressing...")
-	}
 	decompressedReader, err := cfg.Compressor.Decompress(decryptedReader)
 	if err != nil {
 		return fmt.Errorf("decompression failed: %w", err)
 	}
 
 	// Read through the entire stream to verify integrity
-	if cfg.Verbose {
-		fmt.Println("Verifying archive integrity...")
-	}
 	bytesRead, err := io.Copy(io.Discard, decompressedReader)
+	pr.Finish()
 	if err != nil {
 		return fmt.Errorf("archive verification failed: %w", err)
 	}

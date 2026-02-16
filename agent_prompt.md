@@ -57,10 +57,11 @@
 
 ### ✅ Phase 5: User Experience (COMPLETE)
 
-**Phase 5.1: Silent by Default + Progress** ✅ (2026-02-08)
+**Phase 5.1: Silent by Default + Progress** ✅ (2026-02-08, wired 2026-02-15)
 - `internal/progress` package (ProgressReader/Writer)
 - Unix philosophy: silent success, errors to stderr
 - `--verbose` flag for progress and details
+- Progress bars wired into: backup, restore, verify pipelines + checksum compute/validate
 - Test coverage: 90% for progress package
 
 **Phase 5.1b: Test Coverage Improvements** ✅ (2026-02-07)
@@ -855,6 +856,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Cobra completion disabled | `CompletionOptions.DisableDefaultCmd = true` on root command. Can be re-enabled later if needed. |
 | 2026-02-15 | Retention changed from days to count ([#27](https://github.com/icemarkom/secure-backup/issues/27)) | `--retention N` now means "keep last N backups" instead of "delete backups older than N days." Count-based retention works correctly regardless of backup frequency (hourly, daily, weekly). `DefaultKeepLast = 0` constant in `internal/retention`. |
 | 2026-02-15 | Silent-by-default fix ([#29](https://github.com/icemarkom/secure-backup/issues/29)) | Fixed 2 violations: (1) `cmd/backup.go` retention message used inverted `!backupVerbose` condition, (2) `cmd/verify.go` manifest/checksum display was ungated. All output now requires `--verbose` except `list`, `version`, dry-run, and stderr warnings. |
+| 2026-02-15 | Progress bars wired ([#31](https://github.com/icemarkom/secure-backup/issues/31)) | Connected existing `internal/progress` package to 5 operations: backup pipeline (tar reader), restore pipeline (file reader), full verify (file reader), checksum compute, checksum validate. All gated on `--verbose`. Added `ComputeChecksumProgress` / `ValidateChecksumProgress` to manifest package. |
 
 ---
 

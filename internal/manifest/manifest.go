@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/icemarkom/secure-backup/internal/progress"
 )
 
 // knownBackupExtensions lists all recognized backup file extensions.
@@ -162,6 +164,45 @@ func ComputeChecksum(filePath string) (string, error) {
 // ValidateChecksum verifies that the backup file's checksum matches the manifest
 func (m *Manifest) ValidateChecksum(backupFilePath string) error {
 	actualChecksum, err := ComputeChecksum(backupFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to compute file checksum: %w", err)
+	}
+
+	if actualChecksum != m.ChecksumValue {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", m.ChecksumValue, actualChecksum)
+	}
+
+	return nil
+}
+
+// ComputeChecksumProgress calculates SHA256 with optional progress tracking
+func ComputeChecksumProgress(filePath string, progressCfg progress.Config) (string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	// Get file size for progress tracking if not already set
+	if progressCfg.TotalBytes == 0 {
+		if info, err := f.Stat(); err == nil {
+			progressCfg.TotalBytes = info.Size()
+		}
+	}
+
+	pr := progress.NewReader(f, progressCfg)
+	h := sha256.New()
+	if _, err := io.Copy(h, pr); err != nil {
+		return "", fmt.Errorf("failed to compute checksum: %w", err)
+	}
+	pr.Finish()
+
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// ValidateChecksumProgress verifies checksum with optional progress tracking
+func (m *Manifest) ValidateChecksumProgress(backupFilePath string, progressCfg progress.Config) error {
+	actualChecksum, err := ComputeChecksumProgress(backupFilePath, progressCfg)
 	if err != nil {
 		return fmt.Errorf("failed to compute file checksum: %w", err)
 	}
