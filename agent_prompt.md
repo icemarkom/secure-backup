@@ -734,20 +734,27 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 ```
 
 **Pattern: Branch → Push → PR → ASK → WAIT → Merge → Issue auto-closes**
+### 2. Versioning — Semantic Versioning (MANDATORY)
 
-### 2. Documentation
+**Format: `vMAJOR.MINOR.PATCH`** (e.g., `v1.0.0`)
+
+- **When user requests a new release**: Bump the **PATCH** version (the Z in vX.Y.Z)
+- **MAJOR/MINOR bumps**: Only on explicit user instruction
+- Follow [Semantic Versioning](https://semver.org/) conventions
+
+### 3. Documentation
 
 - **ALWAYS update agent_prompt.md** after significant work
 - Document current state, not just plans
 - This file is the source of truth for next agent
 
-### 3. Testing Standards
+### 4. Testing Standards
 
 - Use `want` for expected values (not `expected`)
 - Use `got` for actual values (not `result`)
 - Follows standard Go testing conventions
 
-### 4. Development Approach
+### 5. Development Approach
 
 - **Testing**: Unit tests first, then integration tests
 - **Test keys**: ALWAYS generated via script, NEVER checked into git
