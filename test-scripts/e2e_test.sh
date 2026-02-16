@@ -249,7 +249,11 @@ MANUAL_OUTPUT=$("$BINARY" verify --file "$BACKUP_FILE" 2>&1 || true)
 echo "$MANUAL_OUTPUT" | grep -q "private-key" || fail "Missing --private-key error not shown"
 echo "$MANUAL_OUTPUT" | grep -q "Usage:" || fail "Missing conditional flag should show Usage:"
 
-pass "Missing conditional flag (manual): usage shown"
+# No partial success output should appear before the error
+echo "$MANUAL_OUTPUT" | grep -q "Manifest:" && fail "Partial output shown before error"
+echo "$MANUAL_OUTPUT" | grep -q "Checksum:" && fail "Partial output shown before error"
+
+pass "Missing conditional flag (manual): usage shown, no partial output"
 
 # 9d: --help should work
 step "Testing --help output"

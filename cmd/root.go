@@ -18,6 +18,9 @@ var rootCmd = &cobra.Command{
 	Short:         "Secure, encrypted backups for any directory",
 	Long:          `Create GPG-encrypted, compressed backups of any directory with automated retention management.`,
 	SilenceErrors: true,
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
 }
 
 var versionCmd = &cobra.Command{
