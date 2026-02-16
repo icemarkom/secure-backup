@@ -334,7 +334,7 @@ func TestGPGEncryptor_WrongKey(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGPGEncryptor_DecryptNonArmored(t *testing.T) {
+func TestGPGEncryptor_DecryptInvalidData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping GPG integration test in short mode")
 	}
@@ -347,8 +347,8 @@ func TestGPGEncryptor_DecryptNonArmored(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Pass raw binary data (not armored) — should return explicit error
-	_, err = decryptor.Decrypt(bytes.NewReader([]byte("this is not armored GPG data")))
+	// Pass invalid binary data — should return error from ReadMessage
+	_, err = decryptor.Decrypt(bytes.NewReader([]byte("this is not valid GPG data")))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to decode armored input")
+	assert.Contains(t, err.Error(), "failed to read encrypted message")
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
 )
 
 // GPGEncryptor implements the Encryptor interface using GPG/OpenPGP
@@ -27,7 +26,7 @@ func NewGPGEncryptor(cfg Config) (*GPGEncryptor, error) {
 	}, nil
 }
 
-// Encrypt encrypts the plaintext stream using GPG
+// Encrypt encrypts the plaintext stream using binary GPG format
 func (e *GPGEncryptor) Encrypt(plaintext io.Reader) (io.Reader, error) {
 	// Load public key(s)
 	keyring, err := e.loadPublicKeyring()
@@ -40,16 +39,8 @@ func (e *GPGEncryptor) Encrypt(plaintext io.Reader) (io.Reader, error) {
 	go func() {
 		defer pw.Close()
 
-		// Create armored writer for text output
-		armorWriter, err := armor.Encode(pw, "PGP MESSAGE", nil)
-		if err != nil {
-			pw.CloseWithError(fmt.Errorf("failed to create armor writer: %w", err))
-			return
-		}
-		defer armorWriter.Close()
-
-		// Create encrypted writer
-		encWriter, err := openpgp.Encrypt(armorWriter, keyring, nil, nil, nil)
+		// Create encrypted writer (binary output — no armor)
+		encWriter, err := openpgp.Encrypt(pw, keyring, nil, nil, nil)
 		if err != nil {
 			pw.CloseWithError(fmt.Errorf("failed to create encrypted writer: %w", err))
 			return
@@ -64,11 +55,6 @@ func (e *GPGEncryptor) Encrypt(plaintext io.Reader) (io.Reader, error) {
 
 		if err := encWriter.Close(); err != nil {
 			pw.CloseWithError(fmt.Errorf("failed to close encrypted writer: %w", err))
-			return
-		}
-
-		if err := armorWriter.Close(); err != nil {
-			pw.CloseWithError(fmt.Errorf("failed to close armor writer: %w", err))
 			return
 		}
 	}()
@@ -100,14 +86,8 @@ func (e *GPGEncryptor) Decrypt(ciphertext io.Reader) (io.Reader, error) {
 		}
 	}
 
-	// Decode armored input (secure-backup always produces armored output)
-	block, err := armor.Decode(ciphertext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode armored input: %w", err)
-	}
-
-	// Read the encrypted message
-	md, err := openpgp.ReadMessage(block.Body, keyring, nil, nil)
+	// Read binary GPG message directly
+	md, err := openpgp.ReadMessage(ciphertext, keyring, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read encrypted message: %w", err)
 	}

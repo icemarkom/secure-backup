@@ -1,9 +1,10 @@
 package compress
 
 import (
-	"compress/gzip"
 	"fmt"
 	"io"
+
+	gzip "github.com/klauspost/pgzip"
 )
 
 // GzipCompressor implements the Compressor interface using gzip
