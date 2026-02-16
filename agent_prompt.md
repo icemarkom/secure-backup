@@ -864,6 +864,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Retention changed from days to count ([#27](https://github.com/icemarkom/secure-backup/issues/27)) | `--retention N` now means "keep last N backups" instead of "delete backups older than N days." Count-based retention works correctly regardless of backup frequency (hourly, daily, weekly). `DefaultKeepLast = 0` constant in `internal/retention`. |
 | 2026-02-15 | Silent-by-default fix ([#29](https://github.com/icemarkom/secure-backup/issues/29)) | Fixed 2 violations: (1) `cmd/backup.go` retention message used inverted `!backupVerbose` condition, (2) `cmd/verify.go` manifest/checksum display was ungated. All output now requires `--verbose` except `list`, `version`, dry-run, and stderr warnings. |
 | 2026-02-15 | Progress bars wired ([#31](https://github.com/icemarkom/secure-backup/issues/31)) | Connected existing `internal/progress` package to 5 operations: backup pipeline (tar reader), restore pipeline (file reader), full verify (file reader), checksum compute, checksum validate. All gated on `--verbose`. Added `ComputeChecksumProgress` / `ValidateChecksumProgress` to manifest package. |
+| 2026-02-16 | License headers added ([#34](https://github.com/icemarkom/secure-backup/issues/34)) | Apache 2.0 boilerplate + `SPDX-License-Identifier: Apache-2.0` added to all 36 Go files and 2 shell scripts. CI enforcement via `google/addlicense -check` in `test.yml` unit job. `make license-check` target for local use. Makefile/YAML excluded from headers. |
+| 2026-02-16 | Checked-in test keys removed ([#36](https://github.com/icemarkom/secure-backup/issues/36)) | 6 vestigial files under `test_data/test_data/` (including GPG private key and keyring) were tracked despite `.gitignore`. Removed via `git rm --cached`. Test infra already generates keys on the fly. |
 
 ---
 
@@ -929,12 +931,15 @@ go vet ./...
 
 # Lint (if golangci-lint installed)
 golangci-lint run
+
+# Check license headers
+make license-check
 ```
 
 ---
 
-**Last Updated**: 2026-02-15  
-**Last Updated By**: Agent (conversation 7e12a5cc-7ff6-47af-a90b-0f7c921bf31e)  
+**Last Updated**: 2026-02-16  
+**Last Updated By**: Agent (conversation f9a3aec7-90bb-4b5a-82d8-9f72b181dada)  
 **Project Phase**: v1.0.0 Release ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P16-P19 ✅ | P8-P9, P14-P15 ⛔ | **ALL ITEMS RESOLVED** 🎉  

@@ -1,1 +1,0 @@
-This is a test file for secure-backup integration tests.

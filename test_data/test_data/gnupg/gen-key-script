@@ -1,7 +1,0 @@
-%no-protection
-Key-Type: RSA
-Key-Length: 2048
-Name-Real: Test User
-Name-Email: test@secure-backup.local
-Expire-Date: 0
-%commit
