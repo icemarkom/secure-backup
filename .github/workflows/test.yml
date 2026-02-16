@@ -20,6 +20,19 @@ jobs:
           go-version: '1.26'
           check-latest: true
 
+      - name: Check license headers
+        run: |
+          go install github.com/google/addlicense@latest
+          addlicense -check -s -c "Marko Milivojevic" -y "2026" \
+            -l apache \
+            -ignore 'Makefile' \
+            -ignore '**/*.yml' \
+            -ignore '**/*.yaml' \
+            -ignore '**/*.md' \
+            -ignore 'test_data/**' \
+            -ignore 'coverage.*' \
+            .
+
       - name: Run unit tests
         run: go test ./... -short -v -race -coverprofile=coverage.out
 
