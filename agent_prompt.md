@@ -508,6 +508,11 @@
 - Cobra `completion` subcommand disabled
 - E2E regression test updated (step 9c asserts no partial output)
 
+**Bug Fix**: Silent-by-Default Violations ✅ FIXED — [#29](https://github.com/icemarkom/secure-backup/issues/29)
+- `backup` retention message printed with inverted `!backupVerbose` condition (output only when NOT verbose)
+- `verify` manifest/checksum display always printed regardless of `--verbose`
+- Fix: Removed inverted condition in `cmd/backup.go`, gated manifest display in `cmd/verify.go`
+
 ---
 
 ## Architecture
@@ -849,6 +854,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Full SHA256 display | Removed `[:16]` truncation from verify and list checksum output. Full hash is useful for scripting and manual comparison. |
 | 2026-02-15 | Cobra completion disabled | `CompletionOptions.DisableDefaultCmd = true` on root command. Can be re-enabled later if needed. |
 | 2026-02-15 | Retention changed from days to count ([#27](https://github.com/icemarkom/secure-backup/issues/27)) | `--retention N` now means "keep last N backups" instead of "delete backups older than N days." Count-based retention works correctly regardless of backup frequency (hourly, daily, weekly). `DefaultKeepLast = 0` constant in `internal/retention`. |
+| 2026-02-15 | Silent-by-default fix ([#29](https://github.com/icemarkom/secure-backup/issues/29)) | Fixed 2 violations: (1) `cmd/backup.go` retention message used inverted `!backupVerbose` condition, (2) `cmd/verify.go` manifest/checksum display was ungated. All output now requires `--verbose` except `list`, `version`, dry-run, and stderr warnings. |
 
 ---
 

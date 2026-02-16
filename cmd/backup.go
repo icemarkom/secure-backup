@@ -139,12 +139,10 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			DryRun:    backupDryRun,
 		}
 
-		deletedCount, err := retention.ApplyPolicy(retentionPolicy)
+		_, err := retention.ApplyPolicy(retentionPolicy)
 		if err != nil {
 			// Don't fail the backup if retention cleanup fails
 			fmt.Fprintf(os.Stderr, "Warning: retention cleanup failed: %v\n", err)
-		} else if deletedCount > 0 && !backupVerbose {
-			fmt.Printf("Deleted %d old backup(s) (keeping last %d)\n", deletedCount, backupRetention)
 		}
 	}
 

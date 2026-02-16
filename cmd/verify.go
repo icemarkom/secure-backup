@@ -157,10 +157,10 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 		)
 	}
 
-	// Display manifest info
-	fmt.Printf("Manifest: ✓ Found\n")
-	fmt.Printf("Checksum: ✓ Valid (%s: %s)\n", m.ChecksumAlgorithm, m.ChecksumValue)
+	// Display manifest info (only in verbose mode — silent by default)
 	if verbose {
+		fmt.Printf("Manifest: ✓ Found\n")
+		fmt.Printf("Checksum: ✓ Valid (%s: %s)\n", m.ChecksumAlgorithm, m.ChecksumValue)
 		fmt.Printf("Created:  %s by %s %s on %s\n",
 			m.CreatedAt.Format("2006-01-02 15:04:05"),
 			m.CreatedBy.Tool, m.CreatedBy.Version, m.CreatedBy.Hostname)
