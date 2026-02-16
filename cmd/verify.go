@@ -44,6 +44,7 @@ func init() {
 	verifyCmd.Flags().BoolVar(&verifyQuick, "quick", false, "Quick verification (headers only)")
 	verifyCmd.Flags().BoolVarP(&verifyVerbose, "verbose", "v", false, "Verbose output")
 	verifyCmd.Flags().BoolVar(&verifyDryRun, "dry-run", false, "Preview verification without executing")
+	verifyCmd.Flags().BoolVar(&verifySkipManifest, "skip-manifest", false, "Skip manifest validation")
 
 	verifyCmd.MarkFlagRequired("file")
 }
@@ -79,6 +80,9 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		return errors.MissingRequired("--private-key",
 			"Full verification requires --private-key, or use --quick for header-only check")
 	}
+
+	// All flag validation passed — suppress usage for runtime errors from here on
+	cmd.SilenceUsage = true
 
 	// Create compressor
 	compressor, err := compress.NewCompressor(compress.Config{

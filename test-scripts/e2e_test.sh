@@ -214,6 +214,52 @@ fi
 
 pass "All files match source"
 
+# --- Step 9: CLI error output behavior (#10) ---
+
+# 9a: Runtime error should show single error, no usage
+step "Testing runtime error output (no usage dump)"
+ERR_OUTPUT=$("$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$BACKUP_DIR" \
+  --public-key /nonexistent/key.asc 2>&1 || true)
+
+# Error message should appear exactly once
+ERR_COUNT=$(echo "$ERR_OUTPUT" | grep -c "Error:" || true)
+test "$ERR_COUNT" -eq 1 || fail "Expected 1 'Error:' line, got $ERR_COUNT"
+
+# Usage text should NOT appear
+echo "$ERR_OUTPUT" | grep -q "Usage:" && fail "Runtime error should not show Usage:"
+echo "$ERR_OUTPUT" | grep -q "Flags:" && fail "Runtime error should not show Flags:"
+
+pass "Runtime error: single error, no usage dump"
+
+# 9b: Missing required flag (Cobra-enforced) should show usage
+step "Testing missing required flag output (usage shown)"
+MISS_OUTPUT=$("$BINARY" backup --dest /tmp 2>&1 || true)
+
+echo "$MISS_OUTPUT" | grep -q "required flag" || fail "Missing flag error not shown"
+echo "$MISS_OUTPUT" | grep -q "Usage:" || fail "Missing flag should show Usage:"
+
+pass "Missing required flag (Cobra): usage shown"
+
+# 9c: Missing conditionally-required flag should show usage
+step "Testing missing conditional flag output (usage shown)"
+MANUAL_OUTPUT=$("$BINARY" verify --file "$BACKUP_FILE" 2>&1 || true)
+
+echo "$MANUAL_OUTPUT" | grep -q "private-key" || fail "Missing --private-key error not shown"
+echo "$MANUAL_OUTPUT" | grep -q "Usage:" || fail "Missing conditional flag should show Usage:"
+
+pass "Missing conditional flag (manual): usage shown"
+
+# 9d: --help should work
+step "Testing --help output"
+HELP_OUTPUT=$("$BINARY" backup --help 2>&1)
+
+echo "$HELP_OUTPUT" | grep -q "Usage:" || fail "--help should show Usage:"
+echo "$HELP_OUTPUT" | grep -q "Flags:" || fail "--help should show Flags:"
+
+pass "--help works correctly"
+
 # --- Summary ---
 echo ""
 printf "${GREEN}${BOLD}════════════════════════════════════════${NC}\n"

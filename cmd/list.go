@@ -11,8 +11,7 @@ import (
 )
 
 var (
-	listDir     string
-	listPattern string
+	listDir string
 )
 
 var listCmd = &cobra.Command{
@@ -26,13 +25,13 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 
 	listCmd.Flags().StringVar(&listDir, "dest", "", "Backup directory to list (required)")
-	listCmd.Flags().StringVar(&listPattern, "pattern", "backup_*.tar.gz.gpg", "Filename pattern to match")
 
 	listCmd.MarkFlagRequired("dest")
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	backups, err := retention.ListBackups(listDir, listPattern)
+	cmd.SilenceUsage = true
+	backups, err := retention.ListBackups(listDir, "")
 	if err != nil {
 		return fmt.Errorf("failed to list backups: %w", err)
 	}

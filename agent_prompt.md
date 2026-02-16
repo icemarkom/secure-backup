@@ -88,7 +88,7 @@
 
 > **Goal**: Harden the tool for production use with mission-critical data  
 > **Philosophy**: Simplicity over features. No config files. Unattended operation with security.  
-> **Status**: ✅ P1-P7, P10-P13, P17-P19 COMPLETE | ⛔ P8-P9, P14-P16 WON'T FIX | All items resolved  
+> **Status**: ✅ P1-P7, P10-P13, P16-P19 COMPLETE | ⛔ P8-P9, P14-P15 WON'T FIX | All items resolved  
 > **Trust Score**: 7.5/10 — All productionization items resolved
 
 ### Critical Issues (All Complete) ✅
@@ -425,7 +425,7 @@
 | **P13** | [#7](https://github.com/icemarkom/secure-backup/issues/7) | ~~Manifest path derived via brittle `TrimSuffix` on extension~~ | `internal/manifest/manifest.go` | ✅ COMPLETE |
 | **P14** | [#8](https://github.com/icemarkom/secure-backup/issues/8) | ~~Passphrase stored as `string`, never zeroed after use~~ | `internal/passphrase/passphrase.go`, `internal/encrypt/gpg.go` | ⛔ WON'T FIX |
 | **P15** | [#9](https://github.com/icemarkom/secure-backup/issues/9) | ~~`err` variable shadowing in backup defer/cleanup logic~~ | `internal/backup/backup.go` | ⛔ WON'T FIX |
-| **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | ~~Zero `cmd/` test coverage — all CLI wiring untested~~ | `cmd/*.go` | ⛔ WON'T FIX |
+| **P16** | [#10](https://github.com/icemarkom/secure-backup/issues/10) | ~~Zero `cmd/` test coverage~~ → CLI error output testing | `cmd/*.go`, `test-scripts/e2e_test.sh` | ✅ COMPLETE |
 
 #### Medium Priority
 
@@ -816,7 +816,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | P19 Implementation Complete | Consolidated `formatSize()` (3 copies) and `formatAge()` (2 copies) into new `internal/format` package with `Size()` and `Age()` functions |
 | 2026-02-15 | P15 Closed as Won't Fix | `err` shadowing is inherent to Go; no scoping trick prevents all future mistakes. Current code is correct. Code review and linting are the right mitigation. |
 | 2026-02-15 | P14 Closed as Won't Fix | Go strings are immutable and cannot be zeroed. Passphrase also flows through openpgp which makes internal copies. Zeroing the `[]byte` copy gives false security. Practical attack vectors (process lists, shell history, file permissions) were addressed in P4. |
-| 2026-02-15 | P16 Closed as Won't Fix | All business logic is well-tested in `internal/` packages. `cmd/` is thin Cobra wiring; the effort-to-value ratio for 1-2 days of integration testing is poor. Flag wiring correctness is validated by manual testing and CI builds. |
+| 2026-02-15 | P16 Reopened with narrowed scope | Original full cmd/ integration testing remains won't-fix for ROI. Reopened as "CLI Error Output Testing" after discovering duplicate error display and unwanted help output on runtime errors. Added `SilenceErrors` on root command, per-RunE `SilenceUsage` pattern, and 3 e2e tests. |
 | 2026-02-15 | P8 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted so attackers can't inject malicious tar entries. Fix risks breaking legitimate restores containing symlinks with absolute or out-of-tree targets. Tool is not a general-purpose tar extractor. |
 | 2026-02-15 | P9 Closed as Won't Fix | Threat model doesn't apply: backups are GPG-encrypted, so attackers cannot inject crafted tar entries to create decompression bombs. The tool only extracts archives it created from real files. Adding size limits risks breaking legitimate restores of large backups. |
 | 2026-02-15 | P10 Implementation Complete | Added `--file-mode` flag with `default` (0600), `system` (umask), or explicit octal modes. Secure by default, user-overridable. World-readable warning on stderr. Applied to both backup and manifest files. 3 new tests, all pass. |
@@ -827,6 +827,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Dry-Run Lock Bug (#20) Fixed | `backup --dry-run` was creating `.backup.lock` on disk, blocking concurrent operations. Guarded `lock.Acquire()` with `!backupDryRun`. Added dry-run e2e regression tests for all subcommands. Reading files (GPG keys, manifests) is intentional; only writes are suppressed. |
 | 2026-02-15 | GoReleaser config updated for v2 | Fixed deprecated `snapshot.name_template` → `version_template` and `format_overrides.format` → `formats`. Config passes `goreleaser check` cleanly. |
 | 2026-02-15 | v1.0.0 Release | All productionization complete. Validated GoReleaser snapshot build: 5 platform archives + 2 .deb packages (amd64/arm64). README cleaned up for 1.0.0. Apt repo signing via Release/InRelease is standard Debian practice; individual .deb signing not needed. |
+| 2026-02-15 | CLI error output fix (#10) | Fixed duplicate error display and unwanted help output on runtime errors. `SilenceErrors: true` on root command, per-RunE `cmd.SilenceUsage = true` pattern preserves usage for missing required flags. 3 e2e tests added. |
 | 2026-02-15 | Branch+PR workflow | Switched from direct-to-main pushes to mandatory branch+PR workflow. All changes must go through feature branches and Pull Requests. Auto-close keywords (`Fixes #N`) now work via merged PRs. |
 
 ---
@@ -901,5 +902,5 @@ golangci-lint run
 **Last Updated By**: Agent (conversation 2bfb4839-a8e1-44df-9e3c-46af1db48e81)  
 **Project Phase**: v1.0.0 Release ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
-**Productionization**: P1-P7, P10-P13, P17-P19 ✅ | P8-P9, P14-P16 ⛔ | **ALL ITEMS RESOLVED** 🎉  
+**Productionization**: P1-P7, P10-P13, P16-P19 ✅ | P8-P9, P14-P15 ⛔ | **ALL ITEMS RESOLVED** 🎉  
 **Next Milestone**: Future phases — [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
