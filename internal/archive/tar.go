@@ -28,18 +28,19 @@ import (
 	"github.com/icemarkom/secure-backup/internal/common"
 )
 
-// CreateTar creates a tar archive from the source directory and writes to the provided writer
-func CreateTar(sourcePath string, w io.Writer) error {
+// CreateTar creates a tar archive from the source directory and writes to the provided writer.
+// Returns the total raw file data bytes written (excluding tar headers and metadata).
+func CreateTar(sourcePath string, w io.Writer) (int64, error) {
 	// Resolve to absolute path
 	absPath, err := filepath.Abs(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve absolute path: %w", err)
+		return 0, fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
 	// Verify source exists (Lstat to avoid following if source itself is a symlink)
 	sourceInfo, err := os.Lstat(absPath)
 	if err != nil {
-		return fmt.Errorf("failed to stat source path: %w", err)
+		return 0, fmt.Errorf("failed to stat source path: %w", err)
 	}
 
 	tw := tar.NewWriter(w)
@@ -49,8 +50,11 @@ func CreateTar(sourcePath string, w io.Writer) error {
 	baseDir := filepath.Dir(absPath)
 	baseName := filepath.Base(absPath)
 
+	// Track total raw file data bytes (excludes tar headers)
+	var bytesWritten int64
+
 	// Walk the directory tree (WalkDir uses Lstat — does not follow symlinks)
-	return filepath.WalkDir(absPath, func(file string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(absPath, func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("walk error at %s: %w", file, err)
 		}
@@ -113,13 +117,17 @@ func CreateTar(sourcePath string, w io.Writer) error {
 			}
 			defer f.Close()
 
-			if _, err := io.CopyBuffer(tw, f, common.NewBuffer()); err != nil {
+			n, err := io.CopyBuffer(tw, f, common.NewBuffer())
+			if err != nil {
 				return fmt.Errorf("failed to write file data for %s: %w", file, err)
 			}
+			bytesWritten += n
 		}
 
 		return nil
 	})
+
+	return bytesWritten, walkErr
 }
 
 // ExtractTar extracts a tar archive from the reader to the destination directory

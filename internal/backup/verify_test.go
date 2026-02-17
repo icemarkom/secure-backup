@@ -204,7 +204,7 @@ func TestFullVerify_WithRealBackup(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Test quick verify

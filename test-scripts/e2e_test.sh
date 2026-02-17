@@ -147,6 +147,15 @@ MANIFEST_FILE=$(find "$BACKUP_DIR" -name "*_manifest.json" | head -1)
 test -n "$MANIFEST_FILE" || fail "No manifest file found"
 test -s "$MANIFEST_FILE" || fail "Manifest file is empty"
 
+# Verify manifest contains both size fields with positive values
+grep -q '"compressed_size_bytes":' "$MANIFEST_FILE" || fail "Manifest missing compressed_size_bytes"
+grep -q '"uncompressed_size_bytes":' "$MANIFEST_FILE" || fail "Manifest missing uncompressed_size_bytes"
+# Verify sizes are positive integers (not zero)
+COMPRESSED=$(grep -o '"compressed_size_bytes": [0-9]*' "$MANIFEST_FILE" | grep -o '[0-9]*$')
+UNCOMPRESSED=$(grep -o '"uncompressed_size_bytes": [0-9]*' "$MANIFEST_FILE" | grep -o '[0-9]*$')
+test "$COMPRESSED" -gt 0 || fail "compressed_size_bytes should be > 0, got $COMPRESSED"
+test "$UNCOMPRESSED" -gt 0 || fail "uncompressed_size_bytes should be > 0, got $UNCOMPRESSED"
+
 # Verify no leftover temp or lock files
 LEFTOVER_TMP=$(find "$BACKUP_DIR" -name "*.tmp" | wc -l | tr -d ' ')
 LEFTOVER_LOCK=$(find "$BACKUP_DIR" -name ".backup.lock" | wc -l | tr -d ' ')

@@ -119,17 +119,20 @@
 **Manifest Format**:
 ```json
 {
-  "version": "1.0.0",
-  "created": "2026-02-08T22:30:00Z",
-  "source": "/path/to/source",
-  "backup_file": "backup_source_20260208_223000.tar.gz.gpg",
-  "checksum": {
-    "algorithm": "sha256",
-    "value": "abc123..."
+  "created_at": "2026-02-08T22:30:00Z",
+  "created_by": {
+    "tool": "secure-backup",
+    "version": "v1.2.0",
+    "hostname": "myserver"
   },
+  "source_path": "/path/to/source",
+  "backup_file": "backup_source_20260208_223000.tar.gz.gpg",
   "compression": "gzip",
   "encryption": "gpg",
-  "tool_version": "v0.1.0"
+  "checksum_algorithm": "sha256",
+  "checksum_value": "abc123...",
+  "uncompressed_size_bytes": 1073741824,
+  "compressed_size_bytes": 523400000
 }
 ```
 
@@ -894,6 +897,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-16 | Standardized IO buffer size ([#47](https://github.com/icemarkom/secure-backup/issues/47)) | Created shared `IOBufferSize = 1 MiB` const. Replaced all pipeline `io.Copy` calls with `io.CopyBuffer(... common.NewBuffer())` across 8 files (11 call sites). Benchmarked 32KB–4MB; 1MiB chosen for syscall reduction on disk IO. |
 | 2026-02-16 | Consolidated helper packages ([#48](https://github.com/icemarkom/secure-backup/issues/48)) | Merged `internal/format`, `internal/ioutil`, `internal/errors` into `internal/common`. All shared utility functions (formatting, IO buffers, user-friendly errors) live in one package. `internal/progress` kept separate (external dep). **Ongoing: all new shared helpers go in `internal/common`.** |
 | 2026-02-17 | Cron.daily example script ([#50](https://github.com/icemarkom/secure-backup/pull/50)) | Added `examples/cron.daily/secure-backup` — drop-in script for `/etc/cron.daily/` on Ubuntu. Supports multiple source directories via bash array, configurable AGE/GPG encryption, retention, logging, and per-source failure tracking. `.gitignore` scoped `secure-backup` → `/secure-backup` to avoid ignoring the example. |
+| 2026-02-17 | Manifest size fields ([#51](https://github.com/icemarkom/secure-backup/issues/51)) | Renamed `size_bytes` → `compressed_size_bytes`, added `uncompressed_size_bytes`. Uncompressed size counted inside `CreateTar` as raw file data bytes (no tar headers, no TOCTOU). `CreateTar` returns `(int64, error)`, plumbed through `executePipeline` → `PerformBackup` → manifest. `getDirectorySize()` remains for progress bar estimate only. |
 
 ---
 

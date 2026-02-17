@@ -346,12 +346,13 @@ Each backup creates two files:
   "backup_file": "backup_documents_20260214_183000.tar.gz.gpg",
   "checksum_algorithm": "sha256",
   "checksum_value": "abc123def456...",
-  "size_bytes": 523400000,
+  "uncompressed_size_bytes": 1073741824,
+  "compressed_size_bytes": 523400000,
   "compression": "gzip",
   "encryption": "gpg",
   "created_by": {
     "tool": "secure-backup",
-    "version": "v0.2.0",
+    "version": "v1.2.0",
     "hostname": "myserver"
   }
 }

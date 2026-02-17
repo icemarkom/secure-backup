@@ -127,7 +127,7 @@ func TestPerformRestore_DestinationCreation(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Now restore to a nested destination path that doesn't exist
@@ -366,7 +366,7 @@ func TestPerformRestore_NonEmptyDestination_WithoutForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Create non-empty restore destination
@@ -437,7 +437,7 @@ func TestPerformRestore_NonEmptyDestination_WithForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Create non-empty restore destination
@@ -517,7 +517,7 @@ func TestPerformRestore_EmptyDestination_WithoutForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Create empty restore destination
@@ -588,7 +588,7 @@ func TestPerformRestore_NonexistentDestination_WithoutForce(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Don't create restore directory - it should be created automatically
