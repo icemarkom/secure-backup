@@ -71,15 +71,16 @@ func ManifestPath(backupPath string) string {
 
 // Manifest represents metadata and integrity information for a backup
 type Manifest struct {
-	CreatedAt         time.Time `json:"created_at"`
-	CreatedBy         CreatedBy `json:"created_by"`
-	SourcePath        string    `json:"source_path"`
-	BackupFile        string    `json:"backup_file"`
-	Compression       string    `json:"compression"`
-	Encryption        string    `json:"encryption"`
-	ChecksumAlgorithm string    `json:"checksum_algorithm"`
-	ChecksumValue     string    `json:"checksum_value"`
-	SizeBytes         int64     `json:"size_bytes"`
+	CreatedAt             time.Time `json:"created_at"`
+	CreatedBy             CreatedBy `json:"created_by"`
+	SourcePath            string    `json:"source_path"`
+	BackupFile            string    `json:"backup_file"`
+	Compression           string    `json:"compression"`
+	Encryption            string    `json:"encryption"`
+	ChecksumAlgorithm     string    `json:"checksum_algorithm"`
+	ChecksumValue         string    `json:"checksum_value"`
+	UncompressedSizeBytes int64     `json:"uncompressed_size_bytes"`
+	CompressedSizeBytes   int64     `json:"compressed_size_bytes"`
 }
 
 // CreatedBy holds information about the tool that created the backup
@@ -98,14 +99,15 @@ func New(sourcePath, backupFile, version, compression, encryption string) (*Mani
 	}
 
 	return &Manifest{
-		CreatedAt:         time.Now().UTC(),
-		SourcePath:        sourcePath,
-		BackupFile:        backupFile,
-		Compression:       compression,
-		Encryption:        encryption,
-		ChecksumAlgorithm: "sha256",
-		ChecksumValue:     "", // Set later via ComputeChecksum
-		SizeBytes:         0,  // Set later
+		CreatedAt:             time.Now().UTC(),
+		SourcePath:            sourcePath,
+		BackupFile:            backupFile,
+		Compression:           compression,
+		Encryption:            encryption,
+		ChecksumAlgorithm:     "sha256",
+		ChecksumValue:         "", // Set later via ComputeChecksum
+		UncompressedSizeBytes: 0,  // Set later
+		CompressedSizeBytes:   0,  // Set later
 		CreatedBy: CreatedBy{
 			Tool:     "secure-backup",
 			Version:  version,

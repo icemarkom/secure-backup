@@ -94,11 +94,21 @@ func TestIntegration_BackupRestoreCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, uncompressedSize, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 	assert.FileExists(t, backupPath, "backup file should exist")
 
-	// Verify backup file is not empty
+	// Verify uncompressed size is positive and matches expected raw data bytes
+	assert.Greater(t, uncompressedSize, int64(0), "uncompressed size should be positive")
+
+	// Calculate expected raw data size from test files
+	var expectedDataSize int64
+	for _, content := range testFiles {
+		expectedDataSize += int64(len(content))
+	}
+	assert.Equal(t, expectedDataSize, uncompressedSize, "uncompressed size should equal sum of file content bytes")
+
+	// Verify backup file is not empty and compressed size < uncompressed (text data compresses well)
 	info, err := os.Stat(backupPath)
 	require.NoError(t, err)
 	assert.Greater(t, info.Size(), int64(0), "backup file should not be empty")
@@ -172,7 +182,7 @@ func TestIntegration_BackupVerifyCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Test quick verification
@@ -255,7 +265,7 @@ func TestIntegration_VerboseMode(t *testing.T) {
 			Verbose:    true, // Enable verbose mode
 		}
 
-		backupPath, err := PerformBackup(context.Background(), backupCfg)
+		backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 		require.NoError(t, err)
 
 		// Restore stdout and read captured output
@@ -354,7 +364,7 @@ func TestIntegration_CorruptedBackup(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Corrupt the backup file by truncating it
@@ -457,7 +467,7 @@ func TestIntegration_AGE_BackupRestoreCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 	assert.FileExists(t, backupPath, "backup file should exist")
 
@@ -531,7 +541,7 @@ func TestIntegration_AGE_BackupVerifyCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Quick verify

@@ -227,7 +227,10 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 			m.CreatedAt.Format("2006-01-02 15:04:05"),
 			m.CreatedBy.Tool, m.CreatedBy.Version, m.CreatedBy.Hostname)
 		fmt.Printf("Source:   %s\n", m.SourcePath)
-		fmt.Printf("Size:     %s\n", common.Size(m.SizeBytes))
+		if m.UncompressedSizeBytes > 0 {
+			fmt.Printf("Uncompressed size: %s\n", common.Size(m.UncompressedSizeBytes))
+		}
+		fmt.Printf("Compressed size:   %s\n", common.Size(m.CompressedSizeBytes))
 	}
 
 	return m, nil

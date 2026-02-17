@@ -50,7 +50,8 @@ type Config struct {
 }
 
 // PerformBackup executes the backup pipeline: TAR → COMPRESS → ENCRYPT
-func PerformBackup(ctx context.Context, cfg Config) (string, error) {
+// Returns (outputPath, uncompressedSizeBytes, error)
+func PerformBackup(ctx context.Context, cfg Config) (string, int64, error) {
 	// Handle dry-run mode
 	if cfg.DryRun {
 		return dryRunBackup(cfg)
@@ -60,16 +61,16 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	_, err := os.Stat(cfg.SourcePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", common.MissingFile(cfg.SourcePath,
+			return "", 0, common.MissingFile(cfg.SourcePath,
 				"Check that the path exists and you have permission to read it")
 		}
-		return "", common.Wrap(err, fmt.Sprintf("Cannot access source: %s", cfg.SourcePath),
+		return "", 0, common.Wrap(err, fmt.Sprintf("Cannot access source: %s", cfg.SourcePath),
 			"Verify the path and check file permissions")
 	}
 
 	// Ensure destination directory exists
 	if err := os.MkdirAll(cfg.DestDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create destination directory: %w", err)
+		return "", 0, fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	// Generate backup filename
@@ -96,7 +97,7 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 		outFile, err = os.Create(tmpPath)
 	}
 	if err != nil {
-		return "", fmt.Errorf("failed to create output file: %w", err)
+		return "", 0, fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer func() {
 		outFile.Close()
@@ -107,19 +108,20 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	}()
 
 	// Execute the pipeline: TAR → COMPRESS → ENCRYPT → FILE
-	if err = executePipeline(ctx, cfg, outFile); err != nil {
-		return "", fmt.Errorf("backup pipeline failed: %w", err)
+	uncompressedSize, err := executePipeline(ctx, cfg, outFile)
+	if err != nil {
+		return "", 0, fmt.Errorf("backup pipeline failed: %w", err)
 	}
 
 	// Close file before rename (required on some platforms)
 	if err = outFile.Close(); err != nil {
-		return "", fmt.Errorf("failed to close backup file: %w", err)
+		return "", 0, fmt.Errorf("failed to close backup file: %w", err)
 	}
 
 	// Atomic rename to final path
 	if err = os.Rename(tmpPath, outputPath); err != nil {
 		os.Remove(tmpPath) // Clean up temp file
-		return "", fmt.Errorf("failed to finalize backup file: %w", err)
+		return "", 0, fmt.Errorf("failed to finalize backup file: %w", err)
 	}
 
 	// Get final file size
@@ -132,24 +134,30 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 		}
 	}
 
-	return outputPath, nil
+	return outputPath, uncompressedSize, nil
 }
 
-// executePipeline runs the backup pipeline with comprehensive error propagation
-func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
+// executePipeline runs the backup pipeline with comprehensive error propagation.
+// Returns the uncompressed size (raw file data bytes from CreateTar).
+func executePipeline(ctx context.Context, cfg Config, output io.Writer) (int64, error) {
 	// Use provided context for pipeline coordination
 	g, ctx := errgroup.WithContext(ctx)
 
 	// Step 1: Create tar reader pipe
 	tarPR, tarPW := io.Pipe()
 
+	// Capture uncompressed size from tar goroutine
+	var uncompressedSize int64
+
 	// Goroutine 1: Create TAR archive
 	g.Go(func() error {
 		defer tarPW.Close()
-		if err := archive.CreateTar(cfg.SourcePath, tarPW); err != nil {
+		n, err := archive.CreateTar(cfg.SourcePath, tarPW)
+		if err != nil {
 			tarPW.CloseWithError(err)
 			return fmt.Errorf("tar creation failed: %w", err)
 		}
+		uncompressedSize = n
 		return nil
 	})
 
@@ -166,26 +174,30 @@ func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
 
 	compressPR, err := cfg.Compressor.Compress(pr)
 	if err != nil {
-		return fmt.Errorf("failed to create compressor: %w", err)
+		return 0, fmt.Errorf("failed to create compressor: %w", err)
 	}
 
 	// Step 3: Encrypt the compressed stream
 	// Note: Encryptor.Encrypt spawns its own goroutine internally
 	encryptPR, err := cfg.Encryptor.Encrypt(compressPR)
 	if err != nil {
-		return fmt.Errorf("failed to create encryptor: %w", err)
+		return 0, fmt.Errorf("failed to create encryptor: %w", err)
 	}
 
 	// Step 4: Write encrypted stream to output file
 	// This will capture errors from compress/encrypt goroutines via pipe errors
 	if _, err := io.CopyBuffer(output, encryptPR, common.NewBuffer()); err != nil {
-		return fmt.Errorf("failed to write output: %w", err)
+		return 0, fmt.Errorf("failed to write output: %w", err)
 	}
 	pr.Finish()
 
 	// Wait for tar goroutine to complete
 	// Any errors from compress/encrypt will have already been caught by io.Copy above
-	return g.Wait()
+	if err := g.Wait(); err != nil {
+		return 0, err
+	}
+
+	return uncompressedSize, nil
 }
 
 // getDirectorySize calculates the total size of a directory (best effort)
@@ -202,11 +214,11 @@ func getDirectorySize(path string) int64 {
 
 // dryRunBackup previews backup operation without executing
 // Note: Dry-run mode always shows verbose output for useful preview
-func dryRunBackup(cfg Config) (string, error) {
+func dryRunBackup(cfg Config) (string, int64, error) {
 	// Validate source exists
 	_, err := os.Stat(cfg.SourcePath)
 	if err != nil {
-		return "", fmt.Errorf("invalid source path: %w", err)
+		return "", 0, fmt.Errorf("invalid source path: %w", err)
 	}
 
 	// Generate backup filename (same logic as real backup)
@@ -239,5 +251,5 @@ func dryRunBackup(cfg Config) (string, error) {
 	fmt.Printf("[DRY RUN]   - ENCRYPT - Encrypt with %s\n", encType)
 	fmt.Println("[DRY RUN]   - WRITE - Write to destination file")
 
-	return outputPath, nil
+	return outputPath, 0, nil
 }
