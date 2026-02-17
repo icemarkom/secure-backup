@@ -226,7 +226,6 @@ func TestApplyPolicy_EmptyDirectory(t *testing.T) {
 	policy := Policy{
 		KeepLast:  3,
 		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
 		Verbose:   false,
 	}
 
@@ -267,7 +266,6 @@ func TestApplyPolicy_DeleteOldBackups(t *testing.T) {
 	policy := Policy{
 		KeepLast:  3,
 		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
 		Verbose:   false,
 	}
 
@@ -288,38 +286,6 @@ func TestApplyPolicy_DeleteOldBackups(t *testing.T) {
 		_, err := os.Stat(path)
 		assert.True(t, os.IsNotExist(err), "old file %s should be deleted", f.name)
 	}
-}
-
-// TestApplyPolicy_DefaultPattern tests that default pattern is used when empty
-func TestApplyPolicy_DefaultPattern(t *testing.T) {
-	tempDir := t.TempDir()
-	now := time.Now()
-
-	// Create 2 backup files
-	files := []string{
-		"backup_old_20240101_120000.tar.gz.gpg",
-		"backup_new_20240207_120000.tar.gz.gpg",
-	}
-	for i, name := range files {
-		path := filepath.Join(tempDir, name)
-		err := os.WriteFile(path, []byte("fake backup"), 0644)
-		require.NoError(t, err)
-		modTime := now.Add(-time.Duration(len(files)-i) * 24 * time.Hour)
-		err = os.Chtimes(path, modTime, modTime)
-		require.NoError(t, err)
-	}
-
-	// Apply policy with empty pattern (should error)
-	policy := Policy{
-		KeepLast:  1,
-		BackupDir: tempDir,
-		Pattern:   "", // Empty - should error
-		Verbose:   false,
-	}
-
-	_, err := ApplyPolicy(policy)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must not be empty")
 }
 
 // TestListBackups tests the ListBackups function
@@ -356,7 +322,7 @@ func TestListBackups(t *testing.T) {
 	require.NoError(t, err)
 
 	// List backups
-	backups, err := ListBackups(tempDir, "backup_*.tar.gz.gpg")
+	backups, err := ListBackups(tempDir)
 	require.NoError(t, err)
 	assert.Equal(t, 3, len(backups), "should find 3 backup files")
 
@@ -373,19 +339,9 @@ func TestListBackups(t *testing.T) {
 func TestListBackups_EmptyDirectory(t *testing.T) {
 	tempDir := t.TempDir()
 
-	backups, err := ListBackups(tempDir, "backup_*.tar.gz.gpg")
+	backups, err := ListBackups(tempDir)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(backups), "should find 0 backups in empty directory")
-}
-
-// TestListBackups_DefaultPattern tests that default pattern is used when empty
-func TestListBackups_EmptyPatternError(t *testing.T) {
-	tempDir := t.TempDir()
-
-	// Empty pattern should error rather than silently defaulting
-	_, err := ListBackups(tempDir, "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must not be empty")
 }
 
 // TestApplyPolicy_DryRun tests that dry-run mode doesn't delete files
@@ -418,7 +374,6 @@ func TestApplyPolicy_DryRun(t *testing.T) {
 	policy := Policy{
 		KeepLast:  2,
 		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
 		Verbose:   false,
 		DryRun:    true,
 	}
@@ -478,7 +433,6 @@ func TestApplyPolicy_DeletesManifestFiles(t *testing.T) {
 	policy := Policy{
 		KeepLast:  1,
 		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
 		Verbose:   false,
 	}
 
@@ -527,11 +481,10 @@ func TestApplyPolicy_DryRun_ReportsManifests(t *testing.T) {
 
 	// Keep 1, dry-run
 	policy := Policy{
-		KeepLast:  1,
-		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
-		DryRun:    true,
+		KeepLast: 1,
+		DryRun:   true,
 	}
+	policy.BackupDir = tempDir
 
 	count, err := ApplyPolicy(policy)
 	require.NoError(t, err)
@@ -567,7 +520,6 @@ func TestApplyPolicy_KeepMoreThanExist(t *testing.T) {
 	policy := Policy{
 		KeepLast:  10,
 		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
 		Verbose:   false,
 	}
 
@@ -609,7 +561,6 @@ func TestApplyPolicy_KeepOne(t *testing.T) {
 	policy := Policy{
 		KeepLast:  1,
 		BackupDir: tempDir,
-		Pattern:   "backup_*.tar.gz.gpg",
 		Verbose:   false,
 	}
 
@@ -626,4 +577,83 @@ func TestApplyPolicy_KeepOne(t *testing.T) {
 		_, err := os.Stat(filepath.Join(tempDir, f.name))
 		assert.True(t, os.IsNotExist(err), "file %s should be deleted", f.name)
 	}
+}
+
+// TestApplyPolicy_MixedExtensions tests that retention counts ALL valid backup
+// extensions together (the core fix for issue #43).
+func TestApplyPolicy_MixedExtensions(t *testing.T) {
+	tempDir := t.TempDir()
+	now := time.Now()
+
+	// Create backups with different compression/encryption combos
+	allFiles := []struct {
+		name string
+		age  time.Duration
+	}{
+		{"backup_data_20240207_120000.tar.gz.gpg", 1 * time.Hour},      // newest — keep
+		{"backup_data_20240207_110000.tar.gpg", 2 * time.Hour},         // 2nd — keep
+		{"backup_data_20240206_120000.tar.gz.age", 24 * time.Hour},     // 3rd — delete
+		{"backup_data_20240205_120000.tar.age", 48 * time.Hour},        // 4th — delete
+		{"backup_data_20240201_120000.tar.gz.gpg", 7 * 24 * time.Hour}, // 5th — delete
+	}
+
+	for _, f := range allFiles {
+		path := filepath.Join(tempDir, f.name)
+		require.NoError(t, os.WriteFile(path, []byte("fake backup"), 0644))
+		modTime := now.Add(-f.age)
+		require.NoError(t, os.Chtimes(path, modTime, modTime))
+	}
+
+	// Also create a non-backup file (should be ignored)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tempDir, "backup_data_20240207_120000_manifest.json"),
+		[]byte("{}"), 0644))
+
+	// Keep 2 — should keep the 2 newest regardless of their extension
+	policy := Policy{
+		KeepLast:  2,
+		BackupDir: tempDir,
+		Verbose:   false,
+	}
+
+	count, err := ApplyPolicy(policy)
+	require.NoError(t, err)
+	assert.Equal(t, 3, count, "should delete 3 oldest backups across all extensions")
+
+	// Verify 2 newest are kept
+	for _, f := range allFiles[:2] {
+		_, err := os.Stat(filepath.Join(tempDir, f.name))
+		assert.NoError(t, err, "file %s should be kept", f.name)
+	}
+
+	// Verify 3 oldest are deleted
+	for _, f := range allFiles[2:] {
+		_, err := os.Stat(filepath.Join(tempDir, f.name))
+		assert.True(t, os.IsNotExist(err), "file %s should be deleted", f.name)
+	}
+}
+
+// TestListBackups_MixedExtensions tests that ListBackups finds all valid backup types
+func TestListBackups_MixedExtensions(t *testing.T) {
+	tempDir := t.TempDir()
+
+	files := []string{
+		"backup_test1_20240207_120000.tar.gz.gpg",
+		"backup_test2_20240206_120000.tar.gpg",
+		"backup_test3_20240205_120000.tar.age",
+		"backup_test4_20240204_120000.tar.gz.age",
+	}
+
+	for _, name := range files {
+		path := filepath.Join(tempDir, name)
+		require.NoError(t, os.WriteFile(path, []byte("backup"), 0644))
+	}
+
+	// Also create non-backup files (should be ignored)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "other.txt"), []byte("x"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "backup_manifest.json"), []byte("{}"), 0644))
+
+	backups, err := ListBackups(tempDir)
+	require.NoError(t, err)
+	assert.Equal(t, 4, len(backups), "should find all 4 backup files regardless of extension")
 }
