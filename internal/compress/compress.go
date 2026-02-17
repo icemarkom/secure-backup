@@ -19,6 +19,7 @@ package compress
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -28,11 +29,14 @@ type Method int
 const (
 	// Gzip is the gzip compression method (using pgzip for parallelism).
 	Gzip Method = iota
+	// None disables compression (passthrough).
+	None
 )
 
 // String names for compression methods, used in CLI flags and user-facing output.
 const (
 	MethodGzip = "gzip"
+	MethodNone = "none"
 )
 
 // String returns the lowercase name of the compression method.
@@ -40,6 +44,8 @@ func (m Method) String() string {
 	switch m {
 	case Gzip:
 		return MethodGzip
+	case None:
+		return MethodNone
 	default:
 		return fmt.Sprintf("unknown(%d)", int(m))
 	}
@@ -47,7 +53,7 @@ func (m Method) String() string {
 
 // ValidMethods returns all supported compression methods.
 func ValidMethods() []Method {
-	return []Method{Gzip}
+	return []Method{Gzip, None}
 }
 
 // ValidMethodNames returns a comma-separated string of valid method names.
@@ -61,14 +67,60 @@ func ValidMethodNames() string {
 	return strings.Join(names, ", ")
 }
 
+// parseMap maps lowercase method name → Method, built at init from ValidMethods().
+var parseMap map[string]Method
+
+// resolvePattern maps a ".tar{ext}." substring to a compression Method.
+type resolvePattern struct {
+	pattern string
+	method  Method
+}
+
+// resolvePatterns is the set of filename patterns for detecting compression,
+// built at init from ValidMethods(). Sorted longest-first for correct matching
+// (e.g., ".tar.gz." matches before ".tar.").
+var resolvePatterns []resolvePattern
+
+func init() {
+	parseMap = make(map[string]Method)
+	for _, m := range ValidMethods() {
+		// Build parse map: method name → Method
+		parseMap[m.String()] = m
+
+		// Build resolve patterns: ".tar{ext}." → Method
+		comp, err := NewCompressor(Config{Method: m})
+		if err != nil {
+			continue
+		}
+		resolvePatterns = append(resolvePatterns, resolvePattern{
+			pattern: fmt.Sprintf(".tar%s.", comp.Extension()),
+			method:  m,
+		})
+	}
+	// Sort longest-first: more-specific patterns must match before shorter ones
+	sort.Slice(resolvePatterns, func(i, j int) bool {
+		return len(resolvePatterns[i].pattern) > len(resolvePatterns[j].pattern)
+	})
+}
+
 // ParseMethod converts a string to a Method. Returns an error for unknown methods.
 func ParseMethod(s string) (Method, error) {
-	switch strings.ToLower(s) {
-	case MethodGzip:
-		return Gzip, nil
-	default:
-		return 0, fmt.Errorf("unknown compression method: %s", s)
+	if m, ok := parseMap[strings.ToLower(s)]; ok {
+		return m, nil
 	}
+	return 0, fmt.Errorf("unknown compression method: %s", s)
+}
+
+// ResolveMethod detects the compression method from a backup filename.
+// It matches ".tar{ext}." patterns built from all supported compressor extensions.
+func ResolveMethod(filename string) (Method, error) {
+	lower := strings.ToLower(filename)
+	for _, rp := range resolvePatterns {
+		if strings.Contains(lower, rp.pattern) {
+			return rp.method, nil
+		}
+	}
+	return 0, fmt.Errorf("cannot detect compression method from filename: %s", filename)
 }
 
 // Compressor defines the interface for compression/decompression operations
@@ -97,6 +149,8 @@ func NewCompressor(cfg Config) (Compressor, error) {
 	switch cfg.Method {
 	case Gzip:
 		return NewGzipCompressor(cfg.Level)
+	case None:
+		return NewNoneCompressor(), nil
 	default:
 		return nil, fmt.Errorf("unknown compression method: %s", cfg.Method)
 	}

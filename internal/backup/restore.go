@@ -155,9 +155,11 @@ func dryRunRestore(cfg RestoreConfig) error {
 	fmt.Printf("[DRY RUN]   Destination: %s\n", cfg.DestPath)
 	fmt.Println("[DRY RUN]")
 	fmt.Println("[DRY RUN] Pipeline stages that would execute:")
-	fmt.Println("[DRY RUN]   1. DECRYPT - Decrypt backup file with GPG")
-	fmt.Println("[DRY RUN]   2. DECOMPRESS - Decompress with gzip")
-	fmt.Println("[DRY RUN]   3. EXTRACT - Extract tar archive to destination")
+	fmt.Printf("[DRY RUN]   - DECRYPT - Decrypt backup file with %s\n", cfg.Encryptor.Type())
+	if cfg.Compressor.Type() != compress.None {
+		fmt.Printf("[DRY RUN]   - DECOMPRESS - Decompress with %s\n", cfg.Compressor.Type())
+	}
+	fmt.Println("[DRY RUN]   - EXTRACT - Extract tar archive to destination")
 
 	return nil
 }

@@ -146,8 +146,28 @@ func TestIsBackupFile(t *testing.T) {
 			want:     false,
 		},
 		{
-			name:     "wrong extension",
+			name:     "no compression gpg",
 			filename: "backup_20240207_183000.tar.gpg",
+			want:     true,
+		},
+		{
+			name:     "no compression age",
+			filename: "backup_20240207_183000.tar.age",
+			want:     true,
+		},
+		{
+			name:     "gzip age",
+			filename: "backup_20240207_183000.tar.gz.age",
+			want:     true,
+		},
+		{
+			name:     "unimplemented compression",
+			filename: "backup_20240207_183000.tar.zst.gpg",
+			want:     false,
+		},
+		{
+			name:     "wrong extension",
+			filename: "backup_20240207_183000.tar.bz2.gpg",
 			want:     false,
 		},
 	}
@@ -289,25 +309,17 @@ func TestApplyPolicy_DefaultPattern(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Apply policy with empty pattern (should use default), keep 1
+	// Apply policy with empty pattern (should error)
 	policy := Policy{
 		KeepLast:  1,
 		BackupDir: tempDir,
-		Pattern:   "", // Empty - should use default
+		Pattern:   "", // Empty - should error
 		Verbose:   false,
 	}
 
-	count, err := ApplyPolicy(policy)
-	require.NoError(t, err)
-	assert.Equal(t, 1, count, "should delete 1 file using default pattern")
-
-	// Verify newer file was kept
-	_, err = os.Stat(filepath.Join(tempDir, files[1]))
-	assert.NoError(t, err, "newer file should be kept")
-
-	// Verify older file was deleted
-	_, err = os.Stat(filepath.Join(tempDir, files[0]))
-	assert.True(t, os.IsNotExist(err), "older file should be deleted")
+	_, err := ApplyPolicy(policy)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be empty")
 }
 
 // TestListBackups tests the ListBackups function
@@ -367,18 +379,13 @@ func TestListBackups_EmptyDirectory(t *testing.T) {
 }
 
 // TestListBackups_DefaultPattern tests that default pattern is used when empty
-func TestListBackups_DefaultPattern(t *testing.T) {
+func TestListBackups_EmptyPatternError(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Create a backup file
-	backupFile := filepath.Join(tempDir, "backup_test_20240207_120000.tar.gz.gpg")
-	err := os.WriteFile(backupFile, []byte("backup"), 0644)
-	require.NoError(t, err)
-
-	// List with empty pattern (should use default)
-	backups, err := ListBackups(tempDir, "")
-	require.NoError(t, err)
-	assert.Equal(t, 1, len(backups), "should find 1 backup using default pattern")
+	// Empty pattern should error rather than silently defaulting
+	_, err := ListBackups(tempDir, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be empty")
 }
 
 // TestApplyPolicy_DryRun tests that dry-run mode doesn't delete files

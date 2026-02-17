@@ -42,6 +42,7 @@ var (
 	backupVerbose      bool
 	backupDryRun       bool
 	backupEncryption   string
+	backupCompression  string
 	backupRetention    int
 	backupSkipManifest bool
 	backupFileMode     string
@@ -77,6 +78,7 @@ Encryption methods:
 	backupCmd.Flags().StringVar(&backupRecipient, "recipient", "", "GPG recipient email or key ID")
 	backupCmd.Flags().StringVar(&backupPublicKey, "public-key", "", fmt.Sprintf("Public key: GPG key file path (--encryption %s) or AGE recipient string (--encryption %s)", encrypt.MethodGPG, encrypt.MethodAGE))
 	backupCmd.Flags().StringVar(&backupEncryption, "encryption", encrypt.MethodGPG, fmt.Sprintf("Encryption method: %s (default: %s)", encrypt.ValidMethodNames(), encrypt.MethodGPG))
+	backupCmd.Flags().StringVar(&backupCompression, "compression", compress.MethodGzip, fmt.Sprintf("Compression method: %s (default: %s)", compress.ValidMethodNames(), compress.MethodGzip))
 	backupCmd.Flags().IntVar(&backupRetention, "retention", retention.DefaultKeepLast, "Number of backups to keep (0 = keep all)")
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
 	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "Preview backup without executing")
@@ -101,10 +103,16 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		defer lock.Release(lockPath) // Always release on exit
 	}
 
-	// Create compressor (gzip by default)
+	// Parse compression method
+	compMethod, err := compress.ParseMethod(backupCompression)
+	if err != nil {
+		return err
+	}
+
+	// Create compressor
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: compress.Gzip,
-		Level:  0, // Use default (level 6)
+		Method: compMethod,
+		Level:  0, // Use default (level 6 for gzip, ignored for none)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create compressor: %w", err)
@@ -161,7 +169,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// Generate manifest by default (unless dry-run or skip-manifest)
 	if !backupDryRun && !backupSkipManifest {
-		if err := generateManifest(outputPath, backupSource, backupVerbose, fileMode); err != nil {
+		if err := generateManifest(outputPath, backupSource, backupVerbose, fileMode, compMethod.String(), encMethod.String()); err != nil {
 			// Warn but don't fail the backup
 			fmt.Fprintf(os.Stderr, "Warning: Failed to create manifest: %v\n", err)
 		}
@@ -171,16 +179,8 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// Apply retention policy if specified
 	if backupRetention > 0 {
-		// Match file extension to encryption method
-		var retentionPattern string
-		switch encMethod {
-		case encrypt.GPG:
-			retentionPattern = "backup_*.tar.gz.gpg"
-		case encrypt.AGE:
-			retentionPattern = "backup_*.tar.gz.age"
-		default:
-			return fmt.Errorf("unexpected encryption method for retention: %s", encMethod)
-		}
+		// Build retention pattern dynamically from compression + encryption
+		retentionPattern := fmt.Sprintf("backup_*.tar%s.%s", compressor.Extension(), encMethod.Extension())
 
 		retentionPolicy := retention.Policy{
 			KeepLast:  backupRetention,
@@ -201,9 +201,9 @@ func runBackup(cmd *cobra.Command, args []string) error {
 }
 
 // generateManifest creates a manifest file for the backup
-func generateManifest(backupPath, sourcePath string, verbose bool, fileMode *os.FileMode) error {
+func generateManifest(backupPath, sourcePath string, verbose bool, fileMode *os.FileMode, compressionName, encryptionName string) error {
 	// Create manifest
-	m, err := manifest.New(sourcePath, filepath.Base(backupPath), GetVersion())
+	m, err := manifest.New(sourcePath, filepath.Base(backupPath), GetVersion(), compressionName, encryptionName)
 	if err != nil {
 		return fmt.Errorf("failed to create manifest: %w", err)
 	}

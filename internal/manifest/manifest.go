@@ -23,18 +23,36 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/compress"
+	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/progress"
 )
 
-// knownBackupExtensions lists all recognized backup file extensions.
-// Order matters: longer/more-specific extensions should come first.
-var knownBackupExtensions = []string{
-	".tar.gz.gpg",
-	".tar.zst.gpg",
-	".tar.gz.age",
+// knownBackupExtensions lists all recognized backup file extensions,
+// built dynamically from supported compression and encryption methods.
+// Sorted longest-first so more-specific extensions match before shorter ones.
+var knownBackupExtensions []string
+
+func init() {
+	for _, c := range compress.ValidMethods() {
+		comp, err := compress.NewCompressor(compress.Config{Method: c})
+		if err != nil {
+			continue
+		}
+		for _, e := range encrypt.ValidMethods() {
+			knownBackupExtensions = append(knownBackupExtensions,
+				fmt.Sprintf(".tar%s.%s", comp.Extension(), e.Extension()))
+		}
+	}
+	// Sort longest-first: more-specific extensions must match before shorter ones
+	// (e.g., ".tar.gz.gpg" before ".tar.gpg")
+	sort.Slice(knownBackupExtensions, func(i, j int) bool {
+		return len(knownBackupExtensions[i]) > len(knownBackupExtensions[j])
+	})
 }
 
 // ManifestPath returns the manifest file path for a given backup file path.
@@ -71,7 +89,7 @@ type CreatedBy struct {
 }
 
 // New creates a new manifest with the given parameters
-func New(sourcePath, backupFile, version string) (*Manifest, error) {
+func New(sourcePath, backupFile, version, compression, encryption string) (*Manifest, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// Graceful fallback
@@ -82,8 +100,8 @@ func New(sourcePath, backupFile, version string) (*Manifest, error) {
 		CreatedAt:         time.Now().UTC(),
 		SourcePath:        sourcePath,
 		BackupFile:        backupFile,
-		Compression:       "gzip",
-		Encryption:        "gpg",
+		Compression:       compression,
+		Encryption:        encryption,
 		ChecksumAlgorithm: "sha256",
 		ChecksumValue:     "", // Set later via ComputeChecksum
 		SizeBytes:         0,  // Set later

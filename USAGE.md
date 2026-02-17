@@ -6,6 +6,8 @@ Comprehensive documentation for using secure-backup to create secure, encrypted 
 
 - [Output Behavior](#output-behavior)
 - [Prerequisites](#prerequisites)
+- [Encryption Methods](#encryption-methods)
+- [Compression Methods](#compression-methods)
 - [Commands Reference](#commands-reference)
 - [Common Use Cases](#common-use-cases)
 - [GPG Key Management](#gpg-key-management)
@@ -66,9 +68,13 @@ Found 3 backup(s) in /backups:
 
 ## Prerequisites
 
-### GPG Keys
+### Encryption Keys
 
-You need GPG keys for encryption. If you don't have them:
+secure-backup supports **GPG** (default) and **AGE** encryption.
+
+#### GPG Keys
+
+You need GPG keys for GPG encryption. If you don't have them:
 
 ```bash
 # Generate a new key pair
@@ -82,7 +88,7 @@ gpg --gen-key
 # - Set a strong passphrase
 ```
 
-### Export Your Keys
+### Export Your GPG Keys
 
 ```bash
 # Export public key (for backups)
@@ -94,6 +100,36 @@ gpg --export-secret-keys your@email.com > ~/.gnupg/backup-priv.asc
 # Secure the private key
 chmod 600 ~/.gnupg/backup-priv.asc
 ```
+
+#### AGE Keys
+
+```bash
+# Install age: https://github.com/FiloSottile/age
+# Generate a new key pair
+age-keygen -o key.txt
+
+# The public key (recipient, starts with age1...) is printed to stdout
+# The private key (identity) is saved to key.txt
+chmod 600 key.txt
+```
+
+## Encryption Methods
+
+| Method | Flag | `--public-key` | `--private-key` | Passphrase |
+|--------|------|----------------|-----------------|------------|
+| **GPG** (default) | `--encryption gpg` | File path to exported key | File path to exported key | Supported |
+| **AGE** | `--encryption age` | Recipient string (`age1...`) | File path to identity | Not needed |
+
+> **Note:** Restore and verify auto-detect the encryption method from the file extension (`.gpg` or `.age`).
+
+## Compression Methods
+
+| Method | Flag | Extension | Use Case |
+|--------|------|-----------|----------|
+| **gzip** (default) | `--compression gzip` | `.tar.gz.gpg` | General purpose, 60-80% size reduction |
+| **none** | `--compression none` | `.tar.gpg` | Pre-compressed data (media, archives) |
+
+> **Note:** Restore and verify auto-detect the compression method from the file extension (`.tar.gz.*` or `.tar.*`). No `--compression` flag needed.
 
 ## Commands Reference
 
@@ -107,8 +143,9 @@ secure-backup backup [flags]
 **Flags:**
 - `--source` (required): Directory to backup
 - `--dest` (required): Where to save backup files
-- `--public-key` (required): Path to GPG public key
-- `--encryption`: Encryption method (default: "gpg")
+- `--public-key` (required): GPG key file path or AGE recipient string
+- `--encryption`: Encryption method: `gpg` (default) or `age`
+- `--compression`: Compression method: `gzip` (default) or `none`
 - `--retention`: Number of backups to keep (default: 0 = keep all)
 - `--skip-manifest`: Disable manifest generation (not recommended)
 - `--file-mode`: File permissions for backup and manifest files (default: `"default"`)
@@ -143,11 +180,25 @@ secure-backup backup --source /data --dest /backups --public-key key.asc --file-
 **Examples:**
 
 ```bash
-# Basic backup (silent)
+# Basic backup with GPG (silent)
 secure-backup backup \
   --source /home/user/documents \
   --dest /backups \
   --public-key ~/.gnupg/backup-pub.asc
+
+# Backup with AGE encryption
+secure-backup backup \
+  --source /home/user/documents \
+  --dest /backups \
+  --encryption age \
+  --public-key "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p"
+
+# Backup without compression (for pre-compressed data)
+secure-backup backup \
+  --source /data/media \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --compression none
 
 # Backup with verbose output, keep last 30 backups
 secure-backup backup \
@@ -156,12 +207,6 @@ secure-backup backup \
   --public-key ~/.gnupg/backup-pub.asc \
   --retention 30 \
   --verbose
-
-# Backup system configuration
-sudo secure-backup backup \
-  --source /etc \
-  --dest /root/backups \
-  --public-key /root/.gnupg/backup-pub.asc
 
 # Preview backup before executing (dry-run)
 secure-backup backup \
@@ -174,10 +219,11 @@ secure-backup backup \
 
 **Output File Format:**
 ```
-backup_{dirname}_{timestamp}.tar.gz.gpg  # Encrypted backup
-backup_{dirname}_{timestamp}.json        # Manifest file
-Example: backup_documents_20260207_165324.tar.gz.gpg
-         backup_documents_20260207_165324.json
+backup_{dirname}_{timestamp}.tar.gz.gpg   # GPG + gzip (default)
+backup_{dirname}_{timestamp}.tar.gz.age   # AGE + gzip
+backup_{dirname}_{timestamp}.tar.gpg      # GPG + none
+backup_{dirname}_{timestamp}.tar.age      # AGE + none
+backup_{dirname}_{timestamp}_manifest.json  # Manifest file
 ```
 
 #### Manifest Files
@@ -221,7 +267,8 @@ secure-backup restore [flags]
 **Flags:**
 - `--file` (required): Backup file to restore
 - `--dest` (required): Where to extract files
-- `--private-key` (required): Path to GPG private key
+- `--private-key` (required): GPG private key file path or AGE identity file path
+- `--encryption`: Encryption method (auto-detected from file extension if omitted)
 - `--passphrase`: GPG key passphrase (INSECURE - visible in process lists)
 - `--passphrase-file`: Path to file containing GPG key passphrase (secure)
 - `--force`: Allow restore to non-empty directory (prevents accidental data loss)
@@ -328,7 +375,8 @@ secure-backup verify [flags]
 **Flags:**
 - `--file` (required): Backup file to verify
 - `--quick`: Fast check (header validation only)
-- `--private-key`: GPG private key (required for full verify)
+- `--private-key`: GPG private key or AGE identity file (required for full verify)
+- `--encryption`: Encryption method (auto-detected from file extension if omitted)
 - `--passphrase`: GPG key passphrase (INSECURE - visible in process lists)
 - `--passphrase-file`: Path to file containing GPG key passphrase (secure)
 - `--verbose, -v`: Show detailed output
@@ -590,8 +638,8 @@ Each backup creates two files:
 
 | File | Purpose | Required |
 |------|---------|----------|
-| `backup_*.tar.gz.gpg` | Encrypted backup data | Yes |
-| `backup_*.json` | Manifest with checksum | Recommended |
+| `backup_*.tar.gz.gpg` / `.tar.gz.age` / `.tar.gpg` / `.tar.age` | Encrypted backup data | Yes |
+| `backup_*_manifest.json` | Manifest with checksum | Recommended |
 
 **Both files should be kept together** for optimal reliability.
 

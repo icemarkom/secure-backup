@@ -30,6 +30,7 @@ func TestMethod_String(t *testing.T) {
 		want   string
 	}{
 		{"Gzip", Gzip, "gzip"},
+		{"None", None, "none"},
 		{"unknown", Method(99), "unknown(99)"},
 	}
 
@@ -48,8 +49,11 @@ func TestParseMethod(t *testing.T) {
 		wantErr bool
 	}{
 		{"gzip lowercase", "gzip", Gzip, false},
+		{"none lowercase", "none", None, false},
 		{"GZIP uppercase", "GZIP", Gzip, false},
+		{"NONE uppercase", "NONE", None, false},
 		{"Gzip mixed case", "Gzip", Gzip, false},
+		{"None mixed case", "None", None, false},
 		{"unknown method", "bzip2", Method(0), true},
 		{"empty string", "", Method(0), true},
 	}
@@ -70,14 +74,16 @@ func TestParseMethod(t *testing.T) {
 
 func TestValidMethods(t *testing.T) {
 	methods := ValidMethods()
-	assert.Len(t, methods, 1)
+	assert.Len(t, methods, 2)
 	assert.Contains(t, methods, Gzip)
+	assert.Contains(t, methods, None)
 }
 
 func TestValidMethodNames(t *testing.T) {
 	names := ValidMethodNames()
 	assert.Contains(t, names, MethodGzip)
-	assert.Equal(t, "gzip", names)
+	assert.Contains(t, names, MethodNone)
+	assert.Equal(t, "gzip, none", names)
 }
 
 func TestGzipCompressor_Type(t *testing.T) {
@@ -90,4 +96,35 @@ func TestNewCompressor_UnknownMethod(t *testing.T) {
 	_, err := NewCompressor(Config{Method: Method(99)})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown compression method")
+}
+
+func TestResolveMethod(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		want     Method
+		wantErr  bool
+	}{
+		{"gzip gpg", "backup_test_20260101_120000.tar.gz.gpg", Gzip, false},
+		{"gzip age", "backup_test_20260101_120000.tar.gz.age", Gzip, false},
+		{"none gpg", "backup_test_20260101_120000.tar.gpg", None, false},
+		{"none age", "backup_test_20260101_120000.tar.age", None, false},
+		{"full path gzip", "/backups/daily/backup_data.tar.gz.gpg", Gzip, false},
+		{"full path none", "/backups/daily/backup_data.tar.gpg", None, false},
+		{"unknown extension", "backup.zip", Method(0), true},
+		{"no extension", "backup", Method(0), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ResolveMethod(tt.filename)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "cannot detect compression method")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
 }

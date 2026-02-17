@@ -233,10 +233,12 @@ func dryRunBackup(cfg Config) (string, error) {
 	fmt.Printf("[DRY RUN]   Encryption: %s\n", encType)
 	fmt.Println("[DRY RUN]")
 	fmt.Println("[DRY RUN] Pipeline stages that would execute:")
-	fmt.Println("[DRY RUN]   1. TAR - Archive source directory")
-	fmt.Printf("[DRY RUN]   2. COMPRESS - Compress with %s\n", cfg.Compressor.Type())
-	fmt.Printf("[DRY RUN]   3. ENCRYPT - Encrypt with %s\n", encType)
-	fmt.Println("[DRY RUN]   4. WRITE - Write to destination file")
+	fmt.Println("[DRY RUN]   - TAR - Archive source directory")
+	if cfg.Compressor.Type() != compress.None {
+		fmt.Printf("[DRY RUN]   - COMPRESS - Compress with %s\n", cfg.Compressor.Type())
+	}
+	fmt.Printf("[DRY RUN]   - ENCRYPT - Encrypt with %s\n", encType)
+	fmt.Println("[DRY RUN]   - WRITE - Write to destination file")
 
 	return outputPath, nil
 }

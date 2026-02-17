@@ -182,9 +182,11 @@ func dryRunVerify(cfg VerifyConfig) error {
 		fmt.Printf("[DRY RUN]   Mode: Full verification (decrypt + decompress)\n")
 		fmt.Println("[DRY RUN]")
 		fmt.Println("[DRY RUN] Full verification would:")
-		fmt.Println("[DRY RUN]   1. DECRYPT - Decrypt with GPG")
-		fmt.Println("[DRY RUN]   2. DECOMPRESS - Decompress with gzip")
-		fmt.Println("[DRY RUN]   3. VERIFY - Read entire archive to verify integrity")
+		fmt.Printf("[DRY RUN]   - DECRYPT - Decrypt with %s\n", cfg.Encryptor.Type())
+		if cfg.Compressor.Type() != compress.None {
+			fmt.Printf("[DRY RUN]   - DECOMPRESS - Decompress with %s\n", cfg.Compressor.Type())
+		}
+		fmt.Println("[DRY RUN]   - VERIFY - Read entire archive to verify integrity")
 	}
 
 	return nil

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/compress"
+	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 )
@@ -35,7 +37,7 @@ const DefaultKeepLast = 0
 type Policy struct {
 	KeepLast  int
 	BackupDir string
-	Pattern   string // File pattern to match (e.g., "backup_*.tar.gz.gpg")
+	Pattern   string // File glob pattern to match (e.g., "backup_*.tar.gz.gpg", "backup_*.tar.age")
 	Verbose   bool
 	DryRun    bool
 }
@@ -47,7 +49,7 @@ func ApplyPolicy(policy Policy) (int, error) {
 	}
 
 	if policy.Pattern == "" {
-		policy.Pattern = "backup_*.tar.gz.gpg"
+		return 0, fmt.Errorf("retention pattern must not be empty")
 	}
 
 	if policy.Verbose {
@@ -150,7 +152,7 @@ func ApplyPolicy(policy Policy) (int, error) {
 // ListBackups lists all backups in the directory with their age
 func ListBackups(backupDir string, pattern string) ([]BackupInfo, error) {
 	if pattern == "" {
-		pattern = "backup_*.tar.gz.gpg"
+		return nil, fmt.Errorf("backup pattern must not be empty")
 	}
 
 	fullPattern := filepath.Join(backupDir, pattern)
@@ -168,6 +170,11 @@ func ListBackups(backupDir string, pattern string) ([]BackupInfo, error) {
 		}
 
 		if fileInfo.IsDir() {
+			continue
+		}
+
+		// Only include files with recognized backup extensions
+		if !IsBackupFile(filepath.Base(file)) {
 			continue
 		}
 
@@ -192,10 +199,32 @@ type BackupInfo struct {
 	Age     time.Duration
 }
 
+// validBackupExtensions is the set of valid backup file suffixes, computed once
+// from the cross-product of supported compression and encryption methods.
+var validBackupExtensions []string
+
+func init() {
+	for _, c := range compress.ValidMethods() {
+		comp, err := compress.NewCompressor(compress.Config{Method: c})
+		if err != nil {
+			continue
+		}
+		for _, e := range encrypt.ValidMethods() {
+			validBackupExtensions = append(validBackupExtensions,
+				fmt.Sprintf(".tar%s.%s", comp.Extension(), e.Extension()))
+		}
+	}
+}
+
 // IsBackupFile checks if a filename matches the backup pattern
 func IsBackupFile(filename string) bool {
-	return strings.HasPrefix(filename, "backup_") &&
-		(strings.HasSuffix(filename, ".tar.gz.gpg") ||
-			strings.HasSuffix(filename, ".tar.zst.gpg") ||
-			strings.HasSuffix(filename, ".tar.gz.age"))
+	if !strings.HasPrefix(filename, "backup_") {
+		return false
+	}
+	for _, ext := range validBackupExtensions {
+		if strings.HasSuffix(filename, ext) {
+			return true
+		}
+	}
+	return false
 }
