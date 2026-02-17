@@ -17,8 +17,15 @@
 package common
 
 // IOBufferSize is the standard buffer size for all pipeline IO operations.
-// Benchmarked across 32KB–4MB; 1MiB chosen for reduced syscall overhead
-// on real disk IO while keeping memory usage trivial.
+// Benchmarked across 32KB–4MB; 1MiB chosen to align with library internals:
+//
+//	Library          Internal buffer
+//	pgzip (klauspost) 1 MiB blocks (defaultBlockSize = 1<<20)
+//	age (filippo.io)  64 KiB AEAD chunks (protocol-level, not tunable)
+//	OpenPGP (x/crypto) 1 KiB CFB blocks
+//
+// 1MiB matches pgzip's block size exactly, covers 16 age chunks per call,
+// and reduces syscall overhead ~32x vs Go's default 32KB.
 const IOBufferSize = 1024 * 1024 // 1 MiB
 
 // NewBuffer returns a new byte slice of IOBufferSize for use with io.CopyBuffer.
