@@ -15,7 +15,7 @@
 
 set -eu
 
-# ── Configuration ─────────────────────────────────────────────
+# -- Configuration --------------------------------------------
 SOURCES=(
   "/path/to/data1"
   "/path/to/data2"
@@ -26,7 +26,7 @@ ENCRYPTION="age"
 PUBLIC_KEY="age1yourpublickeyhere"
 RETENTION=7
 LOG="/var/log/secure-backup.log"
-# ──────────────────────────────────────────────────────────────
+# --------------------------------------------------------------
 
 SECURE_BACKUP="/usr/bin/secure-backup"
 FAILED=0
