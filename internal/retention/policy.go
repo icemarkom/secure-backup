@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 )
 
@@ -95,7 +95,7 @@ func ApplyPolicy(policy Policy) (int, error) {
 
 		if policy.DryRun {
 			fmt.Printf("[DRY RUN] Would delete: %s (age: %s)\n",
-				filepath.Base(file), format.Age(age))
+				filepath.Base(file), common.Age(age))
 			// Check for associated manifest
 			manifestPath := manifest.ManifestPath(file)
 			if _, err := os.Stat(manifestPath); err == nil {
@@ -109,7 +109,7 @@ func ApplyPolicy(policy Policy) (int, error) {
 		if policy.Verbose {
 			fmt.Printf("Deleting old backup: %s (age: %s)\n",
 				filepath.Base(file),
-				format.Age(age))
+				common.Age(age))
 		}
 
 		if err := os.Remove(file); err != nil {

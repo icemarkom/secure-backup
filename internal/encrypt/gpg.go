@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/icemarkom/secure-backup/internal/common"
 	"golang.org/x/crypto/openpgp"
 )
 
@@ -64,7 +65,7 @@ func (e *GPGEncryptor) Encrypt(plaintext io.Reader) (io.Reader, error) {
 		defer encWriter.Close()
 
 		// Copy plaintext to encrypted writer
-		if _, err := io.Copy(encWriter, plaintext); err != nil {
+		if _, err := io.CopyBuffer(encWriter, plaintext, common.NewBuffer()); err != nil {
 			pw.CloseWithError(fmt.Errorf("encryption failed: %w", err))
 			return
 		}

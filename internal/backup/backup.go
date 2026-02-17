@@ -26,18 +26,17 @@ import (
 	"time"
 
 	"github.com/icemarkom/secure-backup/internal/archive"
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/errors"
-	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/progress"
 	"golang.org/x/sync/errgroup"
 )
 
-// pipeBufferSize is the buffer size for inter-stage pipeline pipes.
+// pipeBufferSize uses the shared IO buffer size for inter-stage pipeline pipes.
 // Larger buffers let pipeline stages work more independently, reducing
 // goroutine contention from zero-buffered io.Pipe().
-const pipeBufferSize = 1024 * 1024 // 1 MB
+const pipeBufferSize = common.IOBufferSize
 
 // Config holds configuration for backup operations
 type Config struct {
@@ -61,10 +60,10 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	_, err := os.Stat(cfg.SourcePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", errors.MissingFile(cfg.SourcePath,
+			return "", common.MissingFile(cfg.SourcePath,
 				"Check that the path exists and you have permission to read it")
 		}
-		return "", errors.Wrap(err, fmt.Sprintf("Cannot access source: %s", cfg.SourcePath),
+		return "", common.Wrap(err, fmt.Sprintf("Cannot access source: %s", cfg.SourcePath),
 			"Verify the path and check file permissions")
 	}
 
@@ -85,7 +84,7 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	tmpPath := outputPath + ".tmp"
 
 	if cfg.Verbose {
-		fmt.Printf("Starting backup of %s (%s)\n", cfg.SourcePath, format.Size(getDirectorySize(cfg.SourcePath)))
+		fmt.Printf("Starting backup of %s (%s)\n", cfg.SourcePath, common.Size(getDirectorySize(cfg.SourcePath)))
 		fmt.Printf("Destination: %s\n", outputPath)
 	}
 
@@ -129,7 +128,7 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	if cfg.Verbose {
 		fmt.Printf("Backup completed successfully: %s\n", outputPath)
 		if finalInfo != nil {
-			fmt.Printf("Backup size: %s\n", format.Size(finalInfo.Size()))
+			fmt.Printf("Backup size: %s\n", common.Size(finalInfo.Size()))
 		}
 	}
 
@@ -179,7 +178,7 @@ func executePipeline(ctx context.Context, cfg Config, output io.Writer) error {
 
 	// Step 4: Write encrypted stream to output file
 	// This will capture errors from compress/encrypt goroutines via pipe errors
-	if _, err := io.Copy(output, encryptPR); err != nil {
+	if _, err := io.CopyBuffer(output, encryptPR, common.NewBuffer()); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 	pr.Finish()
@@ -227,7 +226,7 @@ func dryRunBackup(cfg Config) (string, error) {
 
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Backup preview:")
-	fmt.Printf("[DRY RUN]   Source: %s (%s)\n", cfg.SourcePath, format.Size(sourceSize))
+	fmt.Printf("[DRY RUN]   Source: %s (%s)\n", cfg.SourcePath, common.Size(sourceSize))
 	fmt.Printf("[DRY RUN]   Destination: %s\n", outputPath)
 	fmt.Printf("[DRY RUN]   Compression: %s\n", cfg.Compressor.Type())
 	fmt.Printf("[DRY RUN]   Encryption: %s\n", encType)

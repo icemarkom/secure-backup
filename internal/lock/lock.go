@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/icemarkom/secure-backup/internal/errors"
+	"github.com/icemarkom/secure-backup/internal/common"
 )
 
 // LockInfo represents the contents of a lock file
@@ -86,14 +86,14 @@ func lockExistsError(lockPath string) error {
 	existingLock, readErr := Read(lockPath)
 	if readErr != nil {
 		// Lock file exists but we can't read it
-		return errors.New(
+		return common.New(
 			fmt.Sprintf("Backup already in progress (lock file exists: %s)", lockPath),
 			fmt.Sprintf("If the process is not running, manually remove the lock file with: rm %s", lockPath),
 		)
 	}
 
 	// Provide detailed error with PID and timestamp
-	return errors.New(
+	return common.New(
 		fmt.Sprintf("Backup already in progress (PID %d on %s, started %s)",
 			existingLock.PID,
 			existingLock.Hostname,

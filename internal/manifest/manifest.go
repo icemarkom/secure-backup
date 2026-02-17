@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
 	"github.com/icemarkom/secure-backup/internal/progress"
@@ -188,7 +189,7 @@ func ComputeChecksum(filePath string) (string, error) {
 	defer f.Close()
 
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
+	if _, err := io.CopyBuffer(h, f, common.NewBuffer()); err != nil {
 		return "", fmt.Errorf("failed to compute checksum: %w", err)
 	}
 
@@ -226,7 +227,7 @@ func ComputeChecksumProgress(filePath string, progressCfg progress.Config) (stri
 
 	pr := progress.NewReader(f, progressCfg)
 	h := sha256.New()
-	if _, err := io.Copy(h, pr); err != nil {
+	if _, err := io.CopyBuffer(h, pr, common.NewBuffer()); err != nil {
 		return "", fmt.Errorf("failed to compute checksum: %w", err)
 	}
 	pr.Finish()

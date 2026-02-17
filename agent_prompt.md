@@ -555,10 +555,9 @@ secure-backup/
 ├── internal/
 │   ├── archive/           # TAR operations
 │   ├── backup/            # Pipeline orchestration
+│   ├── common/            # Shared utilities (formatting, IO buffers, user errors)
 │   ├── compress/          # Compression (gzip, future: zstd)
 │   ├── encrypt/           # Encryption (GPG, future: age)
-│   ├── errors/            # User-friendly error handling
-│   ├── format/            # Shared formatting utilities (Size, Age)
 │   ├── lock/              # Backup locking (per-destination)
 │   ├── manifest/          # Backup metadata & integrity verification
 │   ├── passphrase/        # Secure passphrase handling (flag/env/file)
@@ -891,6 +890,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-16 | Retention pattern scope fix ([#43](https://github.com/icemarkom/secure-backup/issues/43)) | Retention `ApplyPolicy()` used a narrow extension-specific glob (e.g. `backup_*.tar.gz.gpg`), so switching compression/encryption orphaned old backups. Fix: broad `backup_*` glob + `IsBackupFile()` post-filtering. Removed `Pattern` from `Policy` struct. `ListBackups()` simplified to single-param (no pattern). 2 new tests: `TestApplyPolicy_MixedExtensions`, `TestListBackups_MixedExtensions`. |
 | 2026-02-16 | Filed embedded manifest issue ([#44](https://github.com/icemarkom/secure-backup/issues/44)) | Embed manifest JSON as first tar entry for durability. Sidecar remains for fast access. Future enhancement. |
 | 2026-02-16 | Filed manifest-first management issue ([#45](https://github.com/icemarkom/secure-backup/issues/45)) | Manifested backups as first-class citizens, non-manifested as orphans. Affects list, verify, retention. Future enhancement. |
+| 2026-02-16 | Standardized IO buffer size ([#47](https://github.com/icemarkom/secure-backup/issues/47)) | Created shared `IOBufferSize = 1 MiB` const. Replaced all pipeline `io.Copy` calls with `io.CopyBuffer(... common.NewBuffer())` across 8 files (11 call sites). Benchmarked 32KB–4MB; 1MiB chosen for syscall reduction on disk IO. |
+| 2026-02-16 | Consolidated helper packages ([#48](https://github.com/icemarkom/secure-backup/issues/48)) | Merged `internal/format`, `internal/ioutil`, `internal/errors` into `internal/common`. All shared utility functions (formatting, IO buffers, user-friendly errors) live in one package. `internal/progress` kept separate (external dep). **Ongoing: all new shared helpers go in `internal/common`.** |
 
 ---
 

@@ -14,7 +14,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package format
+// Package common provides shared utility functions for the secure-backup tool.
+package common
 
 import (
 	"fmt"

@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/passphrase"
 	"github.com/icemarkom/secure-backup/internal/progress"
@@ -99,7 +99,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	// Auto-detect compression method from backup filename
 	compMethod, err := compress.ResolveMethod(restoreFile)
 	if err != nil {
-		return errors.Wrap(err, "Failed to detect compression method",
+		return common.Wrap(err, "Failed to detect compression method",
 			"Check that the backup file has a recognized extension (.tar.gz.gpg, .tar.gpg, etc.)")
 	}
 
@@ -108,7 +108,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		Level:  0,
 	})
 	if err != nil {
-		return errors.Wrap(err, "Failed to initialize compressor",
+		return common.Wrap(err, "Failed to initialize compressor",
 			"This is an internal error - please report if it persists")
 	}
 
@@ -129,7 +129,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 			restorePassphraseFile,
 		)
 		if err != nil {
-			return errors.Wrap(err, "Failed to retrieve passphrase",
+			return common.Wrap(err, "Failed to retrieve passphrase",
 				"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
 		}
 	case encrypt.AGE:
@@ -156,7 +156,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		default:
 			hint = fmt.Sprintf("Unknown encryption method: %s", encryptionMethod)
 		}
-		return errors.Wrap(err, "Failed to initialize decryption", hint)
+		return common.Wrap(err, "Failed to initialize decryption", hint)
 	}
 
 	// Execute restore
@@ -184,14 +184,14 @@ func validateManifest(backupFile string, verbose bool) error {
 
 	m, err := manifest.Read(manifestPath)
 	if err != nil {
-		return errors.New(
+		return common.New(
 			fmt.Sprintf("Manifest not found: %s", manifestPath),
 			"Use --skip-manifest to restore without validation (not recommended for old backups)",
 		)
 	}
 
 	if err := m.Validate(); err != nil {
-		return errors.Wrap(err, "Invalid manifest file",
+		return common.Wrap(err, "Invalid manifest file",
 			"The manifest may be corrupted. Use --skip-manifest to bypass (not recommended)")
 	}
 
@@ -199,7 +199,7 @@ func validateManifest(backupFile string, verbose bool) error {
 		Description: "Validating checksum",
 		Enabled:     verbose,
 	}); err != nil {
-		return errors.New(
+		return common.New(
 			"Backup file checksum mismatch",
 			"File may be corrupted. Use --skip-manifest to bypass (not recommended)",
 		)
