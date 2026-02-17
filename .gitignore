@@ -1,6 +1,6 @@
 # Binaries
 backup-docker
-secure-backup
+/secure-backup
 *.exe
 
 # Test artifacts
