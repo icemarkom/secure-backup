@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/icemarkom/secure-backup/internal/common"
 )
 
 // CreateTar creates a tar archive from the source directory and writes to the provided writer
@@ -111,7 +113,7 @@ func CreateTar(sourcePath string, w io.Writer) error {
 			}
 			defer f.Close()
 
-			if _, err := io.Copy(tw, f); err != nil {
+			if _, err := io.CopyBuffer(tw, f, common.NewBuffer()); err != nil {
 				return fmt.Errorf("failed to write file data for %s: %w", file, err)
 			}
 		}
@@ -178,7 +180,7 @@ func ExtractTar(r io.Reader, destPath string) error {
 				return fmt.Errorf("failed to create file %s: %w", targetPath, err)
 			}
 
-			if _, err := io.Copy(outFile, tr); err != nil {
+			if _, err := io.CopyBuffer(outFile, tr, common.NewBuffer()); err != nil {
 				outFile.Close()
 				return fmt.Errorf("failed to write file %s: %w", targetPath, err)
 			}

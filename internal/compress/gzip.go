@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/icemarkom/secure-backup/internal/common"
 	gzip "github.com/klauspost/pgzip"
 )
 
@@ -58,7 +59,7 @@ func (c *GzipCompressor) Compress(input io.Reader) (io.Reader, error) {
 		}
 		defer gw.Close()
 
-		if _, err := io.Copy(gw, input); err != nil {
+		if _, err := io.CopyBuffer(gw, input, common.NewBuffer()); err != nil {
 			pw.CloseWithError(fmt.Errorf("compression failed: %w", err))
 			return
 		}
@@ -85,7 +86,7 @@ func (c *GzipCompressor) Decompress(input io.Reader) (io.Reader, error) {
 		defer pw.Close()
 		defer gr.Close()
 
-		if _, err := io.Copy(pw, gr); err != nil {
+		if _, err := io.CopyBuffer(pw, gr, common.NewBuffer()); err != nil {
 			pw.CloseWithError(fmt.Errorf("decompression failed: %w", err))
 			return
 		}

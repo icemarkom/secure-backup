@@ -24,9 +24,9 @@ import (
 	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/errors"
 	"github.com/icemarkom/secure-backup/internal/lock"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/progress"
@@ -142,7 +142,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		default:
 			hint = fmt.Sprintf("Unknown encryption method: %s", encMethod)
 		}
-		return errors.Wrap(err, "Failed to initialize encryption", hint)
+		return common.Wrap(err, "Failed to initialize encryption", hint)
 	}
 
 	// Parse file mode

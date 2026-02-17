@@ -23,6 +23,8 @@ import (
 	"strings"
 
 	"filippo.io/age"
+
+	"github.com/icemarkom/secure-backup/internal/common"
 )
 
 // AgeEncryptor implements the Encryptor interface using age encryption
@@ -66,7 +68,7 @@ func (e *AgeEncryptor) Encrypt(plaintext io.Reader) (io.Reader, error) {
 		}
 
 		// Copy plaintext to encrypted writer
-		if _, err := io.Copy(encWriter, plaintext); err != nil {
+		if _, err := io.CopyBuffer(encWriter, plaintext, common.NewBuffer()); err != nil {
 			pw.CloseWithError(fmt.Errorf("age encryption failed: %w", err))
 			return
 		}

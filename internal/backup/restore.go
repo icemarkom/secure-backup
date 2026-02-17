@@ -22,10 +22,9 @@ import (
 	"os"
 
 	"github.com/icemarkom/secure-backup/internal/archive"
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/errors"
-	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/progress"
 )
 
@@ -50,22 +49,22 @@ func PerformRestore(ctx context.Context, cfg RestoreConfig) error {
 	// Validate backup file exists
 	if _, err := os.Stat(cfg.BackupFile); err != nil {
 		if os.IsNotExist(err) {
-			return errors.MissingFile(cfg.BackupFile,
+			return common.MissingFile(cfg.BackupFile,
 				"Specify a valid backup file with --file")
 		}
-		return errors.Wrap(err, fmt.Sprintf("Cannot access backup file: %s", cfg.BackupFile),
+		return common.Wrap(err, fmt.Sprintf("Cannot access backup file: %s", cfg.BackupFile),
 			"Check file permissions")
 	}
 
 	// Check if destination directory is non-empty (safety check)
 	nonEmpty, err := isDirectoryNonEmpty(cfg.DestPath)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("Cannot check destination directory: %s", cfg.DestPath),
+		return common.Wrap(err, fmt.Sprintf("Cannot check destination directory: %s", cfg.DestPath),
 			"Check directory permissions")
 	}
 
 	if nonEmpty && !cfg.Force {
-		return errors.New(
+		return common.New(
 			fmt.Sprintf("Destination directory is not empty: %s", cfg.DestPath),
 			"Use --force to overwrite existing files (this will replace files with the same names)",
 		)
@@ -151,7 +150,7 @@ func dryRunRestore(cfg RestoreConfig) error {
 
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Restore preview:")
-	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, format.Size(fileInfo.Size()))
+	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, common.Size(fileInfo.Size()))
 	fmt.Printf("[DRY RUN]   Destination: %s\n", cfg.DestPath)
 	fmt.Println("[DRY RUN]")
 	fmt.Println("[DRY RUN] Pipeline stages that would execute:")

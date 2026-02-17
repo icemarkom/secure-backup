@@ -21,10 +21,9 @@ import (
 	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/errors"
-	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/passphrase"
 	"github.com/icemarkom/secure-backup/internal/progress"
@@ -87,7 +86,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	// Full verification requires --private-key; check early to avoid
 	// printing partial success (manifest/checksum) before an error.
 	if !verifyQuick && verifyPrivateKey == "" {
-		return errors.MissingRequired("--private-key",
+		return common.MissingRequired("--private-key",
 			"Full verification requires --private-key, or use --quick for header-only check")
 	}
 
@@ -121,7 +120,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	// Auto-detect compression method from backup filename
 	compMethod, err := compress.ResolveMethod(verifyFile)
 	if err != nil {
-		return errors.Wrap(err, "Failed to detect compression method",
+		return common.Wrap(err, "Failed to detect compression method",
 			"Check that the backup file has a recognized extension (.tar.gz.gpg, .tar.gpg, etc.)")
 	}
 
@@ -150,7 +149,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 			verifyPassphraseFile,
 		)
 		if err != nil {
-			return errors.Wrap(err, "Failed to retrieve passphrase",
+			return common.Wrap(err, "Failed to retrieve passphrase",
 				"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
 		}
 	case encrypt.AGE:
@@ -177,7 +176,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		default:
 			hint = fmt.Sprintf("Unknown encryption method: %s", encryptionMethod)
 		}
-		return errors.Wrap(err, "Failed to initialize decryption for verification", hint)
+		return common.Wrap(err, "Failed to initialize decryption for verification", hint)
 	}
 
 	// Execute full verification
@@ -204,7 +203,7 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 
 	m, err := manifest.Read(manifestPath)
 	if err != nil {
-		return nil, errors.New(
+		return nil, common.New(
 			fmt.Sprintf("Manifest not found: %s", manifestPath),
 			"Use --skip-manifest to verify without manifest",
 		)
@@ -214,7 +213,7 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 		Description: "Validating checksum",
 		Enabled:     verbose,
 	}); err != nil {
-		return nil, errors.New(
+		return nil, common.New(
 			"Backup file checksum mismatch",
 			"File may be corrupted",
 		)
@@ -228,7 +227,7 @@ func validateAndDisplayManifest(backupFile string, verbose bool) (*manifest.Mani
 			m.CreatedAt.Format("2006-01-02 15:04:05"),
 			m.CreatedBy.Tool, m.CreatedBy.Version, m.CreatedBy.Hostname)
 		fmt.Printf("Source:   %s\n", m.SourcePath)
-		fmt.Printf("Size:     %s\n", format.Size(m.SizeBytes))
+		fmt.Printf("Size:     %s\n", common.Size(m.SizeBytes))
 	}
 
 	return m, nil

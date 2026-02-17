@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/icemarkom/secure-backup/internal/format"
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/manifest"
 	"github.com/icemarkom/secure-backup/internal/retention"
 	"github.com/spf13/cobra"
@@ -68,8 +68,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s\n", backup.Name)
 		fmt.Printf("  Modified: %s (%s ago)\n",
 			backup.ModTime.Format("2006-01-02 15:04"),
-			format.Age(backup.Age))
-		fmt.Printf("  Size:     %s\n", format.Size(backup.Size))
+			common.Age(backup.Age))
+		fmt.Printf("  Size:     %s\n", common.Size(backup.Size))
 
 		// Try to read manifest
 		manifestPath := manifest.ManifestPath(backup.Path)

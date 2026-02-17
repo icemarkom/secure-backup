@@ -22,10 +22,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/icemarkom/secure-backup/internal/common"
 	"github.com/icemarkom/secure-backup/internal/compress"
 	"github.com/icemarkom/secure-backup/internal/encrypt"
-	"github.com/icemarkom/secure-backup/internal/errors"
-	"github.com/icemarkom/secure-backup/internal/format"
 	"github.com/icemarkom/secure-backup/internal/progress"
 )
 
@@ -50,15 +49,15 @@ func PerformVerify(ctx context.Context, cfg VerifyConfig) error {
 	fileInfo, err := os.Stat(cfg.BackupFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errors.MissingFile(cfg.BackupFile,
+			return common.MissingFile(cfg.BackupFile,
 				"Specify a valid backup file with --file")
 		}
-		return errors.Wrap(err, fmt.Sprintf("Cannot access backup file: %s", cfg.BackupFile),
+		return common.Wrap(err, fmt.Sprintf("Cannot access backup file: %s", cfg.BackupFile),
 			"Check file permissions")
 	}
 
 	if cfg.Verbose {
-		fmt.Printf("Verifying: %s (%s)\n", cfg.BackupFile, format.Size(fileInfo.Size()))
+		fmt.Printf("Verifying: %s (%s)\n", cfg.BackupFile, common.Size(fileInfo.Size()))
 	}
 
 	if cfg.Quick {
@@ -145,14 +144,14 @@ func fullVerify(ctx context.Context, cfg VerifyConfig) error {
 	}
 
 	// Read through the entire stream to verify integrity
-	bytesRead, err := io.Copy(io.Discard, decompressedReader)
+	bytesRead, err := io.CopyBuffer(io.Discard, decompressedReader, common.NewBuffer())
 	pr.Finish()
 	if err != nil {
 		return fmt.Errorf("archive verification failed: %w", err)
 	}
 
 	if cfg.Verbose {
-		fmt.Printf("✓ Successfully verified %s of decompressed data\n", format.Size(bytesRead))
+		fmt.Printf("✓ Successfully verified %s of decompressed data\n", common.Size(bytesRead))
 		fmt.Println("✓ Full verification passed")
 	}
 
@@ -170,7 +169,7 @@ func dryRunVerify(cfg VerifyConfig) error {
 
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Verify preview:")
-	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, format.Size(fileInfo.Size()))
+	fmt.Printf("[DRY RUN]   Backup file: %s (%s)\n", cfg.BackupFile, common.Size(fileInfo.Size()))
 
 	if cfg.Quick {
 		fmt.Printf("[DRY RUN]   Mode: Quick verification (header check only)\n")
