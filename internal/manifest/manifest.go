@@ -35,6 +35,8 @@ var knownBackupExtensions = []string{
 	".tar.gz.gpg",
 	".tar.zst.gpg",
 	".tar.gz.age",
+	".tar.gpg",
+	".tar.age",
 }
 
 // ManifestPath returns the manifest file path for a given backup file path.

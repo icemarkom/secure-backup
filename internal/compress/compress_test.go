@@ -30,6 +30,7 @@ func TestMethod_String(t *testing.T) {
 		want   string
 	}{
 		{"Gzip", Gzip, "gzip"},
+		{"None", None, "none"},
 		{"unknown", Method(99), "unknown(99)"},
 	}
 
@@ -48,8 +49,11 @@ func TestParseMethod(t *testing.T) {
 		wantErr bool
 	}{
 		{"gzip lowercase", "gzip", Gzip, false},
+		{"none lowercase", "none", None, false},
 		{"GZIP uppercase", "GZIP", Gzip, false},
+		{"NONE uppercase", "NONE", None, false},
 		{"Gzip mixed case", "Gzip", Gzip, false},
+		{"None mixed case", "None", None, false},
 		{"unknown method", "bzip2", Method(0), true},
 		{"empty string", "", Method(0), true},
 	}
@@ -70,14 +74,16 @@ func TestParseMethod(t *testing.T) {
 
 func TestValidMethods(t *testing.T) {
 	methods := ValidMethods()
-	assert.Len(t, methods, 1)
+	assert.Len(t, methods, 2)
 	assert.Contains(t, methods, Gzip)
+	assert.Contains(t, methods, None)
 }
 
 func TestValidMethodNames(t *testing.T) {
 	names := ValidMethodNames()
 	assert.Contains(t, names, MethodGzip)
-	assert.Equal(t, "gzip", names)
+	assert.Contains(t, names, MethodNone)
+	assert.Equal(t, "gzip, none", names)
 }
 
 func TestGzipCompressor_Type(t *testing.T) {

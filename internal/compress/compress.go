@@ -28,11 +28,14 @@ type Method int
 const (
 	// Gzip is the gzip compression method (using pgzip for parallelism).
 	Gzip Method = iota
+	// None disables compression (passthrough).
+	None
 )
 
 // String names for compression methods, used in CLI flags and user-facing output.
 const (
 	MethodGzip = "gzip"
+	MethodNone = "none"
 )
 
 // String returns the lowercase name of the compression method.
@@ -40,6 +43,8 @@ func (m Method) String() string {
 	switch m {
 	case Gzip:
 		return MethodGzip
+	case None:
+		return MethodNone
 	default:
 		return fmt.Sprintf("unknown(%d)", int(m))
 	}
@@ -47,7 +52,7 @@ func (m Method) String() string {
 
 // ValidMethods returns all supported compression methods.
 func ValidMethods() []Method {
-	return []Method{Gzip}
+	return []Method{Gzip, None}
 }
 
 // ValidMethodNames returns a comma-separated string of valid method names.
@@ -66,6 +71,8 @@ func ParseMethod(s string) (Method, error) {
 	switch strings.ToLower(s) {
 	case MethodGzip:
 		return Gzip, nil
+	case MethodNone:
+		return None, nil
 	default:
 		return 0, fmt.Errorf("unknown compression method: %s", s)
 	}
@@ -97,6 +104,8 @@ func NewCompressor(cfg Config) (Compressor, error) {
 	switch cfg.Method {
 	case Gzip:
 		return NewGzipCompressor(cfg.Level)
+	case None:
+		return NewNoopCompressor(), nil
 	default:
 		return nil, fmt.Errorf("unknown compression method: %s", cfg.Method)
 	}
