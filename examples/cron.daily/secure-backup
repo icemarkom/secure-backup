@@ -1,0 +1,65 @@
+#!/bin/bash
+# /etc/cron.daily/secure-backup
+#
+# Daily encrypted backup using secure-backup with AGE or GPG encryption.
+# Runs automatically via anacron/cron.daily on Ubuntu.
+#
+# Install:
+#   sudo cp secure-backup /etc/cron.daily/secure-backup
+#   sudo chmod 755 /etc/cron.daily/secure-backup
+#   sudo ${EDITOR:?Set EDITOR variable} /etc/cron.daily/secure-backup  # set SOURCES, DEST, ENCRYPTION, PUBLIC_KEY
+#
+# Test:
+#   sudo run-parts --test /etc/cron.daily/
+#   sudo /etc/cron.daily/secure-backup
+
+set -eu
+
+# ── Configuration ─────────────────────────────────────────────
+SOURCES=(
+  "/path/to/data1"
+  "/path/to/data2"
+  "/path/to/data3"
+)
+DEST="/path/to/backups"
+ENCRYPTION="age"
+PUBLIC_KEY="age1yourpublickeyhere"
+RETENTION=7
+LOG="/var/log/secure-backup.log"
+# ──────────────────────────────────────────────────────────────
+
+SECURE_BACKUP="/usr/bin/secure-backup"
+FAILED=0
+
+if [ ! -x "${SECURE_BACKUP}" ]; then
+  echo "$(date -Iseconds) secure-backup binary not found at ${SECURE_BACKUP}" >&2
+  exit 1
+fi
+
+for SOURCE in "${SOURCES[@]}"; do
+  if [ ! -d "${SOURCE}" ]; then
+    echo "$(date -Iseconds) source directory not found: ${SOURCE}" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
+
+  echo "$(date -Iseconds) Starting backup: ${SOURCE} -> ${DEST}" >> "${LOG}"
+
+  if "${SECURE_BACKUP}" backup \
+      --source "${SOURCE}" \
+      --dest "${DEST}" \
+      --encryption "${ENCRYPTION}" \
+      --public-key "${PUBLIC_KEY}" \
+      --retention "${RETENTION}" \
+      2>> "${LOG}"; then
+    echo "$(date -Iseconds) Backup completed: ${SOURCE}" >> "${LOG}"
+  else
+    echo "$(date -Iseconds) BACKUP FAILED: ${SOURCE} (exit code $?)" >> "${LOG}"
+    FAILED=$((FAILED + 1))
+  fi
+done
+
+if [ "${FAILED}" -gt 0 ]; then
+  echo "secure-backup: ${FAILED}/${#SOURCES[@]} backup(s) failed. See ${LOG}" >&2
+  exit 1
+fi

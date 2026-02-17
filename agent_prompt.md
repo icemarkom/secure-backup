@@ -563,6 +563,7 @@ secure-backup/
 │   ├── passphrase/        # Secure passphrase handling (flag/env/file)
 │   ├── progress/          # Progress tracking
 │   └── retention/         # Retention management
+├── examples/              # Usage examples (cron.daily script)
 ├── test-scripts/          # Test scripts (key generation, E2E)
 ├── test_data/             # Generated test data (keys, gitignored)
 ├── main.go                # Entry point
@@ -892,6 +893,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-16 | Filed manifest-first management issue ([#45](https://github.com/icemarkom/secure-backup/issues/45)) | Manifested backups as first-class citizens, non-manifested as orphans. Affects list, verify, retention. Future enhancement. |
 | 2026-02-16 | Standardized IO buffer size ([#47](https://github.com/icemarkom/secure-backup/issues/47)) | Created shared `IOBufferSize = 1 MiB` const. Replaced all pipeline `io.Copy` calls with `io.CopyBuffer(... common.NewBuffer())` across 8 files (11 call sites). Benchmarked 32KB–4MB; 1MiB chosen for syscall reduction on disk IO. |
 | 2026-02-16 | Consolidated helper packages ([#48](https://github.com/icemarkom/secure-backup/issues/48)) | Merged `internal/format`, `internal/ioutil`, `internal/errors` into `internal/common`. All shared utility functions (formatting, IO buffers, user-friendly errors) live in one package. `internal/progress` kept separate (external dep). **Ongoing: all new shared helpers go in `internal/common`.** |
+| 2026-02-17 | Cron.daily example script ([#50](https://github.com/icemarkom/secure-backup/pull/50)) | Added `examples/cron.daily/secure-backup` — drop-in script for `/etc/cron.daily/` on Ubuntu. Supports multiple source directories via bash array, configurable AGE/GPG encryption, retention, logging, and per-source failure tracking. `.gitignore` scoped `secure-backup` → `/secure-backup` to avoid ignoring the example. |
 
 ---
 
@@ -964,8 +966,8 @@ make license-check
 
 ---
 
-**Last Updated**: 2026-02-16  
-**Last Updated By**: Agent (conversation 4b6e349d-cbed-4968-b469-26afdf65d80d)  
+**Last Updated**: 2026-02-17  
+**Last Updated By**: Agent (conversation 597017f6-d83e-4dca-a2e8-c34f4d358dcf)  
 **Current Release**: v1.1.3  
 **Project Phase**: Post-1.0 improvements ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
