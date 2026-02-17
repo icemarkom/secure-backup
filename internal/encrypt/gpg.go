@@ -112,8 +112,8 @@ func (e *GPGEncryptor) Decrypt(ciphertext io.Reader) (io.Reader, error) {
 }
 
 // Type returns the encryption type
-func (e *GPGEncryptor) Type() string {
-	return "gpg"
+func (e *GPGEncryptor) Type() Method {
+	return GPG
 }
 
 // loadPublicKeyring loads the public keyring from the configured path

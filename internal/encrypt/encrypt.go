@@ -19,7 +19,70 @@ package encrypt
 import (
 	"fmt"
 	"io"
+	"strings"
 )
+
+// Method represents a supported encryption method.
+type Method int
+
+const (
+	// GPG is the GNU Privacy Guard encryption method.
+	GPG Method = iota
+	// AGE is the AGE encryption method (filippo.io/age).
+	AGE
+)
+
+// String names for encryption methods, used in CLI flags, file extensions,
+// and user-facing output.
+const (
+	MethodGPG = "gpg"
+	MethodAGE = "age"
+)
+
+// String returns the lowercase name of the encryption method.
+func (m Method) String() string {
+	switch m {
+	case GPG:
+		return MethodGPG
+	case AGE:
+		return MethodAGE
+	default:
+		return fmt.Sprintf("unknown(%d)", int(m))
+	}
+}
+
+// Extension returns the file extension for the encryption method (without dot).
+func (m Method) Extension() string {
+	return m.String()
+}
+
+// ValidMethods returns all supported encryption methods.
+func ValidMethods() []Method {
+	return []Method{GPG, AGE}
+}
+
+// ValidMethodNames returns a comma-separated string of valid method names.
+// Useful for CLI help text and error messages.
+func ValidMethodNames() string {
+	methods := ValidMethods()
+	names := make([]string, len(methods))
+	for i, m := range methods {
+		names[i] = m.String()
+	}
+	return strings.Join(names, ", ")
+}
+
+// ParseMethod converts a string to a Method. Returns an error for unknown methods.
+func ParseMethod(s string) (Method, error) {
+	switch strings.ToLower(s) {
+	case MethodGPG:
+		return GPG, nil
+	case MethodAGE:
+		return AGE, nil
+	default:
+		return 0, fmt.Errorf("unknown encryption method: %s", s)
+	}
+}
 
 // Encryptor defines the interface for encryption/decryption operations
 type Encryptor interface {
@@ -29,13 +92,13 @@ type Encryptor interface {
 	// Decrypt decrypts the input stream and returns the plaintext output
 	Decrypt(ciphertext io.Reader) (io.Reader, error)
 
-	// Type returns the encryption method type ("gpg", "age")
-	Type() string
+	// Type returns the encryption method type
+	Type() Method
 }
 
 // Config holds encryption configuration
 type Config struct {
-	Method     string // "gpg" or "age"
+	Method     Method // GPG or AGE
 	PublicKey  string // Path to public key or key data
 	PrivateKey string // Path to private key or key data
 	Recipient  string // GPG recipient email (GPG only)
@@ -44,18 +107,29 @@ type Config struct {
 
 // NewEncryptor creates an encryptor based on config
 func NewEncryptor(cfg Config) (Encryptor, error) {
-	// Default to GPG if method not specified
-	if cfg.Method == "" {
-		cfg.Method = "gpg"
-	}
-
 	switch cfg.Method {
-	case "gpg":
+	case GPG:
 		return NewGPGEncryptor(cfg)
-	case "age":
-		// Future implementation
-		return nil, fmt.Errorf("age encryption not yet implemented")
+	case AGE:
+		return NewAgeEncryptor(cfg)
 	default:
 		return nil, fmt.Errorf("unknown encryption method: %s", cfg.Method)
+	}
+}
+
+// ResolveMethod returns the encryption method to use. If explicit is non-empty,
+// it is returned as-is. Otherwise the method is auto-detected from the file extension.
+func ResolveMethod(explicit, filename string) (Method, error) {
+	if explicit != "" {
+		return ParseMethod(explicit)
+	}
+
+	switch {
+	case strings.HasSuffix(filename, "."+MethodGPG):
+		return GPG, nil
+	case strings.HasSuffix(filename, "."+MethodAGE):
+		return AGE, nil
+	default:
+		return 0, fmt.Errorf("cannot detect encryption method from file extension: %s (use --encryption to specify)", filename)
 	}
 }

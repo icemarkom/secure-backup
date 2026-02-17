@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -35,6 +36,7 @@ var (
 	verifyPrivateKey     string
 	verifyPassphrase     string
 	verifyPassphraseFile string
+	verifyEncryption     string
 	verifyQuick          bool
 	verifyVerbose        bool
 	verifyDryRun         bool
@@ -44,20 +46,32 @@ var (
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Verify backup integrity",
-	Long: `Verify the integrity of an encrypted backup.
-
-Quick mode (--quick): Only checks file headers without full decryption
-Full mode (default): Decrypts and decompresses entire backup to verify integrity`,
-	RunE: runVerify,
+	RunE:  runVerify,
 }
 
 func init() {
 	rootCmd.AddCommand(verifyCmd)
 
+	verifyCmd.Long = fmt.Sprintf(`Verify the integrity of an encrypted backup.
+
+Quick mode (--quick): Only checks file headers without full decryption
+Full mode (default): Decrypts and decompresses entire backup to verify integrity
+
+The encryption method is auto-detected from the file extension (.%s or .%s),
+or can be explicitly set with --encryption.
+
+Encryption methods:
+  %s (default) - --private-key is a path to a %s private key file (.asc)
+  %s           - --private-key is a path to an %s identity file`,
+		strings.ToUpper(encrypt.MethodGPG), strings.ToUpper(encrypt.MethodAGE),
+		strings.ToUpper(encrypt.MethodGPG), strings.ToUpper(encrypt.MethodGPG),
+		strings.ToUpper(encrypt.MethodAGE), strings.ToUpper(encrypt.MethodAGE))
+
 	verifyCmd.Flags().StringVar(&verifyFile, "file", "", "Backup file to verify (required)")
-	verifyCmd.Flags().StringVar(&verifyPrivateKey, "private-key", "", "Path to GPG private key file (for full verify)")
+	verifyCmd.Flags().StringVar(&verifyPrivateKey, "private-key", "", "Private key: GPG key file path (.asc) or age identity file")
 	verifyCmd.Flags().StringVar(&verifyPassphrase, "passphrase", "", "GPG key passphrase (insecure - use env var or file instead)")
 	verifyCmd.Flags().StringVar(&verifyPassphraseFile, "passphrase-file", "", "Path to file containing GPG key passphrase")
+	verifyCmd.Flags().StringVar(&verifyEncryption, "encryption", "", fmt.Sprintf("Encryption method: %s (auto-detected from file extension if omitted)", encrypt.ValidMethodNames()))
 	verifyCmd.Flags().BoolVar(&verifyQuick, "quick", false, "Quick verification (headers only)")
 	verifyCmd.Flags().BoolVarP(&verifyVerbose, "verbose", "v", false, "Verbose output")
 	verifyCmd.Flags().BoolVar(&verifyDryRun, "dry-run", false, "Preview verification without executing")
@@ -106,35 +120,58 @@ func runVerify(cmd *cobra.Command, args []string) error {
 
 	// Create compressor
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  0,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create compressor: %w", err)
 	}
 
-	// Retrieve passphrase using priority order: flag → env → file
-	passphraseValue, err := passphrase.Get(
-		verifyPassphrase,
-		"SECURE_BACKUP_PASSPHRASE",
-		verifyPassphraseFile,
-	)
+	// Detect encryption method from file extension if not specified
+	encryptionMethod, err := encrypt.ResolveMethod(verifyEncryption, verifyFile)
 	if err != nil {
-		return errors.Wrap(err, "Failed to retrieve passphrase",
-			"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
+		return err
+	}
+
+	// Retrieve passphrase (GPG only — age keys don't use passphrases)
+	var passphraseValue string
+	switch encryptionMethod {
+	case encrypt.GPG:
+		var err error
+		passphraseValue, err = passphrase.Get(
+			verifyPassphrase,
+			"SECURE_BACKUP_PASSPHRASE",
+			verifyPassphraseFile,
+		)
+		if err != nil {
+			return errors.Wrap(err, "Failed to retrieve passphrase",
+				"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
+		}
+	case encrypt.AGE:
+		// age keys don't use passphrases
+	default:
+		return fmt.Errorf("unexpected encryption method: %s", encryptionMethod)
 	}
 
 	// Create encryptor
 	encryptCfg := encrypt.Config{
-		Method:     "gpg",
+		Method:     encryptionMethod,
 		PrivateKey: verifyPrivateKey,
 		Passphrase: passphraseValue,
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)
 	if err != nil {
-		return errors.Wrap(err, "Failed to initialize decryption for verification",
-			"Check that your private key file exists and is a valid GPG key")
+		var hint string
+		switch encryptionMethod {
+		case encrypt.GPG:
+			hint = "Check that your private key file exists and is a valid GPG key"
+		case encrypt.AGE:
+			hint = "Check that your --private-key file is a valid age identity file"
+		default:
+			hint = fmt.Sprintf("Unknown encryption method: %s", encryptionMethod)
+		}
+		return errors.Wrap(err, "Failed to initialize decryption for verification", hint)
 	}
 
 	// Execute full verification

@@ -230,6 +230,72 @@ fi
 
 pass "All files match source"
 
+# ═══════════════════════════════════════════
+# AGE ENCRYPTION PIPELINE
+# ═══════════════════════════════════════════
+
+# --- Step 10: Generate AGE keys ---
+step "Generating AGE keys"
+AGE_KEY_FILE="$TMPDIR_E2E/age-key.txt"
+age-keygen -o "$AGE_KEY_FILE" 2>/dev/null
+AGE_RECIPIENT=$(grep "^# public key:" "$AGE_KEY_FILE" | sed 's/^# public key: //')
+test -n "$AGE_RECIPIENT" || fail "Could not extract AGE recipient from key file"
+pass "AGE key pair generated"
+
+# --- Step 11: AGE Backup ---
+step "Running AGE backup"
+AGE_BACKUP_DIR="$TMPDIR_E2E/age-backups"
+AGE_RESTORE_DIR="$TMPDIR_E2E/age-restore"
+mkdir -p "$AGE_BACKUP_DIR" "$AGE_RESTORE_DIR"
+
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$AGE_BACKUP_DIR" \
+  --public-key "$AGE_RECIPIENT" \
+  --encryption age \
+  --verbose
+
+AGE_BACKUP_FILE=$(find "$AGE_BACKUP_DIR" -name "backup_*.tar.gz.age" -not -name "*.tmp" | head -1)
+test -n "$AGE_BACKUP_FILE" || fail "No AGE backup file found"
+test -s "$AGE_BACKUP_FILE" || fail "AGE backup file is empty"
+pass "AGE backup created: $(basename "$AGE_BACKUP_FILE")"
+
+# --- Step 12: AGE Quick verify ---
+step "Running AGE quick verify"
+"$BINARY" verify --file "$AGE_BACKUP_FILE" --quick
+pass "AGE quick verification passed"
+
+# --- Step 13: AGE Full verify ---
+step "Running AGE full verify"
+"$BINARY" verify --file "$AGE_BACKUP_FILE" --private-key "$AGE_KEY_FILE" --verbose
+pass "AGE full verification passed"
+
+# --- Step 14: AGE Restore ---
+step "Running AGE restore"
+"$BINARY" restore \
+  --file "$AGE_BACKUP_FILE" \
+  --dest "$AGE_RESTORE_DIR" \
+  --private-key "$AGE_KEY_FILE" \
+  --verbose
+
+AGE_RESTORED_SOURCE="$AGE_RESTORE_DIR/source"
+test -d "$AGE_RESTORED_SOURCE" || fail "AGE restored source directory not found"
+pass "AGE restore completed"
+
+# --- Step 15: AGE Diff ---
+step "Comparing AGE-restored data with source"
+diff -r "$SOURCE_DIR" "$AGE_RESTORED_SOURCE" || fail "AGE restored files differ from source"
+
+if [ -L "$AGE_RESTORED_SOURCE/link_to_small.txt" ]; then
+  TARGET=$(readlink "$AGE_RESTORED_SOURCE/link_to_small.txt")
+  test "$TARGET" = "small.txt" || fail "Symlink target mismatch: got '$TARGET', want 'small.txt'"
+  pass "AGE: Symlink preserved correctly"
+else
+  fail "AGE: Symlink not preserved"
+fi
+
+pass "AGE: All files match source"
+
 # --- Step 9: CLI error output behavior (#10) ---
 
 # 9a: Runtime error should show single error, no usage

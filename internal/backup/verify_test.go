@@ -53,7 +53,7 @@ func TestPerformVerify_InvalidFile(t *testing.T) {
 
 			// Create minimal compressor and encryptor
 			compressor, err := compress.NewCompressor(compress.Config{
-				Method: "gzip",
+				Method: compress.Gzip,
 				Level:  6,
 			})
 			require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestPerformVerify_InvalidFile(t *testing.T) {
 			require.NoError(t, err)
 
 			encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-				Method:    "gpg",
+				Method:    encrypt.GPG,
 				PublicKey: keyFile,
 			})
 			require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestQuickVerify_SmallFile(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestQuickVerify_SmallFile(t *testing.T) {
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestQuickVerify_ValidFile(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestQuickVerify_ValidFile(t *testing.T) {
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -184,13 +184,13 @@ func TestFullVerify_WithRealBackup(t *testing.T) {
 
 	// Create a real backup
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -251,13 +251,13 @@ func TestPerformVerify_DryRun_Quick(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -293,13 +293,13 @@ func TestPerformVerify_DryRun_Full(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -329,13 +329,13 @@ func TestPerformVerify_DryRun_InvalidFile(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)

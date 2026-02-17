@@ -76,10 +76,11 @@ func PerformBackup(ctx context.Context, cfg Config) (string, error) {
 	// Generate backup filename
 	timestamp := time.Now().Format("20060102_150405")
 	sourceName := filepath.Base(cfg.SourcePath)
-	filename := fmt.Sprintf("backup_%s_%s.tar%s.gpg",
+	filename := fmt.Sprintf("backup_%s_%s.tar%s.%s",
 		sourceName,
 		timestamp,
-		cfg.Compressor.Extension())
+		cfg.Compressor.Extension(),
+		cfg.Encryptor.Type())
 	outputPath := filepath.Join(cfg.DestDir, filename)
 	tmpPath := outputPath + ".tmp"
 
@@ -212,26 +213,29 @@ func dryRunBackup(cfg Config) (string, error) {
 	// Generate backup filename (same logic as real backup)
 	timestamp := time.Now().Format("20060102_150405")
 	sourceName := filepath.Base(cfg.SourcePath)
-	filename := fmt.Sprintf("backup_%s_%s.tar%s.gpg",
+	filename := fmt.Sprintf("backup_%s_%s.tar%s.%s",
 		sourceName,
 		timestamp,
-		cfg.Compressor.Extension())
+		cfg.Compressor.Extension(),
+		cfg.Encryptor.Type())
 	outputPath := filepath.Join(cfg.DestDir, filename)
 
 	// Calculate source size
 	sourceSize := getDirectorySize(cfg.SourcePath)
 
+	encType := cfg.Encryptor.Type()
+
 	// Print dry-run preview (always verbose)
 	fmt.Println("[DRY RUN] Backup preview:")
 	fmt.Printf("[DRY RUN]   Source: %s (%s)\n", cfg.SourcePath, format.Size(sourceSize))
 	fmt.Printf("[DRY RUN]   Destination: %s\n", outputPath)
-	fmt.Printf("[DRY RUN]   Compression: %s\n", "gzip")
-	fmt.Printf("[DRY RUN]   Encryption: GPG\n")
+	fmt.Printf("[DRY RUN]   Compression: %s\n", cfg.Compressor.Type())
+	fmt.Printf("[DRY RUN]   Encryption: %s\n", encType)
 	fmt.Println("[DRY RUN]")
 	fmt.Println("[DRY RUN] Pipeline stages that would execute:")
 	fmt.Println("[DRY RUN]   1. TAR - Archive source directory")
-	fmt.Println("[DRY RUN]   2. COMPRESS - Compress with gzip")
-	fmt.Println("[DRY RUN]   3. ENCRYPT - Encrypt with GPG")
+	fmt.Printf("[DRY RUN]   2. COMPRESS - Compress with %s\n", cfg.Compressor.Type())
+	fmt.Printf("[DRY RUN]   3. ENCRYPT - Encrypt with %s\n", encType)
 	fmt.Println("[DRY RUN]   4. WRITE - Write to destination file")
 
 	return outputPath, nil

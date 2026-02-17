@@ -53,7 +53,7 @@ func TestPerformRestore_InvalidBackupFile(t *testing.T) {
 
 			// Create minimal valid compressor and encryptor (won't be used due to early error)
 			compressor, err := compress.NewCompressor(compress.Config{
-				Method: "gzip",
+				Method: compress.Gzip,
 				Level:  6,
 			})
 			require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestPerformRestore_InvalidBackupFile(t *testing.T) {
 			require.NoError(t, err)
 
 			encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-				Method:    "gpg",
+				Method:    encrypt.GPG,
 				PublicKey: keyFile,
 			})
 			require.NoError(t, err)
@@ -107,13 +107,13 @@ func TestPerformRestore_DestinationCreation(t *testing.T) {
 
 	// Create a backup
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -173,13 +173,13 @@ func TestPerformRestore_DryRun(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -211,13 +211,13 @@ func TestPerformRestore_DryRun_InvalidFile(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -346,13 +346,13 @@ func TestPerformRestore_NonEmptyDestination_WithoutForce(t *testing.T) {
 
 	// Create a backup
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -417,13 +417,13 @@ func TestPerformRestore_NonEmptyDestination_WithForce(t *testing.T) {
 
 	// Create a backup
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -497,13 +497,13 @@ func TestPerformRestore_EmptyDestination_WithoutForce(t *testing.T) {
 
 	// Create a backup
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -568,13 +568,13 @@ func TestPerformRestore_NonexistentDestination_WithoutForce(t *testing.T) {
 
 	// Create a backup
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})

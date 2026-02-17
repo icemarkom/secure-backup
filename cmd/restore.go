@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -35,6 +36,7 @@ var (
 	restorePrivateKey     string
 	restorePassphrase     string
 	restorePassphraseFile string
+	restoreEncryption     string
 	restoreVerbose        bool
 	restoreDryRun         bool
 	restoreSkipManifest   bool
@@ -44,25 +46,36 @@ var (
 var restoreCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "Restore from an encrypted backup",
-	Long: `Restore files from an encrypted backup.
-
-The restore pipeline follows this order (reverse of backup):
-  1. DECRYPT - Decrypt the backup file (GPG)
-  2. DECOMPRESS - Decompress the decrypted data (gzip)
-  3. EXTRACT - Extract the tar archive to destination
-
-The backup format is automatically detected from the file extension.`,
-	RunE: runRestore,
+	RunE:  runRestore,
 }
 
 func init() {
 	rootCmd.AddCommand(restoreCmd)
 
+	restoreCmd.Long = fmt.Sprintf(`Restore files from an encrypted backup.
+
+The restore pipeline follows this order (reverse of backup):
+  1. DECRYPT - Decrypt the backup file (%s)
+  2. DECOMPRESS - Decompress the decrypted data (%s)
+  3. EXTRACT - Extract the tar archive to destination
+
+The encryption method is auto-detected from the file extension (.%s or .%s),
+or can be explicitly set with --encryption.
+
+Encryption methods:
+  %s (default) - --private-key is a path to a %s private key file (.asc)
+  %s           - --private-key is a path to an %s identity file`,
+		encrypt.ValidMethodNames(), compress.ValidMethodNames(),
+		strings.ToUpper(encrypt.MethodGPG), strings.ToUpper(encrypt.MethodAGE),
+		strings.ToUpper(encrypt.MethodGPG), strings.ToUpper(encrypt.MethodGPG),
+		strings.ToUpper(encrypt.MethodAGE), strings.ToUpper(encrypt.MethodAGE))
+
 	restoreCmd.Flags().StringVar(&restoreFile, "file", "", "Backup file to restore (required)")
 	restoreCmd.Flags().StringVar(&restoreDest, "dest", "", "Destination directory for restored files (required)")
-	restoreCmd.Flags().StringVar(&restorePrivateKey, "private-key", "", "Path to GPG private key file (required)")
+	restoreCmd.Flags().StringVar(&restorePrivateKey, "private-key", "", "Private key: GPG key file path (.asc) or age identity file")
 	restoreCmd.Flags().StringVar(&restorePassphrase, "passphrase", "", "GPG key passphrase (insecure - use env var or file instead)")
 	restoreCmd.Flags().StringVar(&restorePassphraseFile, "passphrase-file", "", "Path to file containing GPG key passphrase")
+	restoreCmd.Flags().StringVar(&restoreEncryption, "encryption", "", fmt.Sprintf("Encryption method: %s (auto-detected from file extension if omitted)", encrypt.ValidMethodNames()))
 	restoreCmd.Flags().BoolVarP(&restoreVerbose, "verbose", "v", false, "Verbose output")
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false, "Preview restore without executing")
 	restoreCmd.Flags().BoolVar(&restoreSkipManifest, "skip-manifest", false, "Skip manifest validation (use for old backups without manifests)")
@@ -85,7 +98,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 	// Create compressor (gzip - should match backup)
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  0,
 	})
 	if err != nil {
@@ -93,28 +106,51 @@ func runRestore(cmd *cobra.Command, args []string) error {
 			"This is an internal error - please report if it persists")
 	}
 
-	// Retrieve passphrase using priority order: flag → env → file
-	passphraseValue, err := passphrase.Get(
-		restorePassphrase,
-		"SECURE_BACKUP_PASSPHRASE",
-		restorePassphraseFile,
-	)
+	// Detect encryption method from file extension if not specified
+	encryptionMethod, err := encrypt.ResolveMethod(restoreEncryption, restoreFile)
 	if err != nil {
-		return errors.Wrap(err, "Failed to retrieve passphrase",
-			"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
+		return err
+	}
+
+	// Retrieve passphrase (GPG only — age keys don't use passphrases)
+	var passphraseValue string
+	switch encryptionMethod {
+	case encrypt.GPG:
+		var err error
+		passphraseValue, err = passphrase.Get(
+			restorePassphrase,
+			"SECURE_BACKUP_PASSPHRASE",
+			restorePassphraseFile,
+		)
+		if err != nil {
+			return errors.Wrap(err, "Failed to retrieve passphrase",
+				"Provide passphrase via one method only: --passphrase (insecure), SECURE_BACKUP_PASSPHRASE env var, or --passphrase-file")
+		}
+	case encrypt.AGE:
+		// age keys don't use passphrases
+	default:
+		return fmt.Errorf("unexpected encryption method: %s", encryptionMethod)
 	}
 
 	// Create encryptor for decryption
 	encryptCfg := encrypt.Config{
-		Method:     "gpg",
+		Method:     encryptionMethod,
 		PrivateKey: restorePrivateKey,
 		Passphrase: passphraseValue,
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)
 	if err != nil {
-		return errors.Wrap(err, "Failed to initialize decryption",
-			"Check that your private key file exists and is a valid GPG key")
+		var hint string
+		switch encryptionMethod {
+		case encrypt.GPG:
+			hint = "Check that your private key file exists and is a valid GPG key"
+		case encrypt.AGE:
+			hint = "Check that your --private-key file is a valid age identity file"
+		default:
+			hint = fmt.Sprintf("Unknown encryption method: %s", encryptionMethod)
+		}
+		return errors.Wrap(err, "Failed to initialize decryption", hint)
 	}
 
 	// Execute restore
