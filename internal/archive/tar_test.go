@@ -37,8 +37,9 @@ func TestCreateTar_SingleFile(t *testing.T) {
 
 	// Create tar
 	var buf bytes.Buffer
-	err = CreateTar(testFile, &buf)
+	bytesWritten, err := CreateTar(testFile, &buf)
 	require.NoError(t, err)
+	assert.Equal(t, int64(len(testContent)), bytesWritten)
 
 	// Verify tar was created
 	assert.Greater(t, buf.Len(), 0)
@@ -65,8 +66,11 @@ func TestCreateTar_Directory(t *testing.T) {
 
 	// Create tar
 	var buf bytes.Buffer
-	err = CreateTar(tmpDir, &buf)
+	bytesWritten, err := CreateTar(tmpDir, &buf)
 	require.NoError(t, err)
+
+	// 3 files: "content1" (8) + "content2" (8) + "content3" (8) = 24 bytes
+	assert.Equal(t, int64(24), bytesWritten)
 
 	// Verify tar was created
 	assert.Greater(t, buf.Len(), 0)
@@ -74,7 +78,7 @@ func TestCreateTar_Directory(t *testing.T) {
 
 func TestCreateTar_InvalidPath(t *testing.T) {
 	var buf bytes.Buffer
-	err := CreateTar("/nonexistent/path/that/does/not/exist", &buf)
+	_, err := CreateTar("/nonexistent/path/that/does/not/exist", &buf)
 	assert.Error(t, err)
 }
 
@@ -108,7 +112,7 @@ func TestExtractTar_RoundTrip(t *testing.T) {
 
 	// Create tar
 	var buf bytes.Buffer
-	err = CreateTar(srcDir, &buf)
+	_, err = CreateTar(srcDir, &buf)
 	require.NoError(t, err)
 
 	// Extract to new directory
@@ -168,7 +172,7 @@ func TestExtractTar_CreateDestination(t *testing.T) {
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
-	err = CreateTar(testFile, &buf)
+	_, err = CreateTar(testFile, &buf)
 	require.NoError(t, err)
 
 	// Extract to nonexistent path
@@ -230,8 +234,11 @@ func TestCreateTar_Symlink(t *testing.T) {
 
 	// Create tar
 	var buf bytes.Buffer
-	err = CreateTar(tmpDir, &buf)
+	bytesWritten, err := CreateTar(tmpDir, &buf)
 	require.NoError(t, err)
+
+	// Only target.txt has file data (14 bytes), symlink has 0 data bytes
+	assert.Equal(t, int64(len("target content")), bytesWritten)
 
 	// Extract
 	destDir := t.TempDir()
@@ -270,7 +277,7 @@ func TestCreateTar_SymlinkToExternal(t *testing.T) {
 
 	// Create tar
 	var buf bytes.Buffer
-	err = CreateTar(srcDir, &buf)
+	_, err = CreateTar(srcDir, &buf)
 	require.NoError(t, err)
 
 	// Extract and verify the external file content was NOT included
@@ -312,7 +319,7 @@ func TestCreateTar_SymlinkRoundTrip(t *testing.T) {
 
 	// Backup
 	var buf bytes.Buffer
-	err = CreateTar(srcDir, &buf)
+	_, err = CreateTar(srcDir, &buf)
 	require.NoError(t, err)
 
 	// Restore

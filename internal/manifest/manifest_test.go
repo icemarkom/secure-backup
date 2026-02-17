@@ -102,7 +102,7 @@ func TestWrite(t *testing.T) {
 	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "abc123"
-	m.SizeBytes = 1024
+	m.CompressedSizeBytes = 1024
 
 	err = m.Write(manifestPath, nil)
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestRead(t *testing.T) {
 	original, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	original.ChecksumValue = "abc123"
-	original.SizeBytes = 2048
+	original.CompressedSizeBytes = 2048
 
 	err = original.Write(manifestPath, nil)
 	require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestRead(t *testing.T) {
 	assert.Equal(t, original.SourcePath, m.SourcePath)
 	assert.Equal(t, original.BackupFile, m.BackupFile)
 	assert.Equal(t, original.ChecksumValue, m.ChecksumValue)
-	assert.Equal(t, original.SizeBytes, m.SizeBytes)
+	assert.Equal(t, original.CompressedSizeBytes, m.CompressedSizeBytes)
 	assert.Equal(t, original.CreatedBy.Tool, m.CreatedBy.Tool)
 	assert.Equal(t, original.CreatedBy.Version, m.CreatedBy.Version)
 }
@@ -153,7 +153,7 @@ func TestReadWrite_RoundTrip(t *testing.T) {
 	m1, err := New("/source/path", "backup_file.tar.gz.gpg", "v2.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m1.ChecksumValue = "def456"
-	m1.SizeBytes = 4096
+	m1.CompressedSizeBytes = 4096
 
 	// Write
 	err = m1.Write(manifestPath, nil)
@@ -170,7 +170,7 @@ func TestReadWrite_RoundTrip(t *testing.T) {
 	assert.Equal(t, m1.Encryption, m2.Encryption)
 	assert.Equal(t, m1.ChecksumAlgorithm, m2.ChecksumAlgorithm)
 	assert.Equal(t, m1.ChecksumValue, m2.ChecksumValue)
-	assert.Equal(t, m1.SizeBytes, m2.SizeBytes)
+	assert.Equal(t, m1.CompressedSizeBytes, m2.CompressedSizeBytes)
 	assert.Equal(t, m1.CreatedBy.Tool, m2.CreatedBy.Tool)
 	assert.Equal(t, m1.CreatedBy.Version, m2.CreatedBy.Version)
 	assert.Equal(t, m1.CreatedBy.Hostname, m2.CreatedBy.Hostname)
@@ -385,7 +385,7 @@ func TestWrite_NoTempFilesOnSuccess(t *testing.T) {
 	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "test123"
-	m.SizeBytes = 1024
+	m.CompressedSizeBytes = 1024
 
 	err = m.Write(manifestPath, nil)
 	require.NoError(t, err)
@@ -417,7 +417,7 @@ func TestWrite_FilePermissions(t *testing.T) {
 	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "abc123"
-	m.SizeBytes = 1024
+	m.CompressedSizeBytes = 1024
 
 	mode := os.FileMode(0600)
 	err = m.Write(manifestPath, &mode)

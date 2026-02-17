@@ -162,14 +162,14 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		FileMode:   fileMode,
 	}
 
-	outputPath, err := backup.PerformBackup(ctx, backupCfg)
+	outputPath, uncompressedSize, err := backup.PerformBackup(ctx, backupCfg)
 	if err != nil {
 		return err // PerformBackup already returns user-friendly errors
 	}
 
 	// Generate manifest by default (unless dry-run or skip-manifest)
 	if !backupDryRun && !backupSkipManifest {
-		if err := generateManifest(outputPath, backupSource, backupVerbose, fileMode, compMethod.String(), encMethod.String()); err != nil {
+		if err := generateManifest(outputPath, backupSource, uncompressedSize, backupVerbose, fileMode, compMethod.String(), encMethod.String()); err != nil {
 			// Warn but don't fail the backup
 			fmt.Fprintf(os.Stderr, "Warning: Failed to create manifest: %v\n", err)
 		}
@@ -197,7 +197,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 }
 
 // generateManifest creates a manifest file for the backup
-func generateManifest(backupPath, sourcePath string, verbose bool, fileMode *os.FileMode, compressionName, encryptionName string) error {
+func generateManifest(backupPath, sourcePath string, uncompressedSize int64, verbose bool, fileMode *os.FileMode, compressionName, encryptionName string) error {
 	// Create manifest
 	m, err := manifest.New(sourcePath, filepath.Base(backupPath), GetVersion(), compressionName, encryptionName)
 	if err != nil {
@@ -214,10 +214,11 @@ func generateManifest(backupPath, sourcePath string, verbose bool, fileMode *os.
 	}
 	m.ChecksumValue = checksum
 
-	// Get file size
+	// Set size fields
+	m.UncompressedSizeBytes = uncompressedSize
 	info, err := os.Stat(backupPath)
 	if err == nil {
-		m.SizeBytes = info.Size()
+		m.CompressedSizeBytes = info.Size()
 	}
 
 	// Write manifest

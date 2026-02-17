@@ -94,7 +94,7 @@ func TestIntegration_BackupRestoreCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 	assert.FileExists(t, backupPath, "backup file should exist")
 
@@ -172,7 +172,7 @@ func TestIntegration_BackupVerifyCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Test quick verification
@@ -255,7 +255,7 @@ func TestIntegration_VerboseMode(t *testing.T) {
 			Verbose:    true, // Enable verbose mode
 		}
 
-		backupPath, err := PerformBackup(context.Background(), backupCfg)
+		backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 		require.NoError(t, err)
 
 		// Restore stdout and read captured output
@@ -354,7 +354,7 @@ func TestIntegration_CorruptedBackup(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Corrupt the backup file by truncating it
@@ -457,7 +457,7 @@ func TestIntegration_AGE_BackupRestoreCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 	assert.FileExists(t, backupPath, "backup file should exist")
 
@@ -531,7 +531,7 @@ func TestIntegration_AGE_BackupVerifyCycle(t *testing.T) {
 		Verbose:    false,
 	}
 
-	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	backupPath, _, err := PerformBackup(context.Background(), backupCfg)
 	require.NoError(t, err)
 
 	// Quick verify
