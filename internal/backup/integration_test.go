@@ -73,13 +73,13 @@ func TestIntegration_BackupRestoreCycle(t *testing.T) {
 
 	// Create compressor and encryptor
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -151,13 +151,13 @@ func TestIntegration_BackupVerifyCycle(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -228,13 +228,13 @@ func TestIntegration_VerboseMode(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -334,13 +334,13 @@ func TestIntegration_CorruptedBackup(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -374,4 +374,191 @@ func TestIntegration_CorruptedBackup(t *testing.T) {
 	err = PerformRestore(context.Background(), restoreCfg)
 	assert.Error(t, err, "restore should fail with corrupted backup")
 	assert.Contains(t, err.Error(), "restore pipeline failed", "error should indicate pipeline failure")
+}
+
+// AgeTestKeyPaths holds generated age key paths for integration testing
+type AgeTestKeyPaths struct {
+	Recipient    string // Age recipient string (age1...)
+	IdentityFile string // Path to age identity file
+}
+
+// generateTestAgeKeys generates an age key pair for integration testing
+func generateTestAgeKeys(t *testing.T, baseDir string) *AgeTestKeyPaths {
+	t.Helper()
+
+	identityStr, recipientStr, err := encrypt.GenerateX25519Identity()
+	require.NoError(t, err)
+
+	identityFile := filepath.Join(baseDir, "age-key.txt")
+	err = encrypt.WriteIdentityFile(identityFile, identityStr, recipientStr)
+	require.NoError(t, err)
+
+	return &AgeTestKeyPaths{
+		Recipient:    recipientStr,
+		IdentityFile: identityFile,
+	}
+}
+
+// TestIntegration_AGE_BackupRestoreCycle tests the complete backup → restore cycle with AGE encryption
+func TestIntegration_AGE_BackupRestoreCycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tempRoot := t.TempDir()
+
+	// Create source directory with test files
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	nestedDir := filepath.Join(sourceDir, "subdir")
+	err = os.Mkdir(nestedDir, 0755)
+	require.NoError(t, err)
+
+	testFiles := map[string]string{
+		"file1.txt":        "Hello from AGE encryption!",
+		"file2.txt":        "This is a test file for AGE integration.",
+		"subdir/file3.txt": "Nested file with AGE",
+		"subdir/file4.txt": string(bytes.Repeat([]byte("AGE content "), 1000)),
+	}
+
+	for relPath, content := range testFiles {
+		fullPath := filepath.Join(sourceDir, relPath)
+		err = os.WriteFile(fullPath, []byte(content), 0644)
+		require.NoError(t, err)
+	}
+
+	backupDir := filepath.Join(tempRoot, "backups")
+	restoreDir := filepath.Join(tempRoot, "restore")
+
+	// Generate AGE keys (no external tools needed)
+	ageKeys := generateTestAgeKeys(t, tempRoot)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: compress.Gzip,
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     encrypt.AGE,
+		PublicKey:  ageKeys.Recipient,
+		PrivateKey: ageKeys.IdentityFile,
+	})
+	require.NoError(t, err)
+
+	// Step 1: Backup
+	backupCfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    backupDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	require.NoError(t, err)
+	assert.FileExists(t, backupPath, "backup file should exist")
+
+	// Backup should have .age extension
+	assert.Contains(t, backupPath, ".age", "AGE backup should have .age extension")
+
+	info, err := os.Stat(backupPath)
+	require.NoError(t, err)
+	assert.Greater(t, info.Size(), int64(0), "backup file should not be empty")
+
+	// Step 2: Restore
+	restoreCfg := RestoreConfig{
+		BackupFile: backupPath,
+		DestPath:   restoreDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	err = PerformRestore(context.Background(), restoreCfg)
+	require.NoError(t, err)
+
+	// Step 3: Verify restored files match source
+	for relPath, wantContent := range testFiles {
+		restoredPath := filepath.Join(restoreDir, "source", relPath)
+		gotContent, err := os.ReadFile(restoredPath)
+		require.NoError(t, err, "restored file %s should exist", relPath)
+		assert.Equal(t, wantContent, string(gotContent), "content should match for %s", relPath)
+	}
+}
+
+// TestIntegration_AGE_BackupVerifyCycle tests backup → quick verify → full verify with AGE encryption
+func TestIntegration_AGE_BackupVerifyCycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tempRoot := t.TempDir()
+
+	sourceDir := filepath.Join(tempRoot, "source")
+	err := os.Mkdir(sourceDir, 0755)
+	require.NoError(t, err)
+
+	testFile := filepath.Join(sourceDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("AGE verify integration test"), 0644)
+	require.NoError(t, err)
+
+	backupDir := filepath.Join(tempRoot, "backups")
+
+	ageKeys := generateTestAgeKeys(t, tempRoot)
+
+	compressor, err := compress.NewCompressor(compress.Config{
+		Method: compress.Gzip,
+		Level:  6,
+	})
+	require.NoError(t, err)
+
+	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
+		Method:     encrypt.AGE,
+		PublicKey:  ageKeys.Recipient,
+		PrivateKey: ageKeys.IdentityFile,
+	})
+	require.NoError(t, err)
+
+	// Create backup
+	backupCfg := Config{
+		SourcePath: sourceDir,
+		DestDir:    backupDir,
+		Encryptor:  encryptor,
+		Compressor: compressor,
+		Verbose:    false,
+	}
+
+	backupPath, err := PerformBackup(context.Background(), backupCfg)
+	require.NoError(t, err)
+
+	// Quick verify
+	t.Run("quick verify", func(t *testing.T) {
+		verifyCfg := VerifyConfig{
+			BackupFile: backupPath,
+			Encryptor:  encryptor,
+			Compressor: compressor,
+			Quick:      true,
+			Verbose:    false,
+		}
+
+		err := PerformVerify(context.Background(), verifyCfg)
+		assert.NoError(t, err, "quick verification should pass")
+	})
+
+	// Full verify
+	t.Run("full verify", func(t *testing.T) {
+		verifyCfg := VerifyConfig{
+			BackupFile: backupPath,
+			Encryptor:  encryptor,
+			Compressor: compressor,
+			Quick:      false,
+			Verbose:    false,
+		}
+
+		err := PerformVerify(context.Background(), verifyCfg)
+		assert.NoError(t, err, "full verification should pass")
+	})
 }

@@ -93,5 +93,8 @@ jobs:
           go-version: '1.26'
           check-latest: true
 
+      - name: Install age
+        run: sudo apt-get update && sudo apt-get install -y age
+
       - name: Run E2E pipeline test
         run: sh test-scripts/e2e_test.sh

@@ -94,6 +94,11 @@ func (c *GzipCompressor) Decompress(input io.Reader) (io.Reader, error) {
 	return pr, nil
 }
 
+// Type returns the compression method type
+func (c *GzipCompressor) Type() Method {
+	return Gzip
+}
+
 // Extension returns the file extension for gzip compressed files
 func (c *GzipCompressor) Extension() string {
 	return ".gz"

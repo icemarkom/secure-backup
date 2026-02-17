@@ -75,7 +75,7 @@ func TestNewEncryptor(t *testing.T) {
 		{
 			name: "valid gpg config",
 			config: Config{
-				Method:     "gpg",
+				Method:     GPG,
 				PublicKey:  "/tmp/test.asc",
 				PrivateKey: "/tmp/test.asc",
 			},
@@ -84,24 +84,23 @@ func TestNewEncryptor(t *testing.T) {
 		{
 			name: "default method (gpg)",
 			config: Config{
-				Method:     "",
+				Method:     GPG, // zero value = GPG
 				PublicKey:  "/tmp/test.asc",
 				PrivateKey: "/tmp/test.asc",
 			},
 			expectError: false,
 		},
 		{
-			name: "age not implemented",
+			name: "age implemented",
 			config: Config{
-				Method: "age",
+				Method: AGE,
 			},
-			expectError: true,
-			errorMsg:    "not yet implemented",
+			expectError: false,
 		},
 		{
 			name: "unknown method",
 			config: Config{
-				Method: "unknown",
+				Method: Method(99),
 			},
 			expectError: true,
 			errorMsg:    "unknown encryption method",
@@ -126,19 +125,19 @@ func TestNewEncryptor(t *testing.T) {
 
 func TestGPGEncryptor_Type(t *testing.T) {
 	cfg := Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PublicKey:  "/tmp/test.asc",
 		PrivateKey: "/tmp/test.asc",
 	}
 
 	encryptor, err := NewGPGEncryptor(cfg)
 	require.NoError(t, err)
-	assert.Equal(t, "gpg", encryptor.Type())
+	assert.Equal(t, GPG, encryptor.Type())
 }
 
 func TestGPGEncryptor_InvalidPublicKey(t *testing.T) {
 	cfg := Config{
-		Method:    "gpg",
+		Method:    GPG,
 		PublicKey: "/nonexistent/public.asc",
 	}
 
@@ -154,7 +153,7 @@ func TestGPGEncryptor_InvalidPublicKey(t *testing.T) {
 
 func TestGPGEncryptor_InvalidPrivateKey(t *testing.T) {
 	cfg := Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PrivateKey: "/nonexistent/private.asc",
 	}
 
@@ -170,7 +169,7 @@ func TestGPGEncryptor_InvalidPrivateKey(t *testing.T) {
 
 func TestGPGEncryptor_EmptyPublicKeyPath(t *testing.T) {
 	cfg := Config{
-		Method:    "gpg",
+		Method:    GPG,
 		PublicKey: "",
 	}
 
@@ -185,7 +184,7 @@ func TestGPGEncryptor_EmptyPublicKeyPath(t *testing.T) {
 
 func TestGPGEncryptor_EmptyPrivateKeyPath(t *testing.T) {
 	cfg := Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PrivateKey: "",
 	}
 
@@ -200,7 +199,7 @@ func TestGPGEncryptor_EmptyPrivateKeyPath(t *testing.T) {
 
 func TestNewGPGEncryptor(t *testing.T) {
 	cfg := Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PublicKey:  "/tmp/pub.asc",
 		PrivateKey: "/tmp/priv.asc",
 		Recipient:  "test@example.com",
@@ -210,7 +209,7 @@ func TestNewGPGEncryptor(t *testing.T) {
 	encryptor, err := NewGPGEncryptor(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, encryptor)
-	assert.Equal(t, "gpg", encryptor.Type())
+	assert.Equal(t, GPG, encryptor.Type())
 }
 
 // Integration tests with real GPG operations
@@ -245,7 +244,7 @@ func TestGPGEncryptor_RealEncryptDecrypt(t *testing.T) {
 
 	// Step 1: Encrypt
 	encryptor, err := NewGPGEncryptor(Config{
-		Method:    "gpg",
+		Method:    GPG,
 		PublicKey: publicKey,
 	})
 	require.NoError(t, err)
@@ -262,7 +261,7 @@ func TestGPGEncryptor_RealEncryptDecrypt(t *testing.T) {
 
 	// Step 2: Decrypt
 	decryptor, err := NewGPGEncryptor(Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PrivateKey: privateKey,
 		Passphrase: "", // Test key has no passphrase
 	})
@@ -290,7 +289,7 @@ func TestGPGEncryptor_LargeData(t *testing.T) {
 
 	// Encrypt
 	encryptor, err := NewGPGEncryptor(Config{
-		Method:    "gpg",
+		Method:    GPG,
 		PublicKey: publicKey,
 	})
 	require.NoError(t, err)
@@ -303,7 +302,7 @@ func TestGPGEncryptor_LargeData(t *testing.T) {
 
 	// Decrypt
 	decryptor, err := NewGPGEncryptor(Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PrivateKey: privateKey,
 	})
 	require.NoError(t, err)
@@ -328,7 +327,7 @@ func TestGPGEncryptor_WrongKey(t *testing.T) {
 
 	// Encrypt with test key
 	encryptor, err := NewGPGEncryptor(Config{
-		Method:    "gpg",
+		Method:    GPG,
 		PublicKey: publicKey,
 	})
 	require.NoError(t, err)
@@ -341,7 +340,7 @@ func TestGPGEncryptor_WrongKey(t *testing.T) {
 
 	// Try to decrypt with wrong key (nonexistent)
 	decryptor, err := NewGPGEncryptor(Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PrivateKey: "/nonexistent/wrong.asc",
 	})
 	require.NoError(t, err)
@@ -358,7 +357,7 @@ func TestGPGEncryptor_DecryptInvalidData(t *testing.T) {
 	_, privateKey := getTestKeyPaths(t)
 
 	decryptor, err := NewGPGEncryptor(Config{
-		Method:     "gpg",
+		Method:     GPG,
 		PrivateKey: privateKey,
 	})
 	require.NoError(t, err)

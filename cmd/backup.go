@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/icemarkom/secure-backup/internal/backup"
 	"github.com/icemarkom/secure-backup/internal/compress"
@@ -49,25 +50,33 @@ var (
 var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Create an encrypted backup",
-	Long: `Create an encrypted, compressed backup of a directory or Docker volume.
-
-The backup pipeline follows this order (critical for compression):
-  1. TAR - Archive the source directory
-  2. COMPRESS - Compress the tar archive (gzip by default)
-  3. ENCRYPT - Encrypt the compressed archive (GPG)
-
-This order is critical because encrypted data cannot be compressed.`,
-	RunE: runBackup,
+	RunE:  runBackup,
 }
 
 func init() {
 	rootCmd.AddCommand(backupCmd)
 
+	backupCmd.Long = fmt.Sprintf(`Create an encrypted, compressed backup of a directory or Docker volume.
+
+The backup pipeline follows this order (critical for compression):
+  1. TAR - Archive the source directory
+  2. COMPRESS - Compress the tar archive (%s)
+  3. ENCRYPT - Encrypt the compressed archive (%s)
+
+This order is critical because encrypted data cannot be compressed.
+
+Encryption methods:
+  %s (default) - --public-key is a path to a %s public key file (.asc)
+  %s           - --public-key is a direct %s recipient string (age1...)`,
+		compress.ValidMethodNames(), encrypt.ValidMethodNames(),
+		strings.ToUpper(encrypt.MethodGPG), strings.ToUpper(encrypt.MethodGPG),
+		strings.ToUpper(encrypt.MethodAGE), strings.ToUpper(encrypt.MethodAGE))
+
 	backupCmd.Flags().StringVar(&backupSource, "source", "", "Source directory to backup (required)")
 	backupCmd.Flags().StringVar(&backupDest, "dest", "", "Destination directory for backup file (required)")
 	backupCmd.Flags().StringVar(&backupRecipient, "recipient", "", "GPG recipient email or key ID")
-	backupCmd.Flags().StringVar(&backupPublicKey, "public-key", "", "Path to GPG public key file (required)")
-	backupCmd.Flags().StringVar(&backupEncryption, "encryption", "gpg", "Encryption method (gpg, age)")
+	backupCmd.Flags().StringVar(&backupPublicKey, "public-key", "", fmt.Sprintf("Public key: GPG key file path (--encryption %s) or AGE recipient string (--encryption %s)", encrypt.MethodGPG, encrypt.MethodAGE))
+	backupCmd.Flags().StringVar(&backupEncryption, "encryption", encrypt.MethodGPG, fmt.Sprintf("Encryption method: %s (default: %s)", encrypt.ValidMethodNames(), encrypt.MethodGPG))
 	backupCmd.Flags().IntVar(&backupRetention, "retention", retention.DefaultKeepLast, "Number of backups to keep (0 = keep all)")
 	backupCmd.Flags().BoolVarP(&backupVerbose, "verbose", "v", false, "Verbose output")
 	backupCmd.Flags().BoolVar(&backupDryRun, "dry-run", false, "Preview backup without executing")
@@ -94,24 +103,38 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// Create compressor (gzip by default)
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  0, // Use default (level 6)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create compressor: %w", err)
 	}
 
+	// Parse encryption method
+	encMethod, err := encrypt.ParseMethod(backupEncryption)
+	if err != nil {
+		return err
+	}
+
 	// Create encryptor
 	encryptCfg := encrypt.Config{
-		Method:    backupEncryption,
+		Method:    encMethod,
 		Recipient: backupRecipient,
 		PublicKey: backupPublicKey,
 	}
 
 	encryptor, err := encrypt.NewEncryptor(encryptCfg)
 	if err != nil {
-		return errors.Wrap(err, "Failed to initialize encryption",
-			"Check that your public key file exists and is a valid GPG key")
+		var hint string
+		switch encMethod {
+		case encrypt.GPG:
+			hint = "Check that your public key file exists and is a valid GPG key"
+		case encrypt.AGE:
+			hint = "Check that your --public-key value is a valid age recipient string (starts with age1)"
+		default:
+			hint = fmt.Sprintf("Unknown encryption method: %s", encMethod)
+		}
+		return errors.Wrap(err, "Failed to initialize encryption", hint)
 	}
 
 	// Parse file mode
@@ -148,10 +171,21 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// Apply retention policy if specified
 	if backupRetention > 0 {
+		// Match file extension to encryption method
+		var retentionPattern string
+		switch encMethod {
+		case encrypt.GPG:
+			retentionPattern = "backup_*.tar.gz.gpg"
+		case encrypt.AGE:
+			retentionPattern = "backup_*.tar.gz.age"
+		default:
+			return fmt.Errorf("unexpected encryption method for retention: %s", encMethod)
+		}
+
 		retentionPolicy := retention.Policy{
 			KeepLast:  backupRetention,
 			BackupDir: backupDest,
-			Pattern:   "backup_*.tar.gz.gpg",
+			Pattern:   retentionPattern,
 			Verbose:   backupVerbose,
 			DryRun:    backupDryRun,
 		}

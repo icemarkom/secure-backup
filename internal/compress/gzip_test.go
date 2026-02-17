@@ -140,24 +140,18 @@ func TestNewCompressor(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			name:        "default (empty method)",
-			config:      Config{Method: "", Level: 0},
+			name:        "default (gzip)",
+			config:      Config{Method: Gzip, Level: 0},
 			expectError: false,
 		},
 		{
 			name:        "explicit gzip",
-			config:      Config{Method: "gzip", Level: 6},
+			config:      Config{Method: Gzip, Level: 6},
 			expectError: false,
 		},
 		{
-			name:        "zstd not implemented",
-			config:      Config{Method: "zstd", Level: 3},
-			expectError: true,
-			errorMsg:    "not yet implemented",
-		},
-		{
 			name:        "unknown method",
-			config:      Config{Method: "bzip2", Level: 9},
+			config:      Config{Method: Method(99), Level: 9},
 			expectError: true,
 			errorMsg:    "unknown compression method",
 		},

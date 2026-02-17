@@ -93,7 +93,7 @@ func TestPerformBackup_InvalidSource(t *testing.T) {
 
 			// Create minimal valid compressor and encryptor (won't be used due to early error)
 			compressor, err := compress.NewCompressor(compress.Config{
-				Method: "gzip",
+				Method: compress.Gzip,
 				Level:  6,
 			})
 			require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestPerformBackup_InvalidSource(t *testing.T) {
 			require.NoError(t, err)
 
 			encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-				Method:    "gpg",
+				Method:    encrypt.GPG,
 				PublicKey: keyFile,
 			})
 			require.NoError(t, err)
@@ -154,13 +154,13 @@ func TestPerformBackup_DestinationCreation(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -216,12 +216,12 @@ func TestPerformBackup_FilenameFormat(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		compressionType string
+		compressionType compress.Method
 		wantExt         string
 	}{
 		{
 			name:            "gzip compression",
-			compressionType: "gzip",
+			compressionType: compress.Gzip,
 			wantExt:         ".tar.gz.gpg",
 		},
 	}
@@ -235,7 +235,7 @@ func TestPerformBackup_FilenameFormat(t *testing.T) {
 			require.NoError(t, err)
 
 			encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-				Method:     "gpg",
+				Method:     encrypt.GPG,
 				PublicKey:  keyPaths.PublicKey,
 				PrivateKey: keyPaths.PrivateKey,
 			})
@@ -334,13 +334,13 @@ func TestPerformBackup_DryRun(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -377,13 +377,13 @@ func TestPerformBackup_DryRun_InvalidSource(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -427,13 +427,13 @@ func TestPerformBackup_NoTempFilesOnSuccess(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -486,13 +486,13 @@ func TestPerformBackup_TempFileCleanupOnError(t *testing.T) {
 	require.NoError(t, err)
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:    "gpg",
+		Method:    encrypt.GPG,
 		PublicKey: keyFile,
 	})
 	require.NoError(t, err)
@@ -558,13 +558,13 @@ func TestPerformBackup_FilePermissions_Default(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})
@@ -616,13 +616,13 @@ func TestPerformBackup_FilePermissions_Custom(t *testing.T) {
 	}
 
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: "gzip",
+		Method: compress.Gzip,
 		Level:  6,
 	})
 	require.NoError(t, err)
 
 	encryptor, err := encrypt.NewEncryptor(encrypt.Config{
-		Method:     "gpg",
+		Method:     encrypt.GPG,
 		PublicKey:  keyPaths.PublicKey,
 		PrivateKey: keyPaths.PrivateKey,
 	})

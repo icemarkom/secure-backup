@@ -468,15 +468,24 @@
 
 ## Future Phases
 
-**Phase 3**: Enhanced Encryption — [#14](https://github.com/icemarkom/secure-backup/issues/14)
-- age encryption support (`filippo.io/age`)
-- Modern alternative to GPG
-- Simpler key management
+**Phase 3**: Enhanced Encryption ✅ COMPLETE — [#14](https://github.com/icemarkom/secure-backup/issues/14)
+- ✅ AGE encryption via `filippo.io/age` v1.3.1
+- ✅ `encrypt.Method` iota type (`GPG`, `AGE`) with `ParseMethod()`, `String()`, `Extension()`
+- ✅ `MethodGPG`/`MethodAGE` string constants, `ValidMethods()`/`ValidMethodNames()` helpers
+- ✅ Unified flags: `--public-key` = GPG file path or AGE string (keyed off `--encryption`)
+- ✅ `--private-key` = file path for both GPG (.asc) and AGE identity
+- ✅ `ResolveMethod()` centralizes detection from flags/file extensions (`.gpg` / `.age`)
+- ✅ 11 AGE-specific tests, all pass
 
 **Phase 4**: Advanced Compression — [#15](https://github.com/icemarkom/secure-backup/issues/15)
-- zstd compression (better ratio, faster)
-- lz4 compression (fastest)
-- Compression benchmarking
+- ✅ `compress.Method` iota type (`Gzip`) with `ParseMethod()`, `String()`, `ValidMethods()`/`ValidMethodNames()`
+- ✅ `MethodGzip` string constant, `Type() Method` on `Compressor` interface
+- ✅ CLI help text consolidated: `Long` descriptions moved to `init()` using `fmt.Sprintf` with constants
+- ✅ Help text uses `strings.ToUpper()` for display labels, lowercase for CLI parameter values
+- ✅ Comprehensive unit tests: `encrypt_test.go` (8 tests), `compress_test.go` (6 tests)
+- ✅ AGE integration tests: backup→restore and backup→verify cycles
+- ✅ AGE e2e pipeline: keygen → backup → verify → restore → diff in `e2e_test.sh`
+- Future: zstd compression, lz4 compression, benchmarking
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
 - Docker SDK client
@@ -864,6 +873,10 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-15 | Progress bars wired ([#31](https://github.com/icemarkom/secure-backup/issues/31)) | Connected existing `internal/progress` package to 5 operations: backup pipeline (tar reader), restore pipeline (file reader), full verify (file reader), checksum compute, checksum validate. All gated on `--verbose`. Added `ComputeChecksumProgress` / `ValidateChecksumProgress` to manifest package. |
 | 2026-02-16 | License headers added ([#34](https://github.com/icemarkom/secure-backup/issues/34)) | Apache 2.0 boilerplate + `SPDX-License-Identifier: Apache-2.0` added to all 36 Go files and 2 shell scripts. CI enforcement via `google/addlicense -check` in `test.yml` unit job. `make license-check` target for local use. Makefile/YAML excluded from headers. |
 | 2026-02-16 | Checked-in test keys removed ([#36](https://github.com/icemarkom/secure-backup/issues/36)) | 6 vestigial files under `test_data/test_data/` (including GPG private key and keyring) were tracked despite `.gitignore`. Removed via `git rm --cached`. Test infra already generates keys on the fly. |
+| 2026-02-16 | Phase 3: age encryption ([#14](https://github.com/icemarkom/secure-backup/issues/14)) | Added AGE encryption via `filippo.io/age` v1.3.1. `--public-key` meaning is encryption-dependent: file path for GPG, direct string for AGE — keyed off `--encryption`, not prefix detection. `--public-key` remains `MarkFlagRequired` (Cobra validation). `--private-key` is always a file path. Introduced `encrypt.Method` iota type (`GPG`, `AGE`) with `ParseMethod()`, `String()`, `Extension()` to replace string matching. String constants `MethodGPG`/`MethodAGE` eliminate hardcoded strings. `ValidMethods()`/`ValidMethodNames()` provide dynamic method enumeration for CLI help text. `encrypt.ResolveMethod()` centralizes method detection from flags/file extensions. All switch blocks use explicit `case encrypt.GPG:`/`case encrypt.AGE:` with `default:` reserved for error handling. Restore/verify auto-detect from `.age`/`.gpg` extension. Passphrase logic skipped for AGE. 11 new tests. |
+| 2026-02-16 | Compression Method scaffolding | Applied same iota-based `Method` type pattern to `internal/compress`: `Gzip` constant only — ZSTD/LZ4 not added (scaffolding only, no phantom features). `MethodGzip` string constant, `ParseMethod()`, `ValidMethods()`/`ValidMethodNames()`. Added `Type() Method` to `Compressor` interface. Replaced all hardcoded `"gzip"` strings across cmd/ and test files with `compress.Gzip`. Dry-run output now uses `cfg.Compressor.Type()` dynamically. |
+| 2026-02-16 | CLI help text consolidated | Moved `Long` descriptions in `backup.go`, `restore.go`, `verify.go` from struct literals to `init()` functions. Uses `fmt.Sprintf` with `compress.ValidMethodNames()`, `encrypt.ValidMethodNames()`, `strings.ToUpper(encrypt.MethodGPG)`, `strings.ToUpper(encrypt.MethodAGE)` — zero hardcoded method names in help text. Lowercase constants for CLI parameter values, uppercase for display labels. |
+| 2026-02-16 | Test coverage expanded | Added `encrypt_test.go` (8 tests for Method helpers), `compress_test.go` (6 tests for Method helpers), AGE integration tests (backup→restore, backup→verify cycles), AGE e2e pipeline in `e2e_test.sh`. |
 
 ---
 

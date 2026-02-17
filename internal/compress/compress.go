@@ -19,7 +19,57 @@ package compress
 import (
 	"fmt"
 	"io"
+	"strings"
 )
+
+// Method represents a supported compression method.
+type Method int
+
+const (
+	// Gzip is the gzip compression method (using pgzip for parallelism).
+	Gzip Method = iota
+)
+
+// String names for compression methods, used in CLI flags and user-facing output.
+const (
+	MethodGzip = "gzip"
+)
+
+// String returns the lowercase name of the compression method.
+func (m Method) String() string {
+	switch m {
+	case Gzip:
+		return MethodGzip
+	default:
+		return fmt.Sprintf("unknown(%d)", int(m))
+	}
+}
+
+// ValidMethods returns all supported compression methods.
+func ValidMethods() []Method {
+	return []Method{Gzip}
+}
+
+// ValidMethodNames returns a comma-separated string of valid method names.
+// Useful for CLI help text and error messages.
+func ValidMethodNames() string {
+	methods := ValidMethods()
+	names := make([]string, len(methods))
+	for i, m := range methods {
+		names[i] = m.String()
+	}
+	return strings.Join(names, ", ")
+}
+
+// ParseMethod converts a string to a Method. Returns an error for unknown methods.
+func ParseMethod(s string) (Method, error) {
+	switch strings.ToLower(s) {
+	case MethodGzip:
+		return Gzip, nil
+	default:
+		return 0, fmt.Errorf("unknown compression method: %s", s)
+	}
+}
 
 // Compressor defines the interface for compression/decompression operations
 type Compressor interface {
@@ -29,32 +79,24 @@ type Compressor interface {
 	// Decompress decompresses the input stream
 	Decompress(input io.Reader) (io.Reader, error)
 
+	// Type returns the compression method type
+	Type() Method
+
 	// Extension returns file extension (".gz", ".zst")
 	Extension() string
 }
 
 // Config holds compression configuration
 type Config struct {
-	Method string // "gzip", "zstd", "lz4"
+	Method Method // Compression method
 	Level  int    // Compression level (method-specific)
 }
 
 // NewCompressor creates a compressor based on config
 func NewCompressor(cfg Config) (Compressor, error) {
-	// Default to gzip if method not specified
-	if cfg.Method == "" {
-		cfg.Method = "gzip"
-	}
-
 	switch cfg.Method {
-	case "gzip":
+	case Gzip:
 		return NewGzipCompressor(cfg.Level)
-	case "zstd":
-		// Future implementation
-		return nil, fmt.Errorf("zstd compression not yet implemented")
-	case "lz4":
-		// Future implementation
-		return nil, fmt.Errorf("lz4 compression not yet implemented")
 	default:
 		return nil, fmt.Errorf("unknown compression method: %s", cfg.Method)
 	}
