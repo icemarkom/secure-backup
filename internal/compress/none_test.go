@@ -25,18 +25,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNoopCompressor_Type(t *testing.T) {
-	compressor := NewNoopCompressor()
+func TestNoneCompressor_Type(t *testing.T) {
+	compressor := NewNoneCompressor()
 	assert.Equal(t, None, compressor.Type())
 }
 
-func TestNoopCompressor_Extension(t *testing.T) {
-	compressor := NewNoopCompressor()
+func TestNoneCompressor_Extension(t *testing.T) {
+	compressor := NewNoneCompressor()
 	assert.Equal(t, "", compressor.Extension())
 }
 
-func TestNoopCompressor_RoundTrip(t *testing.T) {
-	compressor := NewNoopCompressor()
+func TestNoneCompressor_RoundTrip(t *testing.T) {
+	compressor := NewNoneCompressor()
 	input := []byte("hello world - this data should pass through unchanged")
 
 	// Compress (passthrough)
@@ -56,8 +56,8 @@ func TestNoopCompressor_RoundTrip(t *testing.T) {
 	assert.Equal(t, input, decompressedData, "decompressed data should equal input (passthrough)")
 }
 
-func TestNoopCompressor_LargeData(t *testing.T) {
-	compressor := NewNoopCompressor()
+func TestNoneCompressor_LargeData(t *testing.T) {
+	compressor := NewNoneCompressor()
 	input := bytes.Repeat([]byte("large block of data "), 10000)
 
 	compressed, err := compressor.Compress(bytes.NewReader(input))
@@ -69,8 +69,8 @@ func TestNoopCompressor_LargeData(t *testing.T) {
 	assert.Equal(t, input, result)
 }
 
-func TestNoopCompressor_EmptyInput(t *testing.T) {
-	compressor := NewNoopCompressor()
+func TestNoneCompressor_EmptyInput(t *testing.T) {
+	compressor := NewNoneCompressor()
 
 	compressed, err := compressor.Compress(bytes.NewReader(nil))
 	require.NoError(t, err)

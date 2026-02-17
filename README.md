@@ -6,8 +6,8 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 
 ## Features
 
-- **GPG Encryption**: Secure backups using your existing GPG keys
-- **Gzip Compression**: 60-80% size reduction for most data
+- **Multiple Encryption**: GPG (RSA 4096-bit) and AGE (X25519) encryption
+- **Flexible Compression**: Gzip (default) or none (passthrough for pre-compressed data)
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
 - **Backup Manifests**: Automatic checksum verification and metadata tracking
 - **Retention Management**: Keep only the last N backups
@@ -105,9 +105,11 @@ make dev
 make help
 ```
 
-### GPG Keys Required
+### Encryption Keys
 
-Before using secure-backup, you'll need GPG keys for encryption:
+secure-backup supports **GPG** (default) and **AGE** encryption.
+
+#### GPG Keys
 
 ```bash
 # Generate a new GPG key pair
@@ -115,6 +117,17 @@ gpg --full-generate-key
 
 # Export your public key for backups
 gpg --export yourname@example.com > ~/.gnupg/backup-pub.asc
+```
+
+#### AGE Keys
+
+```bash
+# Install age: https://github.com/FiloSottile/age
+# Generate a new key pair
+age-keygen -o key.txt
+
+# The public key (recipient) is printed to stdout
+# The private key (identity) is saved to key.txt
 ```
 
 ## Quick Start
@@ -126,23 +139,30 @@ gpg --export yourname@example.com > ~/.gnupg/backup-pub.asc
 - ❌ **Errors**: Printed to stderr (exit code 1)
 - 📝 **Details**: Add `--verbose` flag
 
-### 1. Export Your GPG Public Key
+### 1. Create Your First Backup with GPG
 
 ```bash
 gpg --export yourname@example.com > ~/.gnupg/backup-pub.asc
-```
 
-### 2. Create Your First Backup (Silent Mode)
-
-```bash
 secure-backup backup \
   --source /path/to/important/data \
   --dest /path/to/backups \
   --public-key ~/.gnupg/backup-pub.asc \
   --retention 30
+```
 
-# Check if it worked
-echo $?  # 0 = success
+### 2. Or Use AGE Encryption
+
+```bash
+age-keygen -o key.txt
+# Copy the public key (age1...) from the output
+
+secure-backup backup \
+  --source /path/to/important/data \
+  --dest /path/to/backups \
+  --encryption age \
+  --public-key "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p" \
+  --retention 30
 ```
 
 ### 3. Verbose Mode (See Progress)
@@ -154,16 +174,11 @@ secure-backup backup \
   --public-key ~/.gnupg/backup-pub.asc \
   --retention 30 \
   --verbose
-
-# Output shows:
-# Starting backup of /path/to/important/data (1.2 GiB)
-# Destination: /path/to/backups/backup_data_20260207_180500.tar.gz.gpg
-# Backup completed successfully
 ```
 
 This creates two files:
-- `backup_data_20260207_165000.tar.gz.gpg` - Encrypted backup
-- `backup_data_20260207_165000.json` - Manifest with checksum and metadata
+- `backup_data_20260207_165000.tar.gz.gpg` - Encrypted backup (or `.tar.gz.age` for AGE)
+- `backup_data_20260207_165000_manifest.json` - Manifest with checksum and metadata
 
 ### 4. Preview Operations (Dry-Run)
 
@@ -232,7 +247,7 @@ secure-backup restore \
 
 ## Secure Passphrase Handling
 
-Multiple secure options for providing GPG key passphrases.
+Multiple secure options for providing GPG key passphrases. AGE keys do not use passphrases.
 
 ### Three Methods (in priority order)
 
@@ -307,8 +322,8 @@ Backups include manifest files for integrity verification.
 ### What Are Manifests?
 
 Each backup creates two files:
-- `backup_*.tar.gz.gpg` - The encrypted backup
-- `backup_*.json` - Manifest with checksum and metadata
+- `backup_*.tar.gz.gpg` (or `.tar.gz.age`, `.tar.gpg`, `.tar.age`) - The encrypted backup
+- `backup_*_manifest.json` - Manifest with checksum and metadata
 
 **Manifest Contents:**
 - SHA256 checksum of backup file
@@ -422,13 +437,15 @@ If you see warnings about missing manifest files:
 
 ## Project Status
 
-**Current Release**: v1.0.0 ✅
+**Current Release**: v1.1.0 ✅
 
 - ✅ All core commands implemented and tested
+- ✅ GPG and AGE encryption support
+- ✅ Gzip and none (passthrough) compression
 - ✅ 60%+ unit test coverage on core modules
 - ✅ Production hardened (P1-P19 resolved)
 - ✅ Cross-platform builds and `.deb` packaging
-- ✅ End-to-end pipeline test in CI
+- ✅ End-to-end pipeline test in CI (GPG + AGE)
 
 ## Performance
 
@@ -438,7 +455,7 @@ If you see warnings about missing manifest files:
 
 ## Security
 
-- **Encryption**: RSA 4096-bit GPG keys (industry standard)
+- **Encryption**: GPG (RSA 4096-bit) or AGE (X25519) — both industry standard
 - **Compression**: Applied before encryption (critical for efficiency)
 - **Path Validation**: Protection against path traversal attacks
 - **File Permissions**: Backup and manifest files default to `0600` (owner read/write only)

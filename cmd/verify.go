@@ -118,9 +118,15 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Create compressor
+	// Auto-detect compression method from backup filename
+	compMethod, err := compress.ResolveMethod(verifyFile)
+	if err != nil {
+		return errors.Wrap(err, "Failed to detect compression method",
+			"Check that the backup file has a recognized extension (.tar.gz.gpg, .tar.gpg, etc.)")
+	}
+
 	compressor, err := compress.NewCompressor(compress.Config{
-		Method: compress.Gzip,
+		Method: compMethod,
 		Level:  0,
 	})
 	if err != nil {

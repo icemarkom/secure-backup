@@ -39,9 +39,9 @@ func TestManifestPath(t *testing.T) {
 			want:       "backup_data_20260215_120000_manifest.json",
 		},
 		{
-			name:       "gpg encrypted zstd",
+			name:       "unimplemented compression fallback",
 			backupPath: "backup_data_20260215_120000.tar.zst.gpg",
-			want:       "backup_data_20260215_120000_manifest.json",
+			want:       "backup_data_20260215_120000.tar.zst.gpg_manifest.json",
 		},
 		{
 			name:       "age encrypted gzip",
@@ -52,6 +52,16 @@ func TestManifestPath(t *testing.T) {
 			name:       "full path",
 			backupPath: "/backups/daily/backup_data_20260215_120000.tar.gz.gpg",
 			want:       "/backups/daily/backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "gpg encrypted no compression",
+			backupPath: "backup_data_20260215_120000.tar.gpg",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "age encrypted no compression",
+			backupPath: "backup_data_20260215_120000.tar.age",
+			want:       "backup_data_20260215_120000_manifest.json",
 		},
 		{
 			name:       "unknown extension fallback",
@@ -69,7 +79,7 @@ func TestManifestPath(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	m, err := New("/path/to/source", "backup_test_20260214.tar.gz.gpg", "v1.0.0")
+	m, err := New("/path/to/source", "backup_test_20260214.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	assert.NotNil(t, m)
 
@@ -89,7 +99,7 @@ func TestWrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	manifestPath := filepath.Join(tmpDir, "test.json")
 
-	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0")
+	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "abc123"
 	m.SizeBytes = 1024
@@ -113,7 +123,7 @@ func TestRead(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "test.json")
 
 	// Create a manifest
-	original, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0")
+	original, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	original.ChecksumValue = "abc123"
 	original.SizeBytes = 2048
@@ -140,7 +150,7 @@ func TestReadWrite_RoundTrip(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "roundtrip.json")
 
 	// Create manifest
-	m1, err := New("/source/path", "backup_file.tar.gz.gpg", "v2.0.0")
+	m1, err := New("/source/path", "backup_file.tar.gz.gpg", "v2.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m1.ChecksumValue = "def456"
 	m1.SizeBytes = 4096
@@ -167,7 +177,7 @@ func TestReadWrite_RoundTrip(t *testing.T) {
 }
 
 func TestValidate_Valid(t *testing.T) {
-	m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0")
+	m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "abc123"
 
@@ -215,7 +225,7 @@ func TestValidate_MissingFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0")
+			m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 			require.NoError(t, err)
 			m.ChecksumValue = "abc123"
 
@@ -288,7 +298,7 @@ func TestValidateChecksum_Valid(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create manifest with correct checksum
-	m, err := New("/source", "test.txt", "v1.0.0")
+	m, err := New("/source", "test.txt", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = checksum
 
@@ -310,7 +320,7 @@ func TestValidateChecksum_Mismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create manifest
-	m, err := New("/source", "test.txt", "v1.0.0")
+	m, err := New("/source", "test.txt", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = checksum
 
@@ -325,7 +335,7 @@ func TestValidateChecksum_Mismatch(t *testing.T) {
 }
 
 func TestValidateChecksum_FileNotFound(t *testing.T) {
-	m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0")
+	m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "abc123"
 
@@ -357,7 +367,7 @@ func TestRead_NonexistentFile(t *testing.T) {
 }
 
 func TestWrite_InvalidPath(t *testing.T) {
-	m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0")
+	m, err := New("/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 
 	// Try to write to invalid path (directory doesn't exist and can't be created)
@@ -372,7 +382,7 @@ func TestWrite_NoTempFilesOnSuccess(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "atomic-test.json")
 
 	// Create and write manifest
-	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0")
+	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "test123"
 	m.SizeBytes = 1024
@@ -404,7 +414,7 @@ func TestWrite_FilePermissions(t *testing.T) {
 	tmpDir := t.TempDir()
 	manifestPath := filepath.Join(tmpDir, "permissions-test.json")
 
-	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0")
+	m, err := New("/test/source", "backup.tar.gz.gpg", "v1.0.0", "gzip", "gpg")
 	require.NoError(t, err)
 	m.ChecksumValue = "abc123"
 	m.SizeBytes = 1024

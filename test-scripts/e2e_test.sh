@@ -296,6 +296,70 @@ fi
 
 pass "AGE: All files match source"
 
+# ═══════════════════════════════════════════
+# COMPRESSION NONE PIPELINE
+# ═══════════════════════════════════════════
+
+# --- Step 20: Compression None Backup ---
+step "Running backup with --compression none"
+NONE_BACKUP_DIR="$TMPDIR_E2E/none-backups"
+NONE_RESTORE_DIR="$TMPDIR_E2E/none-restore"
+mkdir -p "$NONE_BACKUP_DIR" "$NONE_RESTORE_DIR"
+
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$NONE_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --compression none \
+  --verbose
+
+NONE_BACKUP_FILE=$(find "$NONE_BACKUP_DIR" -name "backup_*.tar.gpg" -not -name "*.tmp" | head -1)
+test -n "$NONE_BACKUP_FILE" || fail "No none-compression backup file found (.tar.gpg)"
+test -s "$NONE_BACKUP_FILE" || fail "None-compression backup file is empty"
+
+# Verify manifest exists and records compression=none
+NONE_MANIFEST=$(find "$NONE_BACKUP_DIR" -name "*_manifest.json" | head -1)
+test -n "$NONE_MANIFEST" || fail "No manifest for none-compression backup"
+grep -q '"compression": "none"' "$NONE_MANIFEST" || fail "Manifest should record compression as 'none'"
+
+pass "None-compression backup created: $(basename "$NONE_BACKUP_FILE")"
+
+# --- Step 21: Compression None Quick Verify ---
+step "Running quick verify on none-compression backup"
+"$BINARY" verify --file "$NONE_BACKUP_FILE" --quick
+pass "None-compression quick verify passed"
+
+# --- Step 22: Compression None Full Verify ---
+step "Running full verify on none-compression backup"
+"$BINARY" verify --file "$NONE_BACKUP_FILE" --private-key "$PRIVATE_KEY" --verbose
+pass "None-compression full verify passed"
+
+# --- Step 23: Compression None Restore ---
+step "Running restore on none-compression backup"
+"$BINARY" restore \
+  --file "$NONE_BACKUP_FILE" \
+  --dest "$NONE_RESTORE_DIR" \
+  --private-key "$PRIVATE_KEY" \
+  --verbose
+
+NONE_RESTORED_SOURCE="$NONE_RESTORE_DIR/source"
+test -d "$NONE_RESTORED_SOURCE" || fail "None-compression restored source directory not found"
+pass "None-compression restore completed"
+
+# --- Step 24: Compression None Diff ---
+step "Comparing none-compression restored data with source"
+diff -r "$SOURCE_DIR" "$NONE_RESTORED_SOURCE" || fail "None-compression restored files differ from source"
+
+if [ -L "$NONE_RESTORED_SOURCE/link_to_small.txt" ]; then
+  TARGET=$(readlink "$NONE_RESTORED_SOURCE/link_to_small.txt")
+  test "$TARGET" = "small.txt" || fail "Symlink target mismatch: got '$TARGET', want 'small.txt'"
+  pass "None-compression: Symlink preserved correctly"
+else
+  fail "None-compression: Symlink not preserved"
+fi
+
+pass "None-compression: All files match source"
+
 # --- Step 9: CLI error output behavior (#10) ---
 
 # 9a: Runtime error should show single error, no usage

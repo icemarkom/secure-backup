@@ -47,7 +47,7 @@ func init() {
 
 func runList(cmd *cobra.Command, args []string) error {
 	cmd.SilenceUsage = true
-	backups, err := retention.ListBackups(listDir, "")
+	backups, err := retention.ListBackups(listDir, "backup_*")
 	if err != nil {
 		return fmt.Errorf("failed to list backups: %w", err)
 	}

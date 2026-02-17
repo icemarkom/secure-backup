@@ -30,8 +30,8 @@
 - `version` - Show version info
 
 **Features:**
-- GPG encryption (RSA 4096-bit, binary format)
-- Parallel gzip compression via pgzip (level 6, ~60-80% reduction)
+- GPG and AGE encryption
+- Gzip compression (default) or `--compression none` passthrough
 - Streaming architecture (constant 10-50MB memory, 1 MB buffered pipes)
 - Retention management (keep last N backups)
 - Path traversal protection
@@ -485,6 +485,15 @@
 - ✅ Comprehensive unit tests: `encrypt_test.go` (8 tests), `compress_test.go` (6 tests)
 - ✅ AGE integration tests: backup→restore and backup→verify cycles
 - ✅ AGE e2e pipeline: keygen → backup → verify → restore → diff in `e2e_test.sh`
+- ✅ `--compression none` passthrough via `NoneCompressor` ([#40](https://github.com/icemarkom/secure-backup/issues/40))
+- ✅ `--compression` flag wired in `cmd/backup.go` with `ParseMethod()`; default `gzip`
+- ✅ `compress.ResolveMethod()` auto-detects compression from filename (`.tar.gz.*` → Gzip, `.tar.*` → None)
+- ✅ Restore/verify auto-detect compression — no `--compression` flag needed
+- ✅ Dynamic retention patterns via `compressor.Extension()` + `encMethod.Extension()`
+- ✅ `manifest.New()` accepts dynamic compression/encryption names
+- ✅ `IsBackupFile()` recognizes `.tar.gpg` and `.tar.age` extensions
+- ✅ Dry-run output dynamic: skips DECOMPRESS step when compression=none
+- ✅ E2E test: full `--compression none` pipeline (backup → verify → restore → diff)
 - Future: zstd compression, lz4 compression, benchmarking
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
@@ -877,6 +886,8 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-16 | Compression Method scaffolding | Applied same iota-based `Method` type pattern to `internal/compress`: `Gzip` constant only — ZSTD/LZ4 not added (scaffolding only, no phantom features). `MethodGzip` string constant, `ParseMethod()`, `ValidMethods()`/`ValidMethodNames()`. Added `Type() Method` to `Compressor` interface. Replaced all hardcoded `"gzip"` strings across cmd/ and test files with `compress.Gzip`. Dry-run output now uses `cfg.Compressor.Type()` dynamically. |
 | 2026-02-16 | CLI help text consolidated | Moved `Long` descriptions in `backup.go`, `restore.go`, `verify.go` from struct literals to `init()` functions. Uses `fmt.Sprintf` with `compress.ValidMethodNames()`, `encrypt.ValidMethodNames()`, `strings.ToUpper(encrypt.MethodGPG)`, `strings.ToUpper(encrypt.MethodAGE)` — zero hardcoded method names in help text. Lowercase constants for CLI parameter values, uppercase for display labels. |
 | 2026-02-16 | Test coverage expanded | Added `encrypt_test.go` (8 tests for Method helpers), `compress_test.go` (6 tests for Method helpers), AGE integration tests (backup→restore, backup→verify cycles), AGE e2e pipeline in `e2e_test.sh`. |
+| 2026-02-16 | None compression ([#40](https://github.com/icemarkom/secure-backup/issues/40)) | Added `--compression none` passthrough via `NoneCompressor`. Identity `Compress()`/`Decompress()`, empty `Extension()` so filenames become `.tar.gpg`/`.tar.age`. Added `.tar.gpg`/`.tar.age` to `knownBackupExtensions`. Named `NoneCompressor` (not Noop) for consistency with CLI-facing `none` method name. |
+| 2026-02-16 | None compression CLI wiring ([#40](https://github.com/icemarkom/secure-backup/issues/40)) | Wired `--compression` flag in `cmd/backup.go` (default: `gzip`). Added `compress.ResolveMethod(filename)` for auto-detection in restore/verify (mirrors `encrypt.ResolveMethod()`). Retention pattern now dynamic via `compressor.Extension()` + `encMethod.Extension()`. `manifest.New()` changed from 3-arg to 5-arg (compression, encryption now caller-supplied). `IsBackupFile()` updated for `.tar.gpg`/`.tar.age`. Dry-run output skips DECOMPRESS step when none. E2E test added for full none-compression pipeline. |
 
 ---
 

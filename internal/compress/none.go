@@ -18,31 +18,31 @@ package compress
 
 import "io"
 
-// NoopCompressor is a passthrough compressor that performs no compression.
+// NoneCompressor is a passthrough compressor that performs no compression.
 // It implements the Compressor interface with identity transforms.
-type NoopCompressor struct{}
+type NoneCompressor struct{}
 
-// NewNoopCompressor creates a new passthrough compressor.
-func NewNoopCompressor() *NoopCompressor {
-	return &NoopCompressor{}
+// NewNoneCompressor creates a new passthrough compressor.
+func NewNoneCompressor() *NoneCompressor {
+	return &NoneCompressor{}
 }
 
 // Compress returns the input stream unchanged.
-func (c *NoopCompressor) Compress(input io.Reader) (io.Reader, error) {
+func (c *NoneCompressor) Compress(input io.Reader) (io.Reader, error) {
 	return input, nil
 }
 
 // Decompress returns the input stream unchanged.
-func (c *NoopCompressor) Decompress(input io.Reader) (io.Reader, error) {
+func (c *NoneCompressor) Decompress(input io.Reader) (io.Reader, error) {
 	return input, nil
 }
 
 // Type returns None.
-func (c *NoopCompressor) Type() Method {
+func (c *NoneCompressor) Type() Method {
 	return None
 }
 
 // Extension returns an empty string since no compression suffix is needed.
-func (c *NoopCompressor) Extension() string {
+func (c *NoneCompressor) Extension() string {
 	return ""
 }
