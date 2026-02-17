@@ -179,13 +179,9 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// Apply retention policy if specified
 	if backupRetention > 0 {
-		// Build retention pattern dynamically from compression + encryption
-		retentionPattern := fmt.Sprintf("backup_*.tar%s.%s", compressor.Extension(), encMethod.Extension())
-
 		retentionPolicy := retention.Policy{
 			KeepLast:  backupRetention,
 			BackupDir: backupDest,
-			Pattern:   retentionPattern,
 			Verbose:   backupVerbose,
 			DryRun:    backupDryRun,
 		}

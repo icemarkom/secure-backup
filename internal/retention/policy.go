@@ -37,7 +37,6 @@ const DefaultKeepLast = 0
 type Policy struct {
 	KeepLast  int
 	BackupDir string
-	Pattern   string // File glob pattern to match (e.g., "backup_*.tar.gz.gpg", "backup_*.tar.age")
 	Verbose   bool
 	DryRun    bool
 }
@@ -48,17 +47,13 @@ func ApplyPolicy(policy Policy) (int, error) {
 		return 0, fmt.Errorf("keep count must be positive")
 	}
 
-	if policy.Pattern == "" {
-		return 0, fmt.Errorf("retention pattern must not be empty")
-	}
-
 	if policy.Verbose {
 		fmt.Printf("Applying retention policy: keep last %d backup(s)\n", policy.KeepLast)
 		fmt.Printf("Backup directory: %s\n", policy.BackupDir)
 	}
 
-	// Find matching backup files
-	pattern := filepath.Join(policy.BackupDir, policy.Pattern)
+	// Find all backup files using broad glob + IsBackupFile filter
+	pattern := filepath.Join(policy.BackupDir, "backup_*")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return 0, fmt.Errorf("failed to find backup files: %w", err)
@@ -71,6 +66,9 @@ func ApplyPolicy(policy Policy) (int, error) {
 	}
 	var files []fileEntry
 	for _, file := range matches {
+		if !IsBackupFile(filepath.Base(file)) {
+			continue
+		}
 		fileInfo, err := os.Stat(file)
 		if err != nil {
 			if policy.Verbose {
@@ -149,13 +147,10 @@ func ApplyPolicy(policy Policy) (int, error) {
 	return deletedCount, nil
 }
 
-// ListBackups lists all backups in the directory with their age
-func ListBackups(backupDir string, pattern string) ([]BackupInfo, error) {
-	if pattern == "" {
-		return nil, fmt.Errorf("backup pattern must not be empty")
-	}
-
-	fullPattern := filepath.Join(backupDir, pattern)
+// ListBackups lists all backups in the directory with their age.
+// Uses broad glob + IsBackupFile filter to find all valid backup files.
+func ListBackups(backupDir string) ([]BackupInfo, error) {
+	fullPattern := filepath.Join(backupDir, "backup_*")
 	matches, err := filepath.Glob(fullPattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find backup files: %w", err)

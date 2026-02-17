@@ -888,6 +888,9 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-16 | Test coverage expanded | Added `encrypt_test.go` (8 tests for Method helpers), `compress_test.go` (6 tests for Method helpers), AGE integration tests (backup→restore, backup→verify cycles), AGE e2e pipeline in `e2e_test.sh`. |
 | 2026-02-16 | None compression ([#40](https://github.com/icemarkom/secure-backup/issues/40)) | Added `--compression none` passthrough via `NoneCompressor`. Identity `Compress()`/`Decompress()`, empty `Extension()` so filenames become `.tar.gpg`/`.tar.age`. Added `.tar.gpg`/`.tar.age` to `knownBackupExtensions`. Named `NoneCompressor` (not Noop) for consistency with CLI-facing `none` method name. |
 | 2026-02-16 | None compression CLI wiring ([#40](https://github.com/icemarkom/secure-backup/issues/40)) | Wired `--compression` flag in `cmd/backup.go` (default: `gzip`). Added `compress.ResolveMethod(filename)` for auto-detection in restore/verify (mirrors `encrypt.ResolveMethod()`). Retention pattern now dynamic via `compressor.Extension()` + `encMethod.Extension()`. `manifest.New()` changed from 3-arg to 5-arg (compression, encryption now caller-supplied). `IsBackupFile()` updated for `.tar.gpg`/`.tar.age`. Dry-run output skips DECOMPRESS step when none. E2E test added for full none-compression pipeline. |
+| 2026-02-16 | Retention pattern scope fix ([#43](https://github.com/icemarkom/secure-backup/issues/43)) | Retention `ApplyPolicy()` used a narrow extension-specific glob (e.g. `backup_*.tar.gz.gpg`), so switching compression/encryption orphaned old backups. Fix: broad `backup_*` glob + `IsBackupFile()` post-filtering. Removed `Pattern` from `Policy` struct. `ListBackups()` simplified to single-param (no pattern). 2 new tests: `TestApplyPolicy_MixedExtensions`, `TestListBackups_MixedExtensions`. |
+| 2026-02-16 | Filed embedded manifest issue ([#44](https://github.com/icemarkom/secure-backup/issues/44)) | Embed manifest JSON as first tar entry for durability. Sidecar remains for fast access. Future enhancement. |
+| 2026-02-16 | Filed manifest-first management issue ([#45](https://github.com/icemarkom/secure-backup/issues/45)) | Manifested backups as first-class citizens, non-manifested as orphans. Affects list, verify, retention. Future enhancement. |
 
 ---
 
@@ -961,8 +964,8 @@ make license-check
 ---
 
 **Last Updated**: 2026-02-16  
-**Last Updated By**: Agent (conversation f9a3aec7-90bb-4b5a-82d8-9f72b181dada)  
+**Last Updated By**: Agent (conversation 4b6e349d-cbed-4968-b469-26afdf65d80d)  
 **Project Phase**: v1.0.0 Release ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P16-P19 ✅ | P8-P9, P14-P15 ⛔ | **ALL ITEMS RESOLVED** 🎉  
-**Next Milestone**: [#24](https://github.com/icemarkom/secure-backup/issues/24) performance, [#14](https://github.com/icemarkom/secure-backup/issues/14) age, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
+**Next Milestone**: [#44](https://github.com/icemarkom/secure-backup/issues/44) embedded manifest, [#45](https://github.com/icemarkom/secure-backup/issues/45) manifest-first management, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
