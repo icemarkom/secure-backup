@@ -505,7 +505,7 @@
 - ✅ E2E test: full `--compression lz4` pipeline (backup → verify → restore → diff)
 - ✅ E2E test: full `--compression lz4 --encryption age` pipeline
 - ✅ Retention and list tests include lz4 files in mixed-extension scenarios
-- Future: benchmarking
+- ✅ Compression benchmarking: `compress_bench_test.go` (compress/decompress speed + ratio for gzip, zstd, lz4)
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
 - Docker SDK client
@@ -706,12 +706,14 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 
 **NEVER merge PRs without explicit user instruction — the user decides when to merge**
 
+**ALWAYS wait for local review before push — present changes for user review, no exceptions**
+
 ✅ **CORRECT:**
 ```
 1. Create feature branch: git checkout -b <branch-name>
 2. Make changes
 3. git add <files>
-4. Ask user: "Ready to commit?"
+4. Present changes to user for LOCAL REVIEW
 5. WAIT for user to say "commit" or "commit and push"
 6. ONLY THEN: git commit + git push -u origin <branch-name>
 7. Create PR: gh pr create --title "..." --body "..."
@@ -724,9 +726,10 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 ```
 1. Make changes on main
 2. git commit + git push directly to main  ← VIOLATION
+3. Push without user review               ← VIOLATION
 ```
 
-**Pattern: BRANCH → MAKE → STAGE → ASK → WAIT → COMMIT → PUSH → PR → ASK → WAIT → MERGE**
+**Pattern: BRANCH → MAKE → STAGE → REVIEW → WAIT → COMMIT → PUSH → PR → ASK → WAIT → MERGE**
 
 **Branch naming**: Use descriptive names like `release/v1.0.0`, `fix/issue-description`, `feat/feature-name`.
 
