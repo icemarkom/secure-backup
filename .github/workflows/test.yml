@@ -3,8 +3,20 @@ name: Tests
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - '.goreleaser.yml'
+      - 'examples/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - '.goreleaser.yml'
+      - 'examples/**'
   workflow_dispatch:  # Enables manual triggering from GitHub UI
 
 jobs:
