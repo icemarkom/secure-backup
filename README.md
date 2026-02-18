@@ -7,7 +7,7 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 ## Features
 
 - **Multiple Encryption**: GPG (RSA 4096-bit) and AGE (X25519) encryption
-- **Flexible Compression**: Gzip (default), zstd (fast, high-ratio), or none (passthrough)
+- **Flexible Compression**: Gzip (default), zstd, lz4, or none (passthrough)
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
 - **Backup Manifests**: Automatic checksum verification and metadata tracking
 - **Retention Management**: Keep only the last N backups
@@ -177,7 +177,7 @@ secure-backup backup \
 ```
 
 This creates two files:
-- `backup_data_20260207_165000.tar.gz.gpg` - Encrypted backup (or `.tar.gz.age` for AGE)
+- `backup_data_20260207_165000.tar.gz.gpg` - Encrypted backup (or `.tar.zst.gpg`, `.tar.lz4.gpg`, `.tar.gz.age`, etc.)
 - `backup_data_20260207_165000_manifest.json` - Manifest with checksum and metadata
 
 ### 4. Preview Operations (Dry-Run)
@@ -322,7 +322,7 @@ Backups include manifest files for integrity verification.
 ### What Are Manifests?
 
 Each backup creates two files:
-- `backup_*.tar.gz.gpg` (or `.tar.gz.age`, `.tar.gpg`, `.tar.age`) - The encrypted backup
+- `backup_*.tar.gz.gpg` / `.tar.zst.gpg` / `.tar.lz4.gpg` / `.tar.gz.age` / `.tar.gpg` / `.tar.age` - The encrypted backup
 - `backup_*_manifest.json` - Manifest with checksum and metadata
 
 **Manifest Contents:**
@@ -442,7 +442,7 @@ If you see warnings about missing manifest files:
 
 - ✅ All core commands implemented and tested
 - ✅ GPG and AGE encryption support
-- ✅ Gzip, zstd, and none (passthrough) compression
+- ✅ Gzip, zstd, lz4, and none (passthrough) compression
 - ✅ 60%+ unit test coverage on core modules
 - ✅ Production hardened (P1-P19 resolved)
 - ✅ Cross-platform builds and `.deb` packaging

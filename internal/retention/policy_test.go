@@ -171,6 +171,16 @@ func TestIsBackupFile(t *testing.T) {
 			want:     true,
 		},
 		{
+			name:     "lz4 gpg",
+			filename: "backup_20240207_183000.tar.lz4.gpg",
+			want:     true,
+		},
+		{
+			name:     "lz4 age",
+			filename: "backup_20240207_183000.tar.lz4.age",
+			want:     true,
+		},
+		{
 			name:     "wrong extension",
 			filename: "backup_20240207_183000.tar.bz2.gpg",
 			want:     false,
@@ -597,11 +607,13 @@ func TestApplyPolicy_MixedExtensions(t *testing.T) {
 	}{
 		{"backup_data_20240207_120000.tar.gz.gpg", 1 * time.Hour},      // newest — keep
 		{"backup_data_20240207_110000.tar.zst.gpg", 2 * time.Hour},     // 2nd — keep
-		{"backup_data_20240207_100000.tar.gpg", 3 * time.Hour},         // 3rd — keep
-		{"backup_data_20240206_120000.tar.gz.age", 24 * time.Hour},     // 4th — delete
-		{"backup_data_20240205_120000.tar.zst.age", 48 * time.Hour},    // 5th — delete
-		{"backup_data_20240204_120000.tar.age", 72 * time.Hour},        // 6th — delete
-		{"backup_data_20240201_120000.tar.gz.gpg", 7 * 24 * time.Hour}, // 7th — delete
+		{"backup_data_20240207_100000.tar.lz4.gpg", 3 * time.Hour},     // 3rd — keep
+		{"backup_data_20240207_090000.tar.gpg", 4 * time.Hour},         // 4th — keep
+		{"backup_data_20240206_120000.tar.gz.age", 24 * time.Hour},     // 5th — delete
+		{"backup_data_20240205_120000.tar.zst.age", 48 * time.Hour},    // 6th — delete
+		{"backup_data_20240204_120000.tar.lz4.age", 72 * time.Hour},    // 7th — delete
+		{"backup_data_20240203_120000.tar.age", 96 * time.Hour},        // 8th — delete
+		{"backup_data_20240201_120000.tar.gz.gpg", 7 * 24 * time.Hour}, // 9th — delete
 	}
 
 	for _, f := range allFiles {
@@ -616,25 +628,25 @@ func TestApplyPolicy_MixedExtensions(t *testing.T) {
 		filepath.Join(tempDir, "backup_data_20240207_120000_manifest.json"),
 		[]byte("{}"), 0644))
 
-	// Keep 3 — should keep the 3 newest regardless of their extension
+	// Keep 4 — should keep the 4 newest regardless of their extension
 	policy := Policy{
-		KeepLast:  3,
+		KeepLast:  4,
 		BackupDir: tempDir,
 		Verbose:   false,
 	}
 
 	count, err := ApplyPolicy(policy)
 	require.NoError(t, err)
-	assert.Equal(t, 4, count, "should delete 4 oldest backups across all extensions")
+	assert.Equal(t, 5, count, "should delete 5 oldest backups across all extensions")
 
-	// Verify 3 newest are kept
-	for _, f := range allFiles[:3] {
+	// Verify 4 newest are kept
+	for _, f := range allFiles[:4] {
 		_, err := os.Stat(filepath.Join(tempDir, f.name))
 		assert.NoError(t, err, "file %s should be kept", f.name)
 	}
 
-	// Verify 4 oldest are deleted
-	for _, f := range allFiles[3:] {
+	// Verify 5 oldest are deleted
+	for _, f := range allFiles[4:] {
 		_, err := os.Stat(filepath.Join(tempDir, f.name))
 		assert.True(t, os.IsNotExist(err), "file %s should be deleted", f.name)
 	}
@@ -651,6 +663,8 @@ func TestListBackups_MixedExtensions(t *testing.T) {
 		"backup_test4_20240204_120000.tar.gz.age",
 		"backup_test5_20240203_120000.tar.zst.gpg",
 		"backup_test6_20240202_120000.tar.zst.age",
+		"backup_test7_20240201_120000.tar.lz4.gpg",
+		"backup_test8_20240131_120000.tar.lz4.age",
 	}
 
 	for _, name := range files {
@@ -664,5 +678,5 @@ func TestListBackups_MixedExtensions(t *testing.T) {
 
 	backups, err := ListBackups(tempDir)
 	require.NoError(t, err)
-	assert.Equal(t, 6, len(backups), "should find all 6 backup files regardless of extension")
+	assert.Equal(t, 8, len(backups), "should find all 8 backup files regardless of extension")
 }

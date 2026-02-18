@@ -49,6 +49,16 @@ func TestManifestPath(t *testing.T) {
 			want:       "backup_data_20260215_120000_manifest.json",
 		},
 		{
+			name:       "gpg encrypted lz4",
+			backupPath: "backup_data_20260215_120000.tar.lz4.gpg",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "age encrypted lz4",
+			backupPath: "backup_data_20260215_120000.tar.lz4.age",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
 			name:       "age encrypted gzip",
 			backupPath: "backup_data_20260215_120000.tar.gz.age",
 			want:       "backup_data_20260215_120000_manifest.json",

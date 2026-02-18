@@ -128,9 +128,10 @@ chmod 600 key.txt
 |--------|------|-----------|----------|
 | **gzip** (default) | `--compression gzip` | `.tar.gz.gpg` | General purpose, 60-80% size reduction |
 | **zstd** | `--compression zstd` | `.tar.zst.gpg` | Fast, high compression ratio (better than gzip) |
+| **lz4** | `--compression lz4` | `.tar.lz4.gpg` | Fastest compression/decompression, moderate ratio |
 | **none** | `--compression none` | `.tar.gpg` | Pre-compressed data (media, archives) |
 
-> **Note:** Restore and verify auto-detect the compression method from the file extension (`.tar.gz.*`, `.tar.zst.*`, or `.tar.*`). No `--compression` flag needed.
+> **Note:** Restore and verify auto-detect the compression method from the file extension (`.tar.gz.*`, `.tar.zst.*`, `.tar.lz4.*`, or `.tar.*`). No `--compression` flag needed.
 
 ## Commands Reference
 
@@ -146,7 +147,7 @@ secure-backup backup [flags]
 - `--dest` (required): Where to save backup files
 - `--public-key` (required): GPG key file path or AGE recipient string
 - `--encryption`: Encryption method: `gpg` (default) or `age`
-- `--compression`: Compression method: `gzip` (default), `zstd`, or `none`
+- `--compression`: Compression method: `gzip` (default), `zstd`, `lz4`, or `none`
 - `--retention`: Number of backups to keep (default: 0 = keep all)
 - `--skip-manifest`: Disable manifest generation (not recommended)
 - `--file-mode`: File permissions for backup and manifest files (default: `"default"`)
@@ -208,6 +209,13 @@ secure-backup backup \
   --public-key ~/.gnupg/backup-pub.asc \
   --compression zstd
 
+# Backup with lz4 compression (fastest)
+secure-backup backup \
+  --source /data/logs \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --compression lz4
+
 # Backup with verbose output, keep last 30 backups
 secure-backup backup \
   --source /var/www/html \
@@ -229,8 +237,10 @@ secure-backup backup \
 ```
 backup_{dirname}_{timestamp}.tar.gz.gpg   # GPG + gzip (default)
 backup_{dirname}_{timestamp}.tar.zst.gpg  # GPG + zstd
+backup_{dirname}_{timestamp}.tar.lz4.gpg  # GPG + lz4
 backup_{dirname}_{timestamp}.tar.gz.age   # AGE + gzip
 backup_{dirname}_{timestamp}.tar.zst.age  # AGE + zstd
+backup_{dirname}_{timestamp}.tar.lz4.age  # AGE + lz4
 backup_{dirname}_{timestamp}.tar.gpg      # GPG + none
 backup_{dirname}_{timestamp}.tar.age      # AGE + none
 backup_{dirname}_{timestamp}_manifest.json  # Manifest file
@@ -631,7 +641,7 @@ fi
 
 BACKUP_DIR="/backups"
 
-for backup in "$BACKUP_DIR"/backup_*.tar.gz.gpg; do
+for backup in "$BACKUP_DIR"/backup_*.tar.*.gpg "$BACKUP_DIR"/backup_*.tar.*.age "$BACKUP_DIR"/backup_*.tar.gpg "$BACKUP_DIR"/backup_*.tar.age; do
   if secure-backup verify --file "$backup" --quick; then
     echo "✓ OK: $backup"
   else
