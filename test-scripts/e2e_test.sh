@@ -499,6 +499,136 @@ fi
 
 pass "Zstd+AGE: All files match source"
 
+# ═══════════════════════════════════════════
+# COMPRESSION LZ4 PIPELINE
+# ═══════════════════════════════════════════
+
+# --- Step 50: Compression Lz4 Backup ---
+step "Running backup with --compression lz4"
+LZ4_BACKUP_DIR="$TMPDIR_E2E/lz4-backups"
+LZ4_RESTORE_DIR="$TMPDIR_E2E/lz4-restore"
+mkdir -p "$LZ4_BACKUP_DIR" "$LZ4_RESTORE_DIR"
+
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$LZ4_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --compression lz4 \
+  --verbose
+
+LZ4_BACKUP_FILE=$(find "$LZ4_BACKUP_DIR" -name "backup_*.tar.lz4.gpg" -not -name "*.tmp" | head -1)
+test -n "$LZ4_BACKUP_FILE" || fail "No lz4 backup file found (.tar.lz4.gpg)"
+test -s "$LZ4_BACKUP_FILE" || fail "Lz4 backup file is empty"
+
+# Verify manifest exists and records compression=lz4
+LZ4_MANIFEST=$(find "$LZ4_BACKUP_DIR" -name "*_manifest.json" | head -1)
+test -n "$LZ4_MANIFEST" || fail "No manifest for lz4 backup"
+grep -q '"compression": "lz4"' "$LZ4_MANIFEST" || fail "Manifest should record compression as 'lz4'"
+
+pass "Lz4 backup created: $(basename "$LZ4_BACKUP_FILE")"
+
+# --- Step 51: Compression Lz4 Quick Verify ---
+step "Running quick verify on lz4 backup"
+"$BINARY" verify --file "$LZ4_BACKUP_FILE" --quick
+pass "Lz4 quick verify passed"
+
+# --- Step 52: Compression Lz4 Full Verify ---
+step "Running full verify on lz4 backup"
+"$BINARY" verify --file "$LZ4_BACKUP_FILE" --private-key "$PRIVATE_KEY" --verbose
+pass "Lz4 full verify passed"
+
+# --- Step 53: Compression Lz4 Restore ---
+step "Running restore on lz4 backup"
+"$BINARY" restore \
+  --file "$LZ4_BACKUP_FILE" \
+  --dest "$LZ4_RESTORE_DIR" \
+  --private-key "$PRIVATE_KEY" \
+  --verbose
+
+LZ4_RESTORED_SOURCE="$LZ4_RESTORE_DIR/source"
+test -d "$LZ4_RESTORED_SOURCE" || fail "Lz4 restored source directory not found"
+pass "Lz4 restore completed"
+
+# --- Step 54: Compression Lz4 Diff ---
+step "Comparing lz4 restored data with source"
+diff -r "$SOURCE_DIR" "$LZ4_RESTORED_SOURCE" || fail "Lz4 restored files differ from source"
+
+if [ -L "$LZ4_RESTORED_SOURCE/link_to_small.txt" ]; then
+  TARGET=$(readlink "$LZ4_RESTORED_SOURCE/link_to_small.txt")
+  test "$TARGET" = "small.txt" || fail "Symlink target mismatch: got '$TARGET', want 'small.txt'"
+  pass "Lz4: Symlink preserved correctly"
+else
+  fail "Lz4: Symlink not preserved"
+fi
+
+pass "Lz4: All files match source"
+
+# ═══════════════════════════════════════════
+# COMPRESSION LZ4 + AGE PIPELINE
+# ═══════════════════════════════════════════
+
+# --- Step 60: Lz4 + AGE Backup ---
+step "Running backup with --compression lz4 --encryption age"
+LZ4_AGE_BACKUP_DIR="$TMPDIR_E2E/lz4-age-backups"
+LZ4_AGE_RESTORE_DIR="$TMPDIR_E2E/lz4-age-restore"
+mkdir -p "$LZ4_AGE_BACKUP_DIR" "$LZ4_AGE_RESTORE_DIR"
+
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$LZ4_AGE_BACKUP_DIR" \
+  --public-key "$AGE_RECIPIENT" \
+  --encryption age \
+  --compression lz4 \
+  --verbose
+
+LZ4_AGE_BACKUP_FILE=$(find "$LZ4_AGE_BACKUP_DIR" -name "backup_*.tar.lz4.age" -not -name "*.tmp" | head -1)
+test -n "$LZ4_AGE_BACKUP_FILE" || fail "No lz4+AGE backup file found (.tar.lz4.age)"
+test -s "$LZ4_AGE_BACKUP_FILE" || fail "Lz4+AGE backup file is empty"
+
+# Verify manifest records both compression and encryption
+LZ4_AGE_MANIFEST=$(find "$LZ4_AGE_BACKUP_DIR" -name "*_manifest.json" | head -1)
+test -n "$LZ4_AGE_MANIFEST" || fail "No manifest for lz4+AGE backup"
+grep -q '"compression": "lz4"' "$LZ4_AGE_MANIFEST" || fail "Manifest should record compression as 'lz4'"
+grep -q '"encryption": "age"' "$LZ4_AGE_MANIFEST" || fail "Manifest should record encryption as 'age'"
+
+pass "Lz4+AGE backup created: $(basename "$LZ4_AGE_BACKUP_FILE")"
+
+# --- Step 61: Lz4 + AGE Quick Verify ---
+step "Running quick verify on lz4+AGE backup"
+"$BINARY" verify --file "$LZ4_AGE_BACKUP_FILE" --quick
+pass "Lz4+AGE quick verify passed"
+
+# --- Step 62: Lz4 + AGE Full Verify ---
+step "Running full verify on lz4+AGE backup"
+"$BINARY" verify --file "$LZ4_AGE_BACKUP_FILE" --private-key "$AGE_KEY_FILE" --verbose
+pass "Lz4+AGE full verify passed"
+
+# --- Step 63: Lz4 + AGE Restore ---
+step "Running restore on lz4+AGE backup"
+"$BINARY" restore \
+  --file "$LZ4_AGE_BACKUP_FILE" \
+  --dest "$LZ4_AGE_RESTORE_DIR" \
+  --private-key "$AGE_KEY_FILE" \
+  --verbose
+
+LZ4_AGE_RESTORED_SOURCE="$LZ4_AGE_RESTORE_DIR/source"
+test -d "$LZ4_AGE_RESTORED_SOURCE" || fail "Lz4+AGE restored source directory not found"
+pass "Lz4+AGE restore completed"
+
+# --- Step 64: Lz4 + AGE Diff ---
+step "Comparing lz4+AGE restored data with source"
+diff -r "$SOURCE_DIR" "$LZ4_AGE_RESTORED_SOURCE" || fail "Lz4+AGE restored files differ from source"
+
+if [ -L "$LZ4_AGE_RESTORED_SOURCE/link_to_small.txt" ]; then
+  TARGET=$(readlink "$LZ4_AGE_RESTORED_SOURCE/link_to_small.txt")
+  test "$TARGET" = "small.txt" || fail "Symlink target mismatch: got '$TARGET', want 'small.txt'"
+  pass "Lz4+AGE: Symlink preserved correctly"
+else
+  fail "Lz4+AGE: Symlink not preserved"
+fi
+
+pass "Lz4+AGE: All files match source"
+
 # --- Step 9: CLI error output behavior (#10) ---
 
 # 9a: Runtime error should show single error, no usage

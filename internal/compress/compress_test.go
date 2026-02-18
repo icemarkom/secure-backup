@@ -31,6 +31,7 @@ func TestMethod_String(t *testing.T) {
 	}{
 		{"Gzip", Gzip, "gzip"},
 		{"Zstd", Zstd, "zstd"},
+		{"Lz4", Lz4, "lz4"},
 		{"None", None, "none"},
 		{"unknown", Method(99), "unknown(99)"},
 	}
@@ -51,12 +52,15 @@ func TestParseMethod(t *testing.T) {
 	}{
 		{"gzip lowercase", "gzip", Gzip, false},
 		{"zstd lowercase", "zstd", Zstd, false},
+		{"lz4 lowercase", "lz4", Lz4, false},
 		{"none lowercase", "none", None, false},
 		{"GZIP uppercase", "GZIP", Gzip, false},
 		{"ZSTD uppercase", "ZSTD", Zstd, false},
+		{"LZ4 uppercase", "LZ4", Lz4, false},
 		{"NONE uppercase", "NONE", None, false},
 		{"Gzip mixed case", "Gzip", Gzip, false},
 		{"Zstd mixed case", "Zstd", Zstd, false},
+		{"Lz4 mixed case", "Lz4", Lz4, false},
 		{"None mixed case", "None", None, false},
 		{"unknown method", "bzip2", Method(0), true},
 		{"empty string", "", Method(0), true},
@@ -78,9 +82,10 @@ func TestParseMethod(t *testing.T) {
 
 func TestValidMethods(t *testing.T) {
 	methods := ValidMethods()
-	assert.Len(t, methods, 3)
+	assert.Len(t, methods, 4)
 	assert.Contains(t, methods, Gzip)
 	assert.Contains(t, methods, Zstd)
+	assert.Contains(t, methods, Lz4)
 	assert.Contains(t, methods, None)
 }
 
@@ -88,8 +93,9 @@ func TestValidMethodNames(t *testing.T) {
 	names := ValidMethodNames()
 	assert.Contains(t, names, MethodGzip)
 	assert.Contains(t, names, MethodZstd)
+	assert.Contains(t, names, MethodLz4)
 	assert.Contains(t, names, MethodNone)
-	assert.Equal(t, "gzip, zstd, none", names)
+	assert.Equal(t, "gzip, zstd, lz4, none", names)
 }
 
 func TestGzipCompressor_Type(t *testing.T) {
@@ -115,10 +121,13 @@ func TestResolveMethod(t *testing.T) {
 		{"gzip age", "backup_test_20260101_120000.tar.gz.age", Gzip, false},
 		{"zstd gpg", "backup_test_20260101_120000.tar.zst.gpg", Zstd, false},
 		{"zstd age", "backup_test_20260101_120000.tar.zst.age", Zstd, false},
+		{"lz4 gpg", "backup_test_20260101_120000.tar.lz4.gpg", Lz4, false},
+		{"lz4 age", "backup_test_20260101_120000.tar.lz4.age", Lz4, false},
 		{"none gpg", "backup_test_20260101_120000.tar.gpg", None, false},
 		{"none age", "backup_test_20260101_120000.tar.age", None, false},
 		{"full path gzip", "/backups/daily/backup_data.tar.gz.gpg", Gzip, false},
 		{"full path zstd", "/backups/daily/backup_data.tar.zst.gpg", Zstd, false},
+		{"full path lz4", "/backups/daily/backup_data.tar.lz4.gpg", Lz4, false},
 		{"full path none", "/backups/daily/backup_data.tar.gpg", None, false},
 		{"unknown extension", "backup.zip", Method(0), true},
 		{"no extension", "backup", Method(0), true},

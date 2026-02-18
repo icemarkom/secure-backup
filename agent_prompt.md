@@ -31,7 +31,7 @@
 
 **Features:**
 - GPG and AGE encryption
-- Gzip compression (default) or `--compression none` passthrough
+- Gzip, zstd, lz4 compression or `--compression none` passthrough
 - Streaming architecture (constant 10-50MB memory, 1 MB buffered pipes)
 - Retention management (keep last N backups)
 - Path traversal protection
@@ -501,7 +501,11 @@
 - ✅ E2E test: full `--compression zstd` pipeline (backup → verify → restore → diff)
 - ✅ E2E test: full `--compression zstd --encryption age` pipeline
 - ✅ Retention and list tests include zstd files in mixed-extension scenarios
-- Future: lz4 compression, benchmarking
+- ✅ lz4 compression support (levels 0-9, `.lz4` extension, `pierrec/lz4/v4`)
+- ✅ E2E test: full `--compression lz4` pipeline (backup → verify → restore → diff)
+- ✅ E2E test: full `--compression lz4 --encryption age` pipeline
+- ✅ Retention and list tests include lz4 files in mixed-extension scenarios
+- Future: benchmarking
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
 - Docker SDK client
@@ -563,7 +567,7 @@ secure-backup/
 │   ├── archive/           # TAR operations
 │   ├── backup/            # Pipeline orchestration
 │   ├── common/            # Shared utilities (formatting, IO buffers, user errors)
-│   ├── compress/          # Compression (gzip, zstd, none)
+│   ├── compress/          # Compression (gzip, zstd, lz4, none)
 │   ├── encrypt/           # Encryption (GPG, future: age)
 │   ├── lock/              # Backup locking (per-destination)
 │   ├── manifest/          # Backup metadata & integrity verification
@@ -581,10 +585,10 @@ secure-backup/
 
 ### Key Design Patterns
 
-1. **Interface-Based Extensibility** - Easy to add age/zstd later
+1. **Interface-Based Extensibility** - Compression (gzip, zstd, lz4, none) and encryption (GPG, AGE) via interfaces
 2. **Streaming Everything** - Constant memory usage via `io.Pipe()`
 3. **Security First** - Path traversal protection, symlink validation
-4. **Minimal Dependencies** - stdlib + cobra + testify + pgzip
+4. **Minimal Dependencies** - stdlib + cobra + testify + pgzip + zstd + lz4
 
 ---
 
@@ -823,13 +827,18 @@ Docker support remains planned (Phase 7), just deprioritized.
 
 ## File Naming Convention
 
-**Backup files**: `backup_{sourcename}_{timestamp}.tar.gz.gpg`
+**Backup files**: `backup_{sourcename}_{timestamp}.tar.{compression}.{encryption}`
 
-Example: `backup_documents_20260207_165324.tar.gz.gpg`
+Examples:
+- `backup_documents_20260207_165324.tar.gz.gpg` (gzip + GPG)
+- `backup_documents_20260207_165324.tar.zst.age` (zstd + AGE)
+- `backup_documents_20260207_165324.tar.lz4.gpg` (lz4 + GPG)
+- `backup_documents_20260207_165324.tar.gpg` (none + GPG)
 
+Extension components:
 - `.tar` = tar archive
-- `.gz` = gzip compressed
-- `.gpg` = GPG encrypted
+- `.gz` = gzip compressed | `.zst` = zstd compressed | `.lz4` = lz4 compressed | (omitted) = none
+- `.gpg` = GPG encrypted | `.age` = AGE encrypted
 
 ---
 
@@ -902,6 +911,7 @@ Example: `backup_documents_20260207_165324.tar.gz.gpg`
 | 2026-02-16 | Consolidated helper packages ([#48](https://github.com/icemarkom/secure-backup/issues/48)) | Merged `internal/format`, `internal/ioutil`, `internal/errors` into `internal/common`. All shared utility functions (formatting, IO buffers, user-friendly errors) live in one package. `internal/progress` kept separate (external dep). **Ongoing: all new shared helpers go in `internal/common`.** |
 | 2026-02-17 | Cron.daily example script ([#50](https://github.com/icemarkom/secure-backup/pull/50)) | Added `examples/cron.daily/secure-backup` — drop-in script for `/etc/cron.daily/` on Ubuntu. Supports multiple source directories via bash array, configurable AGE/GPG encryption, retention, logging, and per-source failure tracking. `.gitignore` scoped `secure-backup` → `/secure-backup` to avoid ignoring the example. |
 | 2026-02-17 | Manifest size fields ([#51](https://github.com/icemarkom/secure-backup/issues/51)) | Renamed `size_bytes` → `compressed_size_bytes`, added `uncompressed_size_bytes`. Uncompressed size counted inside `CreateTar` as raw file data bytes (no tar headers, no TOCTOU). `CreateTar` returns `(int64, error)`, plumbed through `executePipeline` → `PerformBackup` → manifest. `getDirectorySize()` remains for progress bar estimate only. |
+| 2026-02-17 | LZ4 compression support ([#15](https://github.com/icemarkom/secure-backup/issues/15)) | Added `Lz4Compressor` using `pierrec/lz4/v4 v4.1.25`. `Lz4` iota + `MethodLz4 = "lz4"` constant. Levels 0-9 (0=Fast default). `.lz4` extension. 7 unit tests mirroring gzip/zstd parity. Retention tests updated (IsBackupFile, MixedExtensions, ListBackups). E2E: LZ4+GPG and LZ4+AGE full pipelines. No CLI wiring changes needed — `ParseMethod()`, `ResolveMethod()`, retention, manifest all work dynamically. |
 
 ---
 
@@ -975,7 +985,7 @@ make license-check
 ---
 
 **Last Updated**: 2026-02-17  
-**Last Updated By**: Agent (conversation d0e2bc5b-712a-4a6d-b55b-3eed838a702b)  
+**Last Updated By**: Agent (conversation 43f5ec4f-2f91-44ae-a9f4-0f7907ab9077)  
 **Current Release**: v1.2.0  
 **Project Phase**: Post-1.0 improvements ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
