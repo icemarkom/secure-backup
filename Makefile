@@ -1,4 +1,4 @@
-.PHONY: all build test clean install coverage lint fmt vet dev run e2e bench license-check help
+.PHONY: all build test clean install install-man coverage lint fmt vet dev run e2e bench license-check man help
 
 # Binary name
 BINARY := secure-backup
@@ -82,6 +82,16 @@ e2e: build
 bench:
 	@echo "Running compression benchmarks..."
 	go test ./internal/compress/... -bench=. -benchmem -count=3
+
+## man: Preview the man page
+man:
+	man -l docs/secure-backup.1
+
+## install-man: Install the man page to /usr/share/man/man1
+install-man:
+	@echo "Installing man page..."
+	sudo install -Dm 644 docs/secure-backup.1 /usr/share/man/man1/secure-backup.1
+	sudo mandb -q
 
 ## license-check: Verify license headers are present
 license-check:

@@ -36,6 +36,7 @@ archives:
       - LICENSE
       - README.md
       - USAGE.md
+      - docs/secure-backup.1
 
 nfpms:
   - id: secure-backup
@@ -47,6 +48,9 @@ nfpms:
     bindir: /usr/bin
     formats:
       - deb
+    contents:
+      - src: docs/secure-backup.1
+        dst: /usr/share/man/man1/secure-backup.1
     dependencies:
       - gnupg
     recommends:
@@ -59,14 +63,10 @@ snapshot:
   version_template: "{{ incpatch .Version }}-dev"
 
 changelog:
-  use: github
-  sort: asc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^ci:'
+  # Release notes are provided via --release-notes flag from annotated tag
+  # messages in the release workflow. Disable GoReleaser's auto-generated
+  # changelog to avoid overriding tag annotations.
+  disable: true
 
 release:
   github:

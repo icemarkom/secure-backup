@@ -1,0 +1,400 @@
+.\" secure-backup - Secure, encrypted backups for any directory
+.\" Copyright 2026 Marko Milivojevic
+.\" Licensed under the Apache License, Version 2.0
+.\"
+.TH SECURE-BACKUP 1 "February 2026" "secure-backup" "User Commands"
+.SH NAME
+secure-backup \- create and manage secure, encrypted directory backups
+.SH SYNOPSIS
+.B secure-backup backup
+.RB [ \-\-source
+.IR dir ]
+.RB [ \-\-dest
+.IR dir ]
+.RB [ \-\-public-key
+.IR key ]
+.RI [ options ]
+.br
+.B secure-backup restore
+.RB [ \-\-file
+.IR path ]
+.RB [ \-\-dest
+.IR dir ]
+.RB [ \-\-private-key
+.IR key ]
+.RI [ options ]
+.br
+.B secure-backup verify
+.RB [ \-\-file
+.IR path ]
+.RI [ options ]
+.br
+.B secure-backup list
+.RB [ \-\-dest
+.IR dir ]
+.br
+.B secure-backup version
+.SH DESCRIPTION
+.B secure-backup
+creates GPG or AGE encrypted, compressed backups of any directory using a
+streaming pipeline architecture.
+.PP
+The backup pipeline follows this order:
+.RS 4
+.nf
+TAR \(-> COMPRESS \(-> ENCRYPT \(-> File
+.fi
+.RE
+.PP
+This order is critical because encrypted data is cryptographically random
+and cannot be compressed.
+.PP
+.B secure-backup
+follows Unix philosophy: silent on success, errors to stderr.
+All commands produce no output by default (exit code 0 indicates success).
+Use
+.B \-\-verbose
+to see progress and status messages.
+.SH COMMANDS
+.SS backup
+Create an encrypted backup of a directory.
+.TP
+.BR \-\-source " " \fIdir\fR " (required)"
+Source directory to back up.
+.TP
+.BR \-\-dest " " \fIdir\fR " (required)"
+Destination directory for the backup file.
+.TP
+.BR \-\-public-key " " \fIkey\fR " (required)"
+Public key for encryption.
+For GPG: path to an exported public key file.
+For AGE: a recipient string (starts with
+.BR age1... ).
+.TP
+.BR \-\-encryption " " \fImethod\fR
+Encryption method:
+.BR gpg " (default) or"
+.BR age .
+.TP
+.BR \-\-compression " " \fImethod\fR
+Compression method:
+.BR gzip " (default),"
+.BR zstd ,
+.BR lz4 ,
+or
+.BR none .
+.TP
+.BR \-\-retention " " \fIN\fR
+Number of backups to keep in the destination directory.
+Older backups (and their manifests) are deleted after a successful backup.
+Default: 0 (keep all).
+.TP
+.B \-\-skip-manifest
+Disable manifest (JSON metadata + SHA256 checksum) generation.
+Not recommended for production use.
+.TP
+.BR \-\-file-mode " " \fImode\fR
+File permissions for backup and manifest files.
+.RS
+.TP
+.B default
+0600 \(em owner read/write only (secure default).
+.TP
+.B system
+Defer to the system umask.
+.TP
+.I octal
+An explicit octal mode such as
+.BR 0640 .
+A warning is printed if the mode is world-readable.
+.RE
+.TP
+.BR \-v ", " \-\-verbose
+Show progress bars and status messages.
+.TP
+.B \-\-dry-run
+Preview the operation without creating any files.
+Implies
+.BR \-\-verbose .
+.\" ---
+.SS restore
+Restore files from an encrypted backup.
+.TP
+.BR \-\-file " " \fIpath\fR " (required)"
+Backup file to restore.
+.TP
+.BR \-\-dest " " \fIdir\fR " (required)"
+Destination directory for restored files.
+.TP
+.BR \-\-private-key " " \fIpath\fR " (required)"
+Private key for decryption.
+For GPG: path to an exported private key file.
+For AGE: path to an identity file.
+.TP
+.BR \-\-encryption " " \fImethod\fR
+Encryption method.
+Auto-detected from the file extension
+.RB ( .gpg " or " .age )
+if omitted.
+.TP
+.BR \-\-passphrase " " \fIstring\fR
+GPG key passphrase (insecure \(em visible in process lists).
+See
+.B ENVIRONMENT
+for a safer alternative.
+.TP
+.BR \-\-passphrase-file " " \fIpath\fR
+Path to a file containing the GPG key passphrase.
+.TP
+.B \-\-force
+Allow restore to a non-empty destination directory.
+Without this flag, restoring to a non-empty directory is an error
+(prevents accidental data loss).
+.TP
+.B \-\-skip-manifest
+Skip manifest validation before restoring.
+.TP
+.BR \-v ", " \-\-verbose
+Show progress bars and status messages.
+.TP
+.B \-\-dry-run
+Preview the operation without extracting any files.
+Implies
+.BR \-\-verbose .
+.\" ---
+.SS verify
+Check the integrity of an encrypted backup.
+.TP
+.BR \-\-file " " \fIpath\fR " (required)"
+Backup file to verify.
+.TP
+.BR \-\-private-key " " \fIpath\fR
+Private key for full verification (decrypt + decompress the entire file).
+Required unless
+.B \-\-quick
+is specified.
+.TP
+.B \-\-quick
+Quick verification: validate file headers and manifest checksum only,
+without full decryption.
+.TP
+.BR \-\-encryption " " \fImethod\fR
+Encryption method.
+Auto-detected from the file extension if omitted.
+.TP
+.BR \-\-passphrase " " \fIstring\fR
+GPG key passphrase (insecure).
+.TP
+.BR \-\-passphrase-file " " \fIpath\fR
+Path to a file containing the GPG key passphrase.
+.TP
+.B \-\-skip-manifest
+Skip manifest validation.
+.TP
+.BR \-v ", " \-\-verbose
+Show detailed verification output.
+.TP
+.B \-\-dry-run
+Preview verification without performing it.
+Implies
+.BR \-\-verbose .
+.\" ---
+.SS list
+List available backups in a directory.
+This is a query command and always produces output.
+.TP
+.BR \-\-dest " " \fIdir\fR " (required)"
+Backup directory to list.
+.\" ---
+.SS version
+Print version, commit hash, and build date.
+.SH ENCRYPTION METHODS
+.TS
+l l l.
+Method	Flag value	Key type
+_
+GPG (default)	gpg	File path to exported key (.asc)
+AGE	age	Recipient string (age1...)
+.TE
+.PP
+Restore and verify auto-detect the encryption method from the file
+extension
+.RB ( .gpg " or " .age ).
+.SH COMPRESSION METHODS
+.TS
+l l l l.
+Method	Flag value	Extension	Best for
+_
+gzip (default)	gzip	.tar.gz.*	General purpose
+zstd	zstd	.tar.zst.*	Fast, high ratio
+lz4	lz4	.tar.lz4.*	Maximum speed
+none	none	.tar.*	Pre-compressed data
+.TE
+.PP
+Restore and verify auto-detect the compression method from the file
+extension.
+No
+.B \-\-compression
+flag is needed for those commands.
+.SH FILE NAMING
+Backup files follow the pattern:
+.PP
+.RS 4
+.nf
+backup_\fIname\fR_\fItimestamp\fR.tar[.\fIcompression\fR].\fIencryption\fR
+.fi
+.RE
+.PP
+Examples:
+.RS 4
+.nf
+backup_documents_20260207_165324.tar.gz.gpg
+backup_documents_20260207_165324.tar.zst.age
+backup_documents_20260207_165324.tar.lz4.gpg
+backup_documents_20260207_165324.tar.gpg
+.fi
+.RE
+.PP
+Each backup may also have a companion manifest file:
+.RS 4
+.nf
+backup_documents_20260207_165324_manifest.json
+.fi
+.RE
+.SH MANIFEST FILES
+By default, a JSON manifest file is created alongside each backup containing:
+.IP \(bu 2
+SHA256 checksum of the backup file
+.IP \(bu 2
+Source path and timestamp
+.IP \(bu 2
+Tool version and hostname
+.IP \(bu 2
+Uncompressed and compressed file sizes
+.IP \(bu 2
+Compression and encryption methods used
+.PP
+Manifests enable checksum-based pre-validation during restore and verify.
+Use
+.B \-\-skip-manifest
+to disable.
+.SH ENVIRONMENT
+.TP
+.B SECURE_BACKUP_PASSPHRASE
+GPG key passphrase.
+This is the recommended method for automated and unattended operation
+(e.g., cron jobs).
+Mutually exclusive with
+.B \-\-passphrase
+and
+.BR \-\-passphrase-file .
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Failure.
+An error message is written to stderr.
+.SH EXAMPLES
+Create a backup with GPG encryption (default):
+.PP
+.RS 4
+.nf
+secure-backup backup \\
+  --source ~/documents \\
+  --dest /backups \\
+  --public-key ~/.gnupg/backup-pub.asc
+.fi
+.RE
+.PP
+Create a backup with AGE encryption and zstd compression:
+.PP
+.RS 4
+.nf
+secure-backup backup \\
+  --source ~/documents \\
+  --dest /backups \\
+  --encryption age \\
+  --compression zstd \\
+  --public-key "age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p"
+.fi
+.RE
+.PP
+Restore a backup:
+.PP
+.RS 4
+.nf
+secure-backup restore \\
+  --file /backups/backup_documents_20260207.tar.gz.gpg \\
+  --dest /restore \\
+  --private-key ~/.gnupg/backup-priv.asc
+.fi
+.RE
+.PP
+Quick-verify a backup (no private key needed):
+.PP
+.RS 4
+.nf
+secure-backup verify \\
+  --file /backups/backup_documents_20260207.tar.gz.gpg \\
+  --quick
+.fi
+.RE
+.PP
+List all backups:
+.PP
+.RS 4
+.nf
+secure-backup list --dest /backups
+.fi
+.RE
+.PP
+Daily cron job keeping the last 30 backups:
+.PP
+.RS 4
+.nf
+0 2 * * * secure-backup backup \\
+  --source /data \\
+  --dest /backups \\
+  --public-key /root/.gnupg/backup-pub.asc \\
+  --retention 30
+.fi
+.RE
+.PP
+Preview a backup without executing (dry-run):
+.PP
+.RS 4
+.nf
+secure-backup backup \\
+  --source ~/documents \\
+  --dest /backups \\
+  --public-key ~/.gnupg/backup-pub.asc \\
+  --dry-run
+.fi
+.RE
+.SH FILES
+.TP
+.I <dest>/.backup.lock
+Lock file created during backup to prevent concurrent runs.
+Contains PID, hostname, and timestamp.
+Automatically removed on completion; stale lock files must be removed manually.
+.TP
+.IR <dest>/ backup_*_manifest.json
+JSON manifest created alongside each backup (unless
+.B \-\-skip-manifest
+is used).
+.SH BUGS
+Report bugs at
+.UR https://github.com/icemarkom/secure-backup/issues
+.UE .
+.SH SEE ALSO
+.BR gpg (1),
+.BR age (1),
+.BR tar (1),
+.BR gzip (1),
+.BR zstd (1),
+.BR lz4 (1)
+.SH AUTHORS
+Marko Milivojevic
+.RI < markom@gmail.com >
