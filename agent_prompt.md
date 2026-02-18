@@ -218,6 +218,7 @@ Key architectural decisions that affect future development:
 | 2026-02-17 | All shared helpers in `internal/common` | Consolidated from `internal/format`, `internal/ioutil`, `internal/errors` |
 | 2026-02-18 | Docker integration abandoned | General-purpose directory backup tool; Docker volumes backed up via mount paths. Closed [#16](https://github.com/icemarkom/secure-backup/issues/16) |
 | 2026-02-18 | agent_prompt.md streamlined | Removed phases/productionization terminology, use GH issues for tracking. Rules of engagement elevated to top. Reduced 1008→232 lines |
+| 2026-02-18 | Sidecar-only manifests (no embedding) | Evaluated 4 embedding strategies (tar entry, trailing footer, outer wrapper, hybrid). All add complexity/fragility or break format compatibility with standard GPG/AGE tools. Sidecar is simple, reliable, and preserves `gpg --decrypt` fallback. Closed [#44](https://github.com/icemarkom/secure-backup/issues/44) |
 
 ---
 
@@ -226,7 +227,6 @@ Key architectural decisions that affect future development:
 Track all planned work via [GitHub Issues](https://github.com/icemarkom/secure-backup/issues).
 
 Key open items:
-- [#44](https://github.com/icemarkom/secure-backup/issues/44) — Embed manifest inside backup archive
 - [#45](https://github.com/icemarkom/secure-backup/issues/45) — Manifest-first backup management
 
 ---
