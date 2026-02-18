@@ -127,9 +127,10 @@ chmod 600 key.txt
 | Method | Flag | Extension | Use Case |
 |--------|------|-----------|----------|
 | **gzip** (default) | `--compression gzip` | `.tar.gz.gpg` | General purpose, 60-80% size reduction |
+| **zstd** | `--compression zstd` | `.tar.zst.gpg` | Fast, high compression ratio (better than gzip) |
 | **none** | `--compression none` | `.tar.gpg` | Pre-compressed data (media, archives) |
 
-> **Note:** Restore and verify auto-detect the compression method from the file extension (`.tar.gz.*` or `.tar.*`). No `--compression` flag needed.
+> **Note:** Restore and verify auto-detect the compression method from the file extension (`.tar.gz.*`, `.tar.zst.*`, or `.tar.*`). No `--compression` flag needed.
 
 ## Commands Reference
 
@@ -145,7 +146,7 @@ secure-backup backup [flags]
 - `--dest` (required): Where to save backup files
 - `--public-key` (required): GPG key file path or AGE recipient string
 - `--encryption`: Encryption method: `gpg` (default) or `age`
-- `--compression`: Compression method: `gzip` (default) or `none`
+- `--compression`: Compression method: `gzip` (default), `zstd`, or `none`
 - `--retention`: Number of backups to keep (default: 0 = keep all)
 - `--skip-manifest`: Disable manifest generation (not recommended)
 - `--file-mode`: File permissions for backup and manifest files (default: `"default"`)
@@ -200,6 +201,13 @@ secure-backup backup \
   --public-key ~/.gnupg/backup-pub.asc \
   --compression none
 
+# Backup with zstd compression (fast, high ratio)
+secure-backup backup \
+  --source /data/logs \
+  --dest /backups \
+  --public-key ~/.gnupg/backup-pub.asc \
+  --compression zstd
+
 # Backup with verbose output, keep last 30 backups
 secure-backup backup \
   --source /var/www/html \
@@ -220,7 +228,9 @@ secure-backup backup \
 **Output File Format:**
 ```
 backup_{dirname}_{timestamp}.tar.gz.gpg   # GPG + gzip (default)
+backup_{dirname}_{timestamp}.tar.zst.gpg  # GPG + zstd
 backup_{dirname}_{timestamp}.tar.gz.age   # AGE + gzip
+backup_{dirname}_{timestamp}.tar.zst.age  # AGE + zstd
 backup_{dirname}_{timestamp}.tar.gpg      # GPG + none
 backup_{dirname}_{timestamp}.tar.age      # AGE + none
 backup_{dirname}_{timestamp}_manifest.json  # Manifest file

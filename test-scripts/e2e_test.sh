@@ -369,6 +369,70 @@ fi
 
 pass "None-compression: All files match source"
 
+# ═══════════════════════════════════════════
+# COMPRESSION ZSTD PIPELINE
+# ═══════════════════════════════════════════
+
+# --- Step 30: Compression Zstd Backup ---
+step "Running backup with --compression zstd"
+ZSTD_BACKUP_DIR="$TMPDIR_E2E/zstd-backups"
+ZSTD_RESTORE_DIR="$TMPDIR_E2E/zstd-restore"
+mkdir -p "$ZSTD_BACKUP_DIR" "$ZSTD_RESTORE_DIR"
+
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$ZSTD_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --compression zstd \
+  --verbose
+
+ZSTD_BACKUP_FILE=$(find "$ZSTD_BACKUP_DIR" -name "backup_*.tar.zst.gpg" -not -name "*.tmp" | head -1)
+test -n "$ZSTD_BACKUP_FILE" || fail "No zstd backup file found (.tar.zst.gpg)"
+test -s "$ZSTD_BACKUP_FILE" || fail "Zstd backup file is empty"
+
+# Verify manifest exists and records compression=zstd
+ZSTD_MANIFEST=$(find "$ZSTD_BACKUP_DIR" -name "*_manifest.json" | head -1)
+test -n "$ZSTD_MANIFEST" || fail "No manifest for zstd backup"
+grep -q '"compression": "zstd"' "$ZSTD_MANIFEST" || fail "Manifest should record compression as 'zstd'"
+
+pass "Zstd backup created: $(basename "$ZSTD_BACKUP_FILE")"
+
+# --- Step 31: Compression Zstd Quick Verify ---
+step "Running quick verify on zstd backup"
+"$BINARY" verify --file "$ZSTD_BACKUP_FILE" --quick
+pass "Zstd quick verify passed"
+
+# --- Step 32: Compression Zstd Full Verify ---
+step "Running full verify on zstd backup"
+"$BINARY" verify --file "$ZSTD_BACKUP_FILE" --private-key "$PRIVATE_KEY" --verbose
+pass "Zstd full verify passed"
+
+# --- Step 33: Compression Zstd Restore ---
+step "Running restore on zstd backup"
+"$BINARY" restore \
+  --file "$ZSTD_BACKUP_FILE" \
+  --dest "$ZSTD_RESTORE_DIR" \
+  --private-key "$PRIVATE_KEY" \
+  --verbose
+
+ZSTD_RESTORED_SOURCE="$ZSTD_RESTORE_DIR/source"
+test -d "$ZSTD_RESTORED_SOURCE" || fail "Zstd restored source directory not found"
+pass "Zstd restore completed"
+
+# --- Step 34: Compression Zstd Diff ---
+step "Comparing zstd restored data with source"
+diff -r "$SOURCE_DIR" "$ZSTD_RESTORED_SOURCE" || fail "Zstd restored files differ from source"
+
+if [ -L "$ZSTD_RESTORED_SOURCE/link_to_small.txt" ]; then
+  TARGET=$(readlink "$ZSTD_RESTORED_SOURCE/link_to_small.txt")
+  test "$TARGET" = "small.txt" || fail "Symlink target mismatch: got '$TARGET', want 'small.txt'"
+  pass "Zstd: Symlink preserved correctly"
+else
+  fail "Zstd: Symlink not preserved"
+fi
+
+pass "Zstd: All files match source"
+
 # --- Step 9: CLI error output behavior (#10) ---
 
 # 9a: Runtime error should show single error, no usage

@@ -30,6 +30,7 @@ func TestMethod_String(t *testing.T) {
 		want   string
 	}{
 		{"Gzip", Gzip, "gzip"},
+		{"Zstd", Zstd, "zstd"},
 		{"None", None, "none"},
 		{"unknown", Method(99), "unknown(99)"},
 	}
@@ -49,10 +50,13 @@ func TestParseMethod(t *testing.T) {
 		wantErr bool
 	}{
 		{"gzip lowercase", "gzip", Gzip, false},
+		{"zstd lowercase", "zstd", Zstd, false},
 		{"none lowercase", "none", None, false},
 		{"GZIP uppercase", "GZIP", Gzip, false},
+		{"ZSTD uppercase", "ZSTD", Zstd, false},
 		{"NONE uppercase", "NONE", None, false},
 		{"Gzip mixed case", "Gzip", Gzip, false},
+		{"Zstd mixed case", "Zstd", Zstd, false},
 		{"None mixed case", "None", None, false},
 		{"unknown method", "bzip2", Method(0), true},
 		{"empty string", "", Method(0), true},
@@ -74,16 +78,18 @@ func TestParseMethod(t *testing.T) {
 
 func TestValidMethods(t *testing.T) {
 	methods := ValidMethods()
-	assert.Len(t, methods, 2)
+	assert.Len(t, methods, 3)
 	assert.Contains(t, methods, Gzip)
+	assert.Contains(t, methods, Zstd)
 	assert.Contains(t, methods, None)
 }
 
 func TestValidMethodNames(t *testing.T) {
 	names := ValidMethodNames()
 	assert.Contains(t, names, MethodGzip)
+	assert.Contains(t, names, MethodZstd)
 	assert.Contains(t, names, MethodNone)
-	assert.Equal(t, "gzip, none", names)
+	assert.Equal(t, "gzip, zstd, none", names)
 }
 
 func TestGzipCompressor_Type(t *testing.T) {
@@ -107,9 +113,12 @@ func TestResolveMethod(t *testing.T) {
 	}{
 		{"gzip gpg", "backup_test_20260101_120000.tar.gz.gpg", Gzip, false},
 		{"gzip age", "backup_test_20260101_120000.tar.gz.age", Gzip, false},
+		{"zstd gpg", "backup_test_20260101_120000.tar.zst.gpg", Zstd, false},
+		{"zstd age", "backup_test_20260101_120000.tar.zst.age", Zstd, false},
 		{"none gpg", "backup_test_20260101_120000.tar.gpg", None, false},
 		{"none age", "backup_test_20260101_120000.tar.age", None, false},
 		{"full path gzip", "/backups/daily/backup_data.tar.gz.gpg", Gzip, false},
+		{"full path zstd", "/backups/daily/backup_data.tar.zst.gpg", Zstd, false},
 		{"full path none", "/backups/daily/backup_data.tar.gpg", None, false},
 		{"unknown extension", "backup.zip", Method(0), true},
 		{"no extension", "backup", Method(0), true},

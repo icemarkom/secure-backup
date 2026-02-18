@@ -161,9 +161,14 @@ func TestIsBackupFile(t *testing.T) {
 			want:     true,
 		},
 		{
-			name:     "unimplemented compression",
+			name:     "zstd gpg",
 			filename: "backup_20240207_183000.tar.zst.gpg",
-			want:     false,
+			want:     true,
+		},
+		{
+			name:     "zstd age",
+			filename: "backup_20240207_183000.tar.zst.age",
+			want:     true,
 		},
 		{
 			name:     "wrong extension",

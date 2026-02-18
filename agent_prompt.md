@@ -497,7 +497,9 @@
 - ✅ `IsBackupFile()` recognizes `.tar.gpg` and `.tar.age` extensions
 - ✅ Dry-run output dynamic: skips DECOMPRESS step when compression=none
 - ✅ E2E test: full `--compression none` pipeline (backup → verify → restore → diff)
-- Future: zstd compression, lz4 compression, benchmarking
+- ✅ zstd compression support (levels 0-4, `.zst` extension)
+- ✅ E2E test: full `--compression zstd` pipeline (backup → verify → restore → diff)
+- Future: lz4 compression, benchmarking
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
 - Docker SDK client
@@ -559,7 +561,7 @@ secure-backup/
 │   ├── archive/           # TAR operations
 │   ├── backup/            # Pipeline orchestration
 │   ├── common/            # Shared utilities (formatting, IO buffers, user errors)
-│   ├── compress/          # Compression (gzip, future: zstd)
+│   ├── compress/          # Compression (gzip, zstd, none)
 │   ├── encrypt/           # Encryption (GPG, future: age)
 │   ├── lock/              # Backup locking (per-destination)
 │   ├── manifest/          # Backup metadata & integrity verification
@@ -976,4 +978,4 @@ make license-check
 **Project Phase**: Post-1.0 improvements ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P16-P19 ✅ | P8-P9, P14-P15 ⛔ | **ALL ITEMS RESOLVED** 🎉  
-**Next Milestone**: [#44](https://github.com/icemarkom/secure-backup/issues/44) embedded manifest, [#45](https://github.com/icemarkom/secure-backup/issues/45) manifest-first management, [#15](https://github.com/icemarkom/secure-backup/issues/15) zstd, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
+**Next Milestone**: [#44](https://github.com/icemarkom/secure-backup/issues/44) embedded manifest, [#45](https://github.com/icemarkom/secure-backup/issues/45) manifest-first management, [#16](https://github.com/icemarkom/secure-backup/issues/16) Docker
