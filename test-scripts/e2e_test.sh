@@ -433,6 +433,72 @@ fi
 
 pass "Zstd: All files match source"
 
+# ═══════════════════════════════════════════
+# COMPRESSION ZSTD + AGE PIPELINE
+# ═══════════════════════════════════════════
+
+# --- Step 40: Zstd + AGE Backup ---
+step "Running backup with --compression zstd --encryption age"
+ZSTD_AGE_BACKUP_DIR="$TMPDIR_E2E/zstd-age-backups"
+ZSTD_AGE_RESTORE_DIR="$TMPDIR_E2E/zstd-age-restore"
+mkdir -p "$ZSTD_AGE_BACKUP_DIR" "$ZSTD_AGE_RESTORE_DIR"
+
+"$BINARY" backup \
+  --source "$SOURCE_DIR" \
+  --dest "$ZSTD_AGE_BACKUP_DIR" \
+  --public-key "$AGE_RECIPIENT" \
+  --encryption age \
+  --compression zstd \
+  --verbose
+
+ZSTD_AGE_BACKUP_FILE=$(find "$ZSTD_AGE_BACKUP_DIR" -name "backup_*.tar.zst.age" -not -name "*.tmp" | head -1)
+test -n "$ZSTD_AGE_BACKUP_FILE" || fail "No zstd+AGE backup file found (.tar.zst.age)"
+test -s "$ZSTD_AGE_BACKUP_FILE" || fail "Zstd+AGE backup file is empty"
+
+# Verify manifest records both compression and encryption
+ZSTD_AGE_MANIFEST=$(find "$ZSTD_AGE_BACKUP_DIR" -name "*_manifest.json" | head -1)
+test -n "$ZSTD_AGE_MANIFEST" || fail "No manifest for zstd+AGE backup"
+grep -q '"compression": "zstd"' "$ZSTD_AGE_MANIFEST" || fail "Manifest should record compression as 'zstd'"
+grep -q '"encryption": "age"' "$ZSTD_AGE_MANIFEST" || fail "Manifest should record encryption as 'age'"
+
+pass "Zstd+AGE backup created: $(basename "$ZSTD_AGE_BACKUP_FILE")"
+
+# --- Step 41: Zstd + AGE Quick Verify ---
+step "Running quick verify on zstd+AGE backup"
+"$BINARY" verify --file "$ZSTD_AGE_BACKUP_FILE" --quick
+pass "Zstd+AGE quick verify passed"
+
+# --- Step 42: Zstd + AGE Full Verify ---
+step "Running full verify on zstd+AGE backup"
+"$BINARY" verify --file "$ZSTD_AGE_BACKUP_FILE" --private-key "$AGE_KEY_FILE" --verbose
+pass "Zstd+AGE full verify passed"
+
+# --- Step 43: Zstd + AGE Restore ---
+step "Running restore on zstd+AGE backup"
+"$BINARY" restore \
+  --file "$ZSTD_AGE_BACKUP_FILE" \
+  --dest "$ZSTD_AGE_RESTORE_DIR" \
+  --private-key "$AGE_KEY_FILE" \
+  --verbose
+
+ZSTD_AGE_RESTORED_SOURCE="$ZSTD_AGE_RESTORE_DIR/source"
+test -d "$ZSTD_AGE_RESTORED_SOURCE" || fail "Zstd+AGE restored source directory not found"
+pass "Zstd+AGE restore completed"
+
+# --- Step 44: Zstd + AGE Diff ---
+step "Comparing zstd+AGE restored data with source"
+diff -r "$SOURCE_DIR" "$ZSTD_AGE_RESTORED_SOURCE" || fail "Zstd+AGE restored files differ from source"
+
+if [ -L "$ZSTD_AGE_RESTORED_SOURCE/link_to_small.txt" ]; then
+  TARGET=$(readlink "$ZSTD_AGE_RESTORED_SOURCE/link_to_small.txt")
+  test "$TARGET" = "small.txt" || fail "Symlink target mismatch: got '$TARGET', want 'small.txt'"
+  pass "Zstd+AGE: Symlink preserved correctly"
+else
+  fail "Zstd+AGE: Symlink not preserved"
+fi
+
+pass "Zstd+AGE: All files match source"
+
 # --- Step 9: CLI error output behavior (#10) ---
 
 # 9a: Runtime error should show single error, no usage

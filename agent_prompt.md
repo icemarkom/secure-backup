@@ -499,6 +499,8 @@
 - ✅ E2E test: full `--compression none` pipeline (backup → verify → restore → diff)
 - ✅ zstd compression support (levels 0-4, `.zst` extension)
 - ✅ E2E test: full `--compression zstd` pipeline (backup → verify → restore → diff)
+- ✅ E2E test: full `--compression zstd --encryption age` pipeline
+- ✅ Retention and list tests include zstd files in mixed-extension scenarios
 - Future: lz4 compression, benchmarking
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
