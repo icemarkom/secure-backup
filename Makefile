@@ -1,4 +1,4 @@
-.PHONY: all build test clean install coverage lint fmt vet dev run e2e license-check help
+.PHONY: all build test clean install coverage lint fmt vet dev run e2e bench license-check help
 
 # Binary name
 BINARY := secure-backup
@@ -77,6 +77,11 @@ run: build
 ## e2e: Run end-to-end pipeline test
 e2e: build
 	sh test-scripts/e2e_test.sh
+
+## bench: Run compression benchmarks
+bench:
+	@echo "Running compression benchmarks..."
+	go test ./internal/compress/... -bench=. -benchmem -count=3
 
 ## license-check: Verify license headers are present
 license-check:
