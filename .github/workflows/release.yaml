@@ -24,7 +24,13 @@ jobs:
           check-latest: true
 
       - name: Extract tag annotation
-        run: git tag -l --format='%(contents)' ${GITHUB_REF_NAME} > /tmp/release-notes.md
+        run: |
+          git for-each-ref --format='%(contents)' "refs/tags/${GITHUB_REF_NAME}" > /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} has no annotation. Use 'git tag -a' to create annotated tags."
+            exit 1
+          fi
+          echo "Release notes extracted ($(wc -l < /tmp/release-notes.md) lines)"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
