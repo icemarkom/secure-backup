@@ -131,6 +131,21 @@ chmod 600 key.txt
 | **lz4** | `--compression lz4` | `.tar.lz4.gpg` | Fastest compression/decompression, moderate ratio |
 | **none** | `--compression none` | `.tar.gpg` | Pre-compressed data (media, archives) |
 
+### Performance Comparison
+
+Benchmarks run on 1 MB of realistic log data (`go test -bench=.`):
+
+| Method | Compress | Decompress | Ratio | Best For |
+|--------|----------|------------|-------|----------|
+| **gzip** | ~165 MB/s | ~770 MB/s | ★★★ Best ratio for mixed data | General purpose, best compatibility |
+| **zstd** | ~1,200 MB/s | ~620 MB/s | ★★★ Best ratio for repetitive data | Fast backup with excellent ratio |
+| **lz4** | ~2,400 MB/s | ~1,920 MB/s | ★★ Good ratio | Maximum speed, large datasets |
+| **none** | N/A | N/A | 1:1 | Pre-compressed data (media, archives) |
+
+> **Choosing a method:** Use **gzip** (default) for compatibility. Use **zstd** for the best balance of speed and ratio. Use **lz4** when backup/restore speed is critical. Use **none** for data that won't compress (JPEG, MP4, encrypted files).
+
+> **Run benchmarks yourself:** `go test ./internal/compress/... -bench=. -benchmem`
+
 > **Note:** Restore and verify auto-detect the compression method from the file extension (`.tar.gz.*`, `.tar.zst.*`, `.tar.lz4.*`, or `.tar.*`). No `--compression` flag needed.
 
 ## Commands Reference

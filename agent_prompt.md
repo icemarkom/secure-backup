@@ -505,7 +505,7 @@
 - ✅ E2E test: full `--compression lz4` pipeline (backup → verify → restore → diff)
 - ✅ E2E test: full `--compression lz4 --encryption age` pipeline
 - ✅ Retention and list tests include lz4 files in mixed-extension scenarios
-- Future: benchmarking
+- ✅ Compression benchmarking: `compress_bench_test.go` (compress/decompress speed + ratio for gzip, zstd, lz4)
 
 **Phase 7**: Docker Integration (Optional) — [#16](https://github.com/icemarkom/secure-backup/issues/16)
 - Docker SDK client
