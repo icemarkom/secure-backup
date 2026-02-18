@@ -54,6 +54,7 @@
 - README.md with 3 installation methods
 - USAGE.md detailed guide
 - CONTRIBUTING.md developer guide
+- Man page: `docs/secure-backup.1` (installed via `make install-man` or .deb package)
 
 ### ✅ Phase 5: User Experience (COMPLETE)
 
@@ -574,6 +575,8 @@ secure-backup/
 │   ├── passphrase/        # Secure passphrase handling (flag/env/file)
 │   ├── progress/          # Progress tracking
 │   └── retention/         # Retention management
+├── docs/                  # Documentation
+│   └── secure-backup.1    # Man page (roff format)
 ├── examples/              # Usage examples (cron.daily script)
 ├── test-scripts/          # Test scripts (key generation, E2E)
 ├── test_data/             # Generated test data (keys, gitignored)
@@ -775,6 +778,10 @@ diff -r /tmp/test-source /tmp/test-restore/test-source
 ### 3. Documentation
 
 - **ALWAYS update agent_prompt.md** after significant work
+- **ALWAYS update ALL user-facing docs** when commands, flags, or behavior change:
+  - `docs/secure-backup.1` (man page) — must stay in sync with CLI flags and commands
+  - `USAGE.md` — detailed usage guide
+  - `README.md` — overview and quick-start
 - Document current state, not just plans
 - This file is the source of truth for next agent
 
@@ -915,6 +922,8 @@ Extension components:
 | 2026-02-17 | Cron.daily example script ([#50](https://github.com/icemarkom/secure-backup/pull/50)) | Added `examples/cron.daily/secure-backup` — drop-in script for `/etc/cron.daily/` on Ubuntu. Supports multiple source directories via bash array, configurable AGE/GPG encryption, retention, logging, and per-source failure tracking. `.gitignore` scoped `secure-backup` → `/secure-backup` to avoid ignoring the example. |
 | 2026-02-17 | Manifest size fields ([#51](https://github.com/icemarkom/secure-backup/issues/51)) | Renamed `size_bytes` → `compressed_size_bytes`, added `uncompressed_size_bytes`. Uncompressed size counted inside `CreateTar` as raw file data bytes (no tar headers, no TOCTOU). `CreateTar` returns `(int64, error)`, plumbed through `executePipeline` → `PerformBackup` → manifest. `getDirectorySize()` remains for progress bar estimate only. |
 | 2026-02-17 | LZ4 compression support ([#15](https://github.com/icemarkom/secure-backup/issues/15)) | Added `Lz4Compressor` using `pierrec/lz4/v4 v4.1.25`. `Lz4` iota + `MethodLz4 = "lz4"` constant. Levels 0-9 (0=Fast default). `.lz4` extension. 7 unit tests mirroring gzip/zstd parity. Retention tests updated (IsBackupFile, MixedExtensions, ListBackups). E2E: LZ4+GPG and LZ4+AGE full pipelines. No CLI wiring changes needed — `ParseMethod()`, `ResolveMethod()`, retention, manifest all work dynamically. |
+| 2026-02-17 | Man page added ([#61](https://github.com/icemarkom/secure-backup/issues/61)) | Created `docs/secure-backup.1` roff man page covering all commands, flags, encryption/compression methods, environment variables, file naming, examples. `make man` for local preview, `make install-man` for system install. Included in GoReleaser archives and `.deb` packages. Man page is now a required update target alongside USAGE.md and README.md. |
+| 2026-02-17 | GoReleaser changelog fix | Disabled `changelog.use: github` — was overriding `--release-notes` flag causing v1.3.0 release to show merge commit instead of tag annotation. Fixed v1.3.0 release notes on GitHub. |
 
 ---
 
