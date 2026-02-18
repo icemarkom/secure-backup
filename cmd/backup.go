@@ -57,7 +57,7 @@ var backupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(backupCmd)
 
-	backupCmd.Long = fmt.Sprintf(`Create an encrypted, compressed backup of a directory or Docker volume.
+	backupCmd.Long = fmt.Sprintf(`Create an encrypted, compressed backup of a directory.
 
 The backup pipeline follows this order (critical for compression):
   1. TAR - Archive the source directory

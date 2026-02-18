@@ -2,7 +2,7 @@
 
 **Secure, encrypted backups for any directory**
 
-A high-performance backup tool written in Go that creates encrypted, compressed archives of directories. While it can backup Docker volumes, it's designed as a general-purpose secure backup solution for any use case.
+A high-performance backup tool written in Go that creates encrypted, compressed archives of directories. Designed as a general-purpose secure backup solution for any use case.
 
 ## Features
 
@@ -438,13 +438,13 @@ If you see warnings about missing manifest files:
 
 ## Project Status
 
-**Current Release**: v1.1.0 ✅
+**Current Release**: v1.3.1 ✅
 
 - ✅ All core commands implemented and tested
 - ✅ GPG and AGE encryption support
 - ✅ Gzip, zstd, lz4, and none (passthrough) compression
 - ✅ 60%+ unit test coverage on core modules
-- ✅ Production hardened (P1-P19 resolved)
+- ✅ Production hardened — all known issues resolved
 - ✅ Cross-platform builds and `.deb` packaging
 - ✅ End-to-end pipeline test in CI (GPG + AGE)
 
