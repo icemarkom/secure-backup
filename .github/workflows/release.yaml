@@ -23,12 +23,15 @@ jobs:
           go-version: '1.26'
           check-latest: true
 
+      - name: Extract tag annotation
+        run: git tag -l --format='%(contents)' ${GITHUB_REF_NAME} > /tmp/release-notes.md
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --clean --release-notes=/tmp/release-notes.md
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
