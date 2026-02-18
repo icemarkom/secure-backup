@@ -39,9 +39,14 @@ func TestManifestPath(t *testing.T) {
 			want:       "backup_data_20260215_120000_manifest.json",
 		},
 		{
-			name:       "unimplemented compression fallback",
+			name:       "gpg encrypted zstd",
 			backupPath: "backup_data_20260215_120000.tar.zst.gpg",
-			want:       "backup_data_20260215_120000.tar.zst.gpg_manifest.json",
+			want:       "backup_data_20260215_120000_manifest.json",
+		},
+		{
+			name:       "age encrypted zstd",
+			backupPath: "backup_data_20260215_120000.tar.zst.age",
+			want:       "backup_data_20260215_120000_manifest.json",
 		},
 		{
 			name:       "age encrypted gzip",

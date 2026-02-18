@@ -7,7 +7,7 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 ## Features
 
 - **Multiple Encryption**: GPG (RSA 4096-bit) and AGE (X25519) encryption
-- **Flexible Compression**: Gzip (default) or none (passthrough for pre-compressed data)
+- **Flexible Compression**: Gzip (default), zstd (fast, high-ratio), or none (passthrough)
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
 - **Backup Manifests**: Automatic checksum verification and metadata tracking
 - **Retention Management**: Keep only the last N backups
@@ -442,7 +442,7 @@ If you see warnings about missing manifest files:
 
 - ✅ All core commands implemented and tested
 - ✅ GPG and AGE encryption support
-- ✅ Gzip and none (passthrough) compression
+- ✅ Gzip, zstd, and none (passthrough) compression
 - ✅ 60%+ unit test coverage on core modules
 - ✅ Production hardened (P1-P19 resolved)
 - ✅ Cross-platform builds and `.deb` packaging
