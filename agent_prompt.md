@@ -975,8 +975,8 @@ make license-check
 ---
 
 **Last Updated**: 2026-02-17  
-**Last Updated By**: Agent (conversation 597017f6-d83e-4dca-a2e8-c34f4d358dcf)  
-**Current Release**: v1.1.3  
+**Last Updated By**: Agent (conversation d0e2bc5b-712a-4a6d-b55b-3eed838a702b)  
+**Current Release**: v1.2.0  
 **Project Phase**: Post-1.0 improvements ✅  
 **Production Trust Score**: 7.5/10 — All productionization items resolved  
 **Productionization**: P1-P7, P10-P13, P16-P19 ✅ | P8-P9, P14-P15 ⛔ | **ALL ITEMS RESOLVED** 🎉  
