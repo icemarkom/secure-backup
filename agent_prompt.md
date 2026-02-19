@@ -229,6 +229,7 @@ Track all planned work via [GitHub Issues](https://github.com/icemarkom/secure-b
 
 Key open items:
 - [#65](https://github.com/icemarkom/secure-backup/issues/65) — Adopt subcommand for orphan backups
+- [#67](https://github.com/icemarkom/secure-backup/issues/67) — Ctrl+C (SIGINT) does not interrupt running pipelines
 
 ---
 
