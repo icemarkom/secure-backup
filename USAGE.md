@@ -56,11 +56,16 @@ Backup size: 450 MiB
 
 ### List Command
 
-The `list` command always shows output since it's a query operation (not a mutation):
+The `list` command always shows output. It partitions backups into **Managed** (with manifest) and **Orphan** (no manifest) sections:
 
 ```bash
 $ secure-backup list --dest /backups
 Found 3 backup(s) in /backups:
+
+=== Managed Backups (2) ===
+...
+
+=== Orphan Backups (1) — no manifest, limited info ===
 ...
 ```
 
@@ -482,27 +487,36 @@ secure-backup list [flags]
 secure-backup list --dest /backups
 ```
 
-**Output includes manifest information when available:**
+**Output partitions backups by manifest status:**
 
 ```bash
 $ secure-backup list --dest /backups
-
 Found 3 backup(s) in /backups:
 
+=== Managed Backups (2) ===
+
 backup_data_20260207_120000.tar.gz.gpg
-  Age: 2 days
-  Size: 1.2 GiB
-  Manifest: ✓ (checksum: abc123...)
+  Source:   /data
+  Host:     server1
+  Modified: 2026-02-07 12:00 (2d0h ago)
+  Size:     1.2 GiB
+  Tool:     secure-backup v1.0.0
+  Checksum: abc123...
 
 backup_docs_20260206_120000.tar.gz.gpg
-  Age: 3 days
-  Size: 450 MiB
-  Manifest: ✓ (checksum: def456...)
+  Source:   /docs
+  Host:     server1
+  Modified: 2026-02-06 12:00 (3d0h ago)
+  Size:     450 MiB
+  Tool:     secure-backup v1.0.0
+  Checksum: def456...
+
+=== Orphan Backups (1) — no manifest, limited info ===
 
 backup_old_20260201_120000.tar.gz.gpg
-  Age: 8 days
-  Size: 800 MiB
-  Manifest: ✗ (missing)
+  Modified: 2026-02-01 12:00 (8d0h ago)
+  Size:     800 MiB
+  (no manifest)
 ```
 
 ## Dry-Run Mode
@@ -704,19 +718,22 @@ rm /backups/*.tmp
 
 ### Retention and Cleanup
 
-The retention policy (`--retention N`) keeps the last N backups and deletes the rest, sorted by modification time (newest first):
+The retention policy (`--retention N`) keeps the last N **managed** backups per source and deletes the rest. Retention is scoped by `(hostname, source_path)` from manifest files, so backups from different sources or hosts are retained independently:
 
 ```bash
 secure-backup backup \
   --source /data \
   --dest /backups \
   --public-key ~/.gnupg/backup-pub.asc \
-  --retention 30  # Keep last 30 backups, delete the rest
+  --retention 30  # Keep last 30 backups per source, delete the rest
 ```
 
+**Scoped retention example:** If you back up `/data` and `/logs` to the same destination, `--retention 5` keeps the last 5 of each — not 5 total.
+
 **What gets deleted:**
-- ✅ Old `.tar.gz.gpg` backup files
-- ✅ Corresponding `.json` manifest files
+- ✅ Old managed `.tar.gz.gpg` backup files (per source group)
+- ✅ Corresponding `_manifest.json` manifest files
+- ❌ Orphan backups (no manifest) — skipped with a warning to stderr
 - ❌ `.tmp` files (you must clean these manually)
 
 ## Automated Backups

@@ -57,32 +57,62 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Sort by modification time (newest first)
-	sort.Slice(backups, func(i, j int) bool {
-		return backups[i].ModTime.After(backups[j].ModTime)
-	})
-
-	fmt.Printf("Found %d backup(s) in %s:\n\n", len(backups), listDir)
+	// Partition into managed (with manifest) and orphan (without)
+	type managedBackup struct {
+		info     retention.BackupInfo
+		manifest *manifest.Manifest
+	}
+	var managed []managedBackup
+	var orphans []retention.BackupInfo
 
 	for _, backup := range backups {
-		fmt.Printf("%s\n", backup.Name)
-		fmt.Printf("  Modified: %s (%s ago)\n",
-			backup.ModTime.Format("2006-01-02 15:04"),
-			common.Age(backup.Age))
-		fmt.Printf("  Size:     %s\n", common.Size(backup.Size))
-
-		// Try to read manifest
 		manifestPath := manifest.ManifestPath(backup.Path)
 		if m, err := manifest.Read(manifestPath); err == nil {
-			fmt.Printf("  Source:   %s\n", m.SourcePath)
-			fmt.Printf("  Tool:     %s %s\n", m.CreatedBy.Tool, m.CreatedBy.Version)
-			fmt.Printf("  Host:     %s\n", m.CreatedBy.Hostname)
-			fmt.Printf("  Checksum: %s\n", m.ChecksumValue)
+			managed = append(managed, managedBackup{info: backup, manifest: m})
 		} else {
-			fmt.Printf("  (No manifest available)\n")
+			orphans = append(orphans, backup)
 		}
-		fmt.Println()
 	}
 
+	// Sort each group by modification time (newest first)
+	sort.Slice(managed, func(i, j int) bool {
+		return managed[i].info.ModTime.After(managed[j].info.ModTime)
+	})
+	sort.Slice(orphans, func(i, j int) bool {
+		return orphans[i].ModTime.After(orphans[j].ModTime)
+	})
+
+	fmt.Printf("Found %d backup(s) in %s:\n", len(backups), listDir)
+
+	// Display managed backups
+	if len(managed) > 0 {
+		fmt.Printf("\n=== Managed Backups (%d) ===\n", len(managed))
+		for _, mb := range managed {
+			fmt.Printf("\n%s\n", mb.info.Name)
+			fmt.Printf("  Source:   %s\n", mb.manifest.SourcePath)
+			fmt.Printf("  Host:     %s\n", mb.manifest.CreatedBy.Hostname)
+			fmt.Printf("  Modified: %s (%s ago)\n",
+				mb.info.ModTime.Format("2006-01-02 15:04"),
+				common.Age(mb.info.Age))
+			fmt.Printf("  Size:     %s\n", common.Size(mb.info.Size))
+			fmt.Printf("  Tool:     %s %s\n", mb.manifest.CreatedBy.Tool, mb.manifest.CreatedBy.Version)
+			fmt.Printf("  Checksum: %s\n", mb.manifest.ChecksumValue)
+		}
+	}
+
+	// Display orphan backups
+	if len(orphans) > 0 {
+		fmt.Printf("\n=== Orphan Backups (%d) — no manifest, limited info ===\n", len(orphans))
+		for _, backup := range orphans {
+			fmt.Printf("\n%s\n", backup.Name)
+			fmt.Printf("  Modified: %s (%s ago)\n",
+				backup.ModTime.Format("2006-01-02 15:04"),
+				common.Age(backup.Age))
+			fmt.Printf("  Size:     %s\n", common.Size(backup.Size))
+			fmt.Printf("  (no manifest)\n")
+		}
+	}
+
+	fmt.Println()
 	return nil
 }

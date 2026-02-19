@@ -41,14 +41,29 @@ type Policy struct {
 	DryRun    bool
 }
 
+// retentionGroupKey identifies a retention group by hostname and source path.
+type retentionGroupKey struct {
+	hostname   string
+	sourcePath string
+}
+
+// managedEntry is a backup file with its manifest and file metadata.
+type managedEntry struct {
+	path    string
+	modTime time.Time
+}
+
 // ApplyPolicy removes backups beyond the retention count, keeping the newest N.
+// Managed backups (with manifests) are grouped by (hostname, source_path) and
+// retention is applied independently per group. Orphan backups (without manifests)
+// are excluded from retention with a stderr warning.
 func ApplyPolicy(policy Policy) (int, error) {
 	if policy.KeepLast <= 0 {
 		return 0, fmt.Errorf("keep count must be positive")
 	}
 
 	if policy.Verbose {
-		fmt.Printf("Applying retention policy: keep last %d backup(s)\n", policy.KeepLast)
+		fmt.Printf("Applying retention policy: keep last %d backup(s) per source\n", policy.KeepLast)
 		fmt.Printf("Backup directory: %s\n", policy.BackupDir)
 	}
 
@@ -59,12 +74,9 @@ func ApplyPolicy(policy Policy) (int, error) {
 		return 0, fmt.Errorf("failed to find backup files: %w", err)
 	}
 
-	// Collect file info for sorting
-	type fileEntry struct {
-		path    string
-		modTime time.Time
-	}
-	var files []fileEntry
+	// Partition into managed (with manifest) and orphan (without) groups
+	groups := make(map[retentionGroupKey][]managedEntry)
+	var orphans []string
 	for _, file := range matches {
 		if !IsBackupFile(filepath.Base(file)) {
 			continue
@@ -79,66 +91,98 @@ func ApplyPolicy(policy Policy) (int, error) {
 		if fileInfo.IsDir() {
 			continue
 		}
-		files = append(files, fileEntry{path: file, modTime: fileInfo.ModTime()})
+
+		// Try to read manifest to determine group
+		manifestPath := manifest.ManifestPath(file)
+		m, err := manifest.Read(manifestPath)
+		if err != nil {
+			// No manifest or unreadable → orphan
+			orphans = append(orphans, file)
+			continue
+		}
+
+		key := retentionGroupKey{
+			hostname:   m.CreatedBy.Hostname,
+			sourcePath: m.SourcePath,
+		}
+		groups[key] = append(groups[key], managedEntry{
+			path:    file,
+			modTime: fileInfo.ModTime(),
+		})
 	}
 
-	// Sort by modification time, newest first
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].modTime.After(files[j].modTime)
-	})
+	// Warn about orphans (always to stderr)
+	for _, orphan := range orphans {
+		fmt.Fprintf(os.Stderr, "Warning: skipping orphan backup (no manifest): %s\n", filepath.Base(orphan))
+	}
 
-	// Keep first N, delete the rest
+	// Apply retention per group
 	deletedCount := 0
-	for i := policy.KeepLast; i < len(files); i++ {
-		file := files[i].path
-		age := time.Since(files[i].modTime)
+	for key, entries := range groups {
+		// Sort by modification time, newest first
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].modTime.After(entries[j].modTime)
+		})
 
-		if policy.DryRun {
-			fmt.Printf("[DRY RUN] Would delete: %s (age: %s)\n",
-				filepath.Base(file), common.Age(age))
-			// Check for associated manifest
-			manifestPath := manifest.ManifestPath(file)
-			if _, err := os.Stat(manifestPath); err == nil {
-				fmt.Printf("[DRY RUN] Would delete manifest: %s\n",
-					filepath.Base(manifestPath))
-			}
-			deletedCount++
+		if len(entries) <= policy.KeepLast {
 			continue
 		}
 
 		if policy.Verbose {
-			fmt.Printf("Deleting old backup: %s (age: %s)\n",
-				filepath.Base(file),
-				common.Age(age))
+			fmt.Printf("Retention group [%s:%s]: %d backup(s), keeping %d\n",
+				key.hostname, key.sourcePath, len(entries), policy.KeepLast)
 		}
 
-		if err := os.Remove(file); err != nil {
-			if policy.Verbose {
-				fmt.Printf("Warning: failed to delete %s: %v\n", file, err)
+		// Keep first N, delete the rest
+		for i := policy.KeepLast; i < len(entries); i++ {
+			file := entries[i].path
+			age := time.Since(entries[i].modTime)
+
+			if policy.DryRun {
+				fmt.Printf("[DRY RUN] Would delete: %s (age: %s)\n",
+					filepath.Base(file), common.Age(age))
+				manifestPath := manifest.ManifestPath(file)
+				if _, err := os.Stat(manifestPath); err == nil {
+					fmt.Printf("[DRY RUN] Would delete manifest: %s\n",
+						filepath.Base(manifestPath))
+				}
+				deletedCount++
+				continue
 			}
-			continue
-		}
 
-		// Also delete associated manifest file
-		manifestPath := manifest.ManifestPath(file)
-		if err := os.Remove(manifestPath); err == nil {
 			if policy.Verbose {
-				fmt.Printf("Deleted manifest: %s\n", filepath.Base(manifestPath))
+				fmt.Printf("Deleting old backup: %s (age: %s)\n",
+					filepath.Base(file), common.Age(age))
 			}
-		}
 
-		deletedCount++
+			if err := os.Remove(file); err != nil {
+				if policy.Verbose {
+					fmt.Printf("Warning: failed to delete %s: %v\n", file, err)
+				}
+				continue
+			}
+
+			// Also delete associated manifest file
+			manifestPath := manifest.ManifestPath(file)
+			if err := os.Remove(manifestPath); err == nil {
+				if policy.Verbose {
+					fmt.Printf("Deleted manifest: %s\n", filepath.Base(manifestPath))
+				}
+			}
+
+			deletedCount++
+		}
 	}
 
 	if policy.DryRun {
 		if deletedCount == 0 {
-			fmt.Printf("[DRY RUN] No backups to delete (have %d, keeping %d)\n", len(files), policy.KeepLast)
+			fmt.Printf("[DRY RUN] No managed backups to delete\n")
 		} else {
 			fmt.Printf("[DRY RUN] Would delete %d backup(s)\n", deletedCount)
 		}
 	} else if policy.Verbose {
 		if deletedCount == 0 {
-			fmt.Printf("No backups to delete (have %d, keeping %d)\n", len(files), policy.KeepLast)
+			fmt.Printf("No managed backups to delete\n")
 		} else {
 			fmt.Printf("Deleted %d old backup(s)\n", deletedCount)
 		}

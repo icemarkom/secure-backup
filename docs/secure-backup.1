@@ -85,8 +85,10 @@ or
 .BR none .
 .TP
 .BR \-\-retention " " \fIN\fR
-Number of backups to keep in the destination directory.
-Older backups (and their manifests) are deleted after a successful backup.
+Number of managed backups to keep per source in the destination directory.
+Retention is scoped by hostname and source path from manifest files;
+backups from different sources or hosts are retained independently.
+Orphan backups (no manifest) are excluded with a warning to stderr.
 Default: 0 (keep all).
 .TP
 .B \-\-skip-manifest
@@ -201,6 +203,11 @@ Implies
 .\" ---
 .SS list
 List available backups in a directory.
+Output is partitioned into
+.B Managed Backups
+(with manifest metadata) and
+.B Orphan Backups
+(no manifest, limited info).
 This is a query command and always produces output.
 .TP
 .BR \-\-dest " " \fIdir\fR " (required)"

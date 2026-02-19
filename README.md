@@ -10,9 +10,9 @@ A high-performance backup tool written in Go that creates encrypted, compressed 
 - **Flexible Compression**: Gzip (default), zstd, lz4, or none (passthrough)
 - **Streaming Pipeline**: Efficient memory usage regardless of backup size
 - **Backup Manifests**: Automatic checksum verification and metadata tracking
-- **Retention Management**: Keep only the last N backups
+- **Retention Management**: Per-source retention — keeps last N backups grouped by hostname and source path
 - **Verify Integrity**: Quick and full verification modes
-- **List Backups**: View all backups with age and size information
+- **List Backups**: Partitioned view — managed (with manifest) vs orphan backups
 - **Production Hardened**: Atomic writes, backup locking, signal handling, secure defaults
 - **Cross-platform**: Linux, macOS, Windows (amd64/arm64)
 - **Release Packaging**: `.deb` packages, GitHub Releases, apt repository
