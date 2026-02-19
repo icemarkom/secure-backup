@@ -438,7 +438,7 @@ If you see warnings about missing manifest files:
 
 ## Project Status
 
-**Current Release**: v1.3.1 ✅
+**Current Release**: v1.4.0 ✅
 
 - ✅ All core commands implemented and tested
 - ✅ GPG and AGE encryption support
