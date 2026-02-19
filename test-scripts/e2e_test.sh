@@ -629,6 +629,147 @@ fi
 
 pass "Lz4+AGE: All files match source"
 
+# ═══════════════════════════════════════════
+# MANIFEST-FIRST MANAGEMENT TESTS (issue #45)
+# ═══════════════════════════════════════════
+
+# --- Step 70: Managed vs Orphan list output ---
+step "Testing managed vs orphan list output"
+MFM_BACKUP_DIR="$TMPDIR_E2E/mfm-backups"
+MFM_SOURCE_A="$TMPDIR_E2E/mfm-source-a"
+MFM_SOURCE_B="$TMPDIR_E2E/mfm-source-b"
+mkdir -p "$MFM_BACKUP_DIR" "$MFM_SOURCE_A" "$MFM_SOURCE_B"
+echo "source A data" > "$MFM_SOURCE_A/file.txt"
+echo "source B data" > "$MFM_SOURCE_B/file.txt"
+
+# Create a managed backup (with manifest)
+"$BINARY" backup \
+  --source "$MFM_SOURCE_A" \
+  --dest "$MFM_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY"
+
+# Create an orphan backup (without manifest)
+"$BINARY" backup \
+  --source "$MFM_SOURCE_B" \
+  --dest "$MFM_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --skip-manifest
+
+LIST_MFM_OUTPUT=$("$BINARY" list --dest "$MFM_BACKUP_DIR")
+
+echo "$LIST_MFM_OUTPUT" | grep -q "Managed Backups" || fail "List output missing 'Managed Backups' section"
+echo "$LIST_MFM_OUTPUT" | grep -q "Orphan Backups" || fail "List output missing 'Orphan Backups' section"
+echo "$LIST_MFM_OUTPUT" | grep -q "Source:" || fail "Managed section should show Source:"
+echo "$LIST_MFM_OUTPUT" | grep -q "(no manifest)" || fail "Orphan section should show '(no manifest)'"
+
+pass "List correctly shows managed and orphan sections"
+
+# --- Step 71: Orphan excluded from retention ---
+step "Testing orphan excluded from retention"
+ORFRET_BACKUP_DIR="$TMPDIR_E2E/orfret-backups"
+ORFRET_SOURCE="$TMPDIR_E2E/orfret-source"
+mkdir -p "$ORFRET_BACKUP_DIR" "$ORFRET_SOURCE"
+echo "retention test data" > "$ORFRET_SOURCE/file.txt"
+
+# Create 3 managed backups
+for i in 1 2 3; do
+  sleep 1
+  "$BINARY" backup \
+    --source "$ORFRET_SOURCE" \
+    --dest "$ORFRET_BACKUP_DIR" \
+    --public-key "$PUBLIC_KEY"
+done
+
+# Create 2 orphan backups
+for i in 1 2; do
+  sleep 1
+  "$BINARY" backup \
+    --source "$ORFRET_SOURCE" \
+    --dest "$ORFRET_BACKUP_DIR" \
+    --public-key "$PUBLIC_KEY" \
+    --skip-manifest
+done
+
+# Record orphan filenames (backups without a matching manifest)
+ORPHAN_FILES=""
+for f in "$ORFRET_BACKUP_DIR"/backup_*.tar.gz.gpg; do
+  base=$(basename "$f" .tar.gz.gpg)
+  if [ ! -f "$ORFRET_BACKUP_DIR/${base}_manifest.json" ]; then
+    ORPHAN_FILES="$ORPHAN_FILES $f"
+  fi
+done
+
+# Verify we have orphans
+test -n "$ORPHAN_FILES" || fail "No orphan files detected before retention"
+
+# Apply retention: keep 2 — should only affect managed, leave orphans
+RETENTION_OUTPUT=$("$BINARY" backup \
+  --source "$ORFRET_SOURCE" \
+  --dest "$ORFRET_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --retention 2 --verbose 2>&1)
+
+# Verify stderr warnings about orphans
+echo "$RETENTION_OUTPUT" | grep -q "skipping orphan" || fail "Expected orphan skip warnings"
+
+# Verify all orphan files still exist (the key invariant)
+for f in $ORPHAN_FILES; do
+  test -f "$f" || fail "Orphan file $(basename "$f") was deleted by retention"
+done
+
+pass "Orphans correctly excluded from retention"
+
+# --- Step 72: Scoped retention with two sources ---
+step "Testing scoped retention with two sources"
+SCOPED_BACKUP_DIR="$TMPDIR_E2E/scoped-backups"
+SCOPED_SOURCE_A="$TMPDIR_E2E/scoped-src-a"
+SCOPED_SOURCE_B="$TMPDIR_E2E/scoped-src-b"
+mkdir -p "$SCOPED_BACKUP_DIR" "$SCOPED_SOURCE_A" "$SCOPED_SOURCE_B"
+echo "source A" > "$SCOPED_SOURCE_A/file.txt"
+echo "source B" > "$SCOPED_SOURCE_B/file.txt"
+
+# Create 3 backups from source A
+for i in 1 2 3; do
+  sleep 1
+  "$BINARY" backup \
+    --source "$SCOPED_SOURCE_A" \
+    --dest "$SCOPED_BACKUP_DIR" \
+    --public-key "$PUBLIC_KEY"
+done
+
+# Create 3 backups from source B
+for i in 1 2 3; do
+  sleep 1
+  "$BINARY" backup \
+    --source "$SCOPED_SOURCE_B" \
+    --dest "$SCOPED_BACKUP_DIR" \
+    --public-key "$PUBLIC_KEY"
+done
+
+# Verify 6 total backups
+SCOPED_BEFORE=$(find "$SCOPED_BACKUP_DIR" -name "backup_*.tar.gz.gpg" | wc -l | tr -d ' ')
+test "$SCOPED_BEFORE" -eq 6 || fail "Expected 6 backups before scoped retention, got $SCOPED_BEFORE"
+
+# Apply retention (keep 2) by making a new backup from source A
+# This triggers retention which should keep 2 per (host, source)
+sleep 1
+"$BINARY" backup \
+  --source "$SCOPED_SOURCE_A" \
+  --dest "$SCOPED_BACKUP_DIR" \
+  --public-key "$PUBLIC_KEY" \
+  --retention 2 --verbose 2>&1
+
+# After retention:
+# Source A: 3 existing + 1 new = 4, keep 2 → delete 2 → 2 remain
+# Source B: 3 existing, keep 2 → delete 1 → 2 remain
+# Total: 4 backups, 4 manifests
+SCOPED_AFTER=$(find "$SCOPED_BACKUP_DIR" -name "backup_*.tar.gz.gpg" | wc -l | tr -d ' ')
+SCOPED_MANIFESTS=$(find "$SCOPED_BACKUP_DIR" -name "*_manifest.json" | wc -l | tr -d ' ')
+test "$SCOPED_AFTER" -eq 4 || fail "Expected 4 backups after scoped retention (2+2), got $SCOPED_AFTER"
+test "$SCOPED_MANIFESTS" -eq 4 || fail "Expected 4 manifests after scoped retention, got $SCOPED_MANIFESTS"
+
+pass "Scoped retention correctly retains per (host, source)"
+
 # --- Step 9: CLI error output behavior (#10) ---
 
 # 9a: Runtime error should show single error, no usage
