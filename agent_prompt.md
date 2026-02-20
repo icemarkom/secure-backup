@@ -230,6 +230,14 @@ Track all planned work via [GitHub Issues](https://github.com/icemarkom/secure-b
 Key open items:
 - [#65](https://github.com/icemarkom/secure-backup/issues/65) — Adopt subcommand for orphan backups
 - [#67](https://github.com/icemarkom/secure-backup/issues/67) — Ctrl+C (SIGINT) does not interrupt running pipelines
+- [#68](https://github.com/icemarkom/secure-backup/issues/68) — Replace deprecated `golang.org/x/crypto/openpgp` with `github.com/ProtonMail/go-crypto/openpgp` (security)
+- [#69](https://github.com/icemarkom/secure-backup/issues/69) — Validate symlink targets in `ExtractTar` to prevent symlink-chained path traversal (security)
+- [#70](https://github.com/icemarkom/secure-backup/issues/70) — `quickVerify` does not detect AGE file format (bug)
+- [#71](https://github.com/icemarkom/secure-backup/issues/71) — Retention should sort by manifest `CreatedAt`, not filesystem `ModTime` (bug)
+- [#72](https://github.com/icemarkom/secure-backup/issues/72) — `common.Age()` returns `"0m"` for durations under one minute (enhancement)
+- [#73](https://github.com/icemarkom/secure-backup/issues/73) — Remove empty `internal/docker` package (tech-debt)
+- [#74](https://github.com/icemarkom/secure-backup/issues/74) — Log error when `lock.Release()` fails in deferred cleanup (enhancement)
+- [#75](https://github.com/icemarkom/secure-backup/issues/75) — Replace `filepath.Walk` with `filepath.WalkDir` in `getDirectorySize` (tech-debt)
 
 ---
 
