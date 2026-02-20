@@ -243,5 +243,5 @@ Key open items:
 ---
 
 **Last Updated**: 2026-02-20
-**Current Release**: v1.4.0
+**Current Release**: v1.4.1
 **Documentation**: See [USAGE.md](USAGE.md) and [README.md](README.md) for detailed usage and examples.
