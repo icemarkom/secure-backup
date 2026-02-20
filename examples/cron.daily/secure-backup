@@ -24,6 +24,7 @@ SOURCES=(
 DEST="/path/to/backups"
 ENCRYPTION="age"
 PUBLIC_KEY="age1yourpublickeyhere"
+COMPRESSION="gzip"  # gzip, zstd, lz4, or none
 RETENTION=7
 LOG="/var/log/secure-backup.log"
 # --------------------------------------------------------------
@@ -50,6 +51,7 @@ for SOURCE in "${SOURCES[@]}"; do
       --dest "${DEST}" \
       --encryption "${ENCRYPTION}" \
       --public-key "${PUBLIC_KEY}" \
+      --compression "${COMPRESSION}" \
       --retention "${RETENTION}" \
       2>> "${LOG}"; then
     echo "$(date -Iseconds) Backup completed: ${SOURCE}" >> "${LOG}"
