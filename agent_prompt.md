@@ -238,6 +238,7 @@ Key open items:
 - [#73](https://github.com/icemarkom/secure-backup/issues/73) — Remove empty `internal/docker` package (tech-debt)
 - [#74](https://github.com/icemarkom/secure-backup/issues/74) — Log error when `lock.Release()` fails in deferred cleanup (enhancement)
 - [#75](https://github.com/icemarkom/secure-backup/issues/75) — Replace `filepath.Walk` with `filepath.WalkDir` in `getDirectorySize` (tech-debt)
+- [#76](https://github.com/icemarkom/secure-backup/issues/76) — Bundle `NOTICES`/`THIRD_PARTY_LICENSES` file in GoReleaser binary artifacts (tech-debt)
 
 ---
 
