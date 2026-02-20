@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"github.com/icemarkom/secure-backup/internal/common"
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp"
 )
 
 // GPGEncryptor implements the Encryptor interface using GPG/OpenPGP
