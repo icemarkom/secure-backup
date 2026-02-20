@@ -148,7 +148,7 @@ secure-backup/
 1. **Interface-Based Extensibility** — `Compressor` and `Encryptor` interfaces with iota-based `Method` types, `ParseMethod()`, `ValidMethods()`, `Extension()` helpers
 2. **Streaming Everything** — Constant memory via `io.Pipe()`, 1 MB buffered I/O (`common.IOBufferSize`)
 3. **Security First** — Path traversal protection, GPG symlink validation, 0600 default permissions
-4. **Minimal Dependencies** — stdlib + cobra + testify + pgzip + zstd + lz4 + age
+4. **Minimal Dependencies** — stdlib + cobra + testify + pgzip + zstd + lz4 + age + ProtonMail/go-crypto
 
 ---
 
@@ -187,7 +187,7 @@ Manifest: `backup_docs_20260207_165324_manifest.json` (sidecar, `_manifest.json`
 
 ### Why GPG?
 
-GPG via `golang.org/x/crypto/openpgp` was the original design choice — standard, widely supported, proven. AGE (`filippo.io/age`) was added as a modern alternative. Both are fully supported. **Do not flag the openpgp library as a risk** — it is functional and intentional.
+GPG uses `github.com/ProtonMail/go-crypto/openpgp` — the actively maintained fork of the now-deprecated `golang.org/x/crypto/openpgp`. It supports modern OpenPGP features (Ed25519, ECDH, AEAD per RFC 9580) and is the de facto standard for Go OpenPGP. AGE (`filippo.io/age`) is the modern alternative. Both are fully supported.
 
 ### Compression Before Encryption
 
@@ -220,6 +220,7 @@ Key architectural decisions that affect future development:
 | 2026-02-18 | agent_prompt.md streamlined | Removed phases/productionization terminology, use GH issues for tracking. Rules of engagement elevated to top. Reduced 1008→232 lines |
 | 2026-02-18 | Sidecar-only manifests (no embedding) | Evaluated 4 embedding strategies (tar entry, trailing footer, outer wrapper, hybrid). All add complexity/fragility or break format compatibility with standard GPG/AGE tools. Sidecar is simple, reliable, and preserves `gpg --decrypt` fallback. Closed [#44](https://github.com/icemarkom/secure-backup/issues/44) |
 | 2026-02-18 | Manifest-first backup management | Retention scoped by `(hostname, source_path)` from manifest. List partitions into managed/orphan sections. Orphans excluded from retention with stderr warning. Resolves [#45](https://github.com/icemarkom/secure-backup/issues/45) and [#43](https://github.com/icemarkom/secure-backup/issues/43) |
+| 2026-02-20 | Replaced deprecated `golang.org/x/crypto/openpgp` with `github.com/ProtonMail/go-crypto/openpgp` | Upstream deprecated; ProtonMail fork is the maintained successor with RFC 9580 support. Drop-in import swap. Adds `cloudflare/circl` (Go assembly, no CGo — `CGO_ENABLED=0` verified across all 5 GoReleaser targets). Closes [#68](https://github.com/icemarkom/secure-backup/issues/68) |
 
 ---
 
@@ -230,7 +231,6 @@ Track all planned work via [GitHub Issues](https://github.com/icemarkom/secure-b
 Key open items:
 - [#65](https://github.com/icemarkom/secure-backup/issues/65) — Adopt subcommand for orphan backups
 - [#67](https://github.com/icemarkom/secure-backup/issues/67) — Ctrl+C (SIGINT) does not interrupt running pipelines
-- [#68](https://github.com/icemarkom/secure-backup/issues/68) — Replace deprecated `golang.org/x/crypto/openpgp` with `github.com/ProtonMail/go-crypto/openpgp` (security)
 - [#69](https://github.com/icemarkom/secure-backup/issues/69) — Validate symlink targets in `ExtractTar` to prevent symlink-chained path traversal (security)
 - [#70](https://github.com/icemarkom/secure-backup/issues/70) — `quickVerify` does not detect AGE file format (bug)
 - [#71](https://github.com/icemarkom/secure-backup/issues/71) — Retention should sort by manifest `CreatedAt`, not filesystem `ModTime` (bug)
@@ -242,6 +242,6 @@ Key open items:
 
 ---
 
-**Last Updated**: 2026-02-18
+**Last Updated**: 2026-02-20
 **Current Release**: v1.4.0
 **Documentation**: See [USAGE.md](USAGE.md) and [README.md](README.md) for detailed usage and examples.
